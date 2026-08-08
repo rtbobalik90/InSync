@@ -17,6 +17,9 @@
     expedition: { routeId: 'camino', legIndex: 2, legMilesRobert: 8.4, legMilesLizzie: 6.1 },
     partner: { name: 'Lizzie', initials: 'LZ' },
     earned: [],
+    frequency: 4,
+    onboarded: false,
+    connections: { githubToken: '', githubRepo: 'rtbobalik90/InSync', githubBranch: 'main', claudeKey: '', lastSync: '' },
     seeded: false
   };
 

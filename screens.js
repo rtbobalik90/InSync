@@ -252,35 +252,84 @@
   // ---------------- Train ----------------
   function train() {
     var d = Store.day(), done = d.workouts.length > 0;
+    var S = Store.state();
+    var plan = S.plan || [];
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var todayName = DOW[new Date().getDay()];
+    var todaysPlan = null;
+    for (var p = 0; p < plan.length; p++) if (plan[p].day === todayName) todaysPlan = plan[p];
+
     var week = [];
     for (var i = 6; i >= 0; i--) {
       var k = Store.shift(Store.todayKey(), -i);
-      week.push({ key: k, done: (Store.state().days[k] || {}).workouts ? Store.state().days[k].workouts.length > 0 : false, today: i === 0 });
+      var rec = Store.state().days[k];
+      var dt = new Date(k + 'T12:00:00');
+      week.push({
+        letter: DOW[dt.getDay()].charAt(0),
+        done: rec && rec.workouts ? rec.workouts.length > 0 : false,
+        today: i === 0
+      });
     }
     var sessions = week.filter(function (w) { return w.done; }).length;
+    var target = S.frequency || 4;
+
+    var machines = todaysPlan && todaysPlan.name !== 'Walk'
+      ? todaysPlan.detail.split(' \u00b7 ')
+      : [];
+
+    var headline = done
+      ? 'Session done. That is the day carried.'
+      : todaysPlan
+        ? (todaysPlan.name === 'Walk'
+            ? 'Walking day. ' + todaysPlan.detail + '.'
+            : todaysPlan.name + ' day. ' + machines.length + ' machines, about ' + (machines.length * 8) + ' minutes.')
+        : 'Rest day. Nothing scheduled.';
 
     return UI.screen({
       tab: 'train', rest: 400, photoHeight: '400px',
       art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
-      overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' +
-        (done ? 'Session done. That is the day carried.' : 'Push day. Six machines, about forty minutes.') + '</p>',
+      overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
-        '<article class="card pad">' +
-          '<div class="kicker" style="margin-bottom:11px">This week</div>' +
-          '<div style="display:flex;gap:8px;margin-bottom:12px">' +
+        '<article class="card">' +
+          '<div class="cardhead">' +
+            '<div class="title"><i></i>This week</div>' +
+            '<div class="meta">' + sessions + ' of ' + target + '</div>' +
+          '</div>' +
+          '<div class="weekstrip">' +
             week.map(function (w) {
-              return '<div style="flex:1;height:34px;border-radius:2px;border:1px solid ' +
-                (w.done ? 'var(--gold)' : 'var(--line)') + ';background:' +
-                (w.done ? 'rgba(198,161,93,.22)' : 'transparent') + '"></div>';
+              return '<div class="wk' + (w.done ? ' done' : '') + (w.today ? ' today' : '') + '">' +
+                '<span class="wk-mark">' + (w.done ? UI.icon('check') : '') + '</span>' +
+                '<span class="wk-day">' + w.letter + '</span>' +
+              '</div>';
             }).join('') +
           '</div>' +
-          '<p class="small">' + sessions + ' of 7 days trained. ' +
-            (sessions >= 4 ? 'Four or more is where the numbers move.' : 'Four is where the numbers move.') + '</p>' +
+          '<p class="small pad-x">' +
+            (sessions >= target
+              ? 'The week is met. Anything else is a bonus.'
+              : (target - sessions) + ' more to hit ' + target + ' this week.') +
+          '</p>' +
         '</article>' +
+
         (done
           ? '<article class="card pad"><div class="kicker sage" style="margin-bottom:11px">Done</div>' +
             '<p class="lede">' + esc(d.workouts[0].name) + ' &middot; ' + d.workouts[0].minutes + ' minutes.</p></article>'
-          : '<button class="btn block" data-action="start-session">Start the session</button>') +
+          : machines.length
+            ? '<article class="card">' +
+                '<div class="cardhead"><div class="title"><i></i>' + esc(todaysPlan.name) + ' day</div>' +
+                '<div class="meta">' + machines.length + ' machines</div></div>' +
+                machines.map(function (m, idx) {
+                  return '<div class="exrow">' +
+                    '<span class="exnum">' + (idx + 1) + '</span>' +
+                    '<span class="exname">' + esc(m) + '</span>' +
+                    '<span class="exsets">3 &times; 10</span>' +
+                  '</div>';
+                }).join('') +
+                '<div class="pad-x" style="padding-bottom:15px;padding-top:13px">' +
+                  '<button class="btn block" data-action="start-session">Start the session</button>' +
+                '</div>' +
+              '</article>'
+            : '<button class="btn block" data-action="start-session">Log a session</button>') +
+
         '<button class="btn ghost block" data-route="records">Records and progression</button>' +
         '<button class="btn ghost block" data-route="body">Body &mdash; weight, photos, sleep</button>'
     });
@@ -321,8 +370,112 @@
     });
   }
 
+  // ---------------- Settings ----------------
+  function settings() {
+    var S = Store.state();
+    var c = S.connections || {};
+    var shared = ['weight', 'calories', 'workouts', 'steps'].filter(function (k) { return S.privacy[k]; }).length;
+    var notifOn = Object.keys(S.notifs).filter(function (k) { return S.notifs[k]; }).length;
+
+    function toggle(path, on) {
+      return '<button class="sw' + (on ? ' on' : '') + '" data-toggle="' + path + '"><span></span></button>';
+    }
+    function row(label, note, right) {
+      return '<div class="setrow"><div><div class="setname">' + esc(label) + '</div>' +
+        (note ? '<div class="small">' + esc(note) + '</div>' : '') + '</div>' + right + '</div>';
+    }
+    function keyField(label, path, value, placeholder, note) {
+      return '<div class="keyfield">' +
+        '<label class="kicker">' + esc(label) + '</label>' +
+        '<input type="password" class="keyinput" data-set="' + path + '" value="' + esc(value || '') + '" placeholder="' + esc(placeholder) + '" autocomplete="off" spellcheck="false" />' +
+        (note ? '<div class="small">' + esc(note) + '</div>' : '') +
+      '</div>';
+    }
+
+    return UI.screen({
+      tab: null, rest: 210, blur: true,
+      header: { back: true, title: 'Settings', right: '<div style="width:34px"></div>' },
+      overlay: '<p class="verse" style="font-size:25px">Everything the app knows, and who else knows it.</p>',
+      body:
+        '<article class="card pad">' +
+          '<div class="profrow">' +
+            '<div class="avatar big">' + esc(S.profile.initials) + '</div>' +
+            '<div><h3 class="profname">' + esc(S.profile.name) + '</h3>' +
+            '<div class="small">' + Math.floor(S.profile.heightIn / 12) + ' ft ' + (S.profile.heightIn % 12) + ' in &middot; ' +
+              S.profile.age + ' &middot; walking since ' + esc(S.profile.startDate) + '</div></div>' +
+          '</div>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Connections</div>' +
+            '<div class="meta">' + ((c.githubToken ? 1 : 0) + (c.claudeKey ? 1 : 0)) + ' of 2 set</div></div>' +
+          '<div class="pad-x" style="padding-top:14px;padding-bottom:4px">' +
+            '<p class="small" style="margin:0 0 14px">Keys are stored on this device only. They are never sent anywhere except the service they belong to.</p>' +
+            keyField('Claude API key', 'connections.claudeKey', c.claudeKey, 'sk-ant-...', 'Powers the coach, the meal reader and the plan writer.') +
+            keyField('GitHub token', 'connections.githubToken', c.githubToken, 'ghp_...', 'Used to back up and sync your log between the two of you.') +
+            '<div class="keyfield">' +
+              '<label class="kicker">Repository</label>' +
+              '<input type="text" class="keyinput plain" data-set="connections.githubRepo" value="' + esc(c.githubRepo || '') + '" placeholder="owner/name" autocomplete="off" spellcheck="false" />' +
+            '</div>' +
+            '<div class="keyfield">' +
+              '<label class="kicker">Branch</label>' +
+              '<input type="text" class="keyinput plain" data-set="connections.githubBranch" value="' + esc(c.githubBranch || 'main') + '" placeholder="main" autocomplete="off" spellcheck="false" />' +
+            '</div>' +
+          '</div>' +
+          '<div class="pad-x" style="padding-bottom:15px">' +
+            '<button class="btn ghost block" data-action="sync-now">' + (c.lastSync ? 'Sync now &middot; last ' + esc(c.lastSync) : 'Sync now') + '</button>' +
+          '</div>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Targets</div><div class="meta">Set by the coach</div></div>' +
+          row('Daily calories', 'Goal: ' + esc(S.goal), '<span class="num">' + S.targets.calories.toLocaleString() + '</span>') +
+          row('Daily protein', '', '<span class="num">' + S.targets.protein + ' g</span>') +
+          row('Daily steps', '', '<span class="num">' + S.targets.steps.toLocaleString() + '</span>') +
+          row('Weight goal', '', '<span class="num">' + S.targets.weightGoal + ' lb</span>') +
+          '<p class="small pad-x" style="padding-bottom:15px">The coach watches these and proposes changes. Nothing moves without your tap.</p>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title sage"><i></i>What Lizzie sees</div>' +
+            '<div class="meta sage">' + shared + ' of 4 shared</div></div>' +
+          row('Weight', 'Your trend, not the daily number', toggle('privacy.weight', S.privacy.weight)) +
+          row('Calories and protein', 'Daily totals only, never the meals', toggle('privacy.calories', S.privacy.calories)) +
+          row('Workouts', 'That you trained, not what you lifted', toggle('privacy.workouts', S.privacy.workouts)) +
+          row('Steps and walks', 'Daily total and distance', toggle('privacy.steps', S.privacy.steps)) +
+          row('Progress photos', 'Never shared. There is no switch for this.', '<span class="lockmark">' + icon('lock') + '</span>') +
+          '<p class="small pad-x" style="padding-bottom:15px">She sees totals, never entries. And she is never told something was hidden.</p>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Notifications</div>' +
+            '<div class="meta">' + notifOn + ' of 8 on</div></div>' +
+          row('She proposes an expedition', '', toggle('notifs.invite', S.notifs.invite)) +
+          row('She accepts', '', toggle('notifs.accept', S.notifs.accept)) +
+          row('A leg is completed', '', toggle('notifs.leg', S.notifs.leg)) +
+          row('She leaves you a note', '', toggle('notifs.note', S.notifs.note)) +
+          row('A badge is earned', '', toggle('notifs.badge', S.notifs.badge)) +
+          row('The week is summarised', 'Sunday evening', toggle('notifs.weekly', S.notifs.weekly)) +
+          '<p class="small pad-x" style="padding-bottom:15px">There is no daily reminder to log. It would fire hardest on the days you were already struggling.</p>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title sage"><i></i>Your data</div></div>' +
+          row('Export everything', 'One file, readable without this app', '<button class="btn ghost tiny" data-action="export">Export</button>') +
+          row('Start over', 'Clears this device and runs onboarding again', '<button class="btn ghost tiny danger" data-action="reset">Reset</button>') +
+          '<p class="small pad-x" style="padding-bottom:15px">Everything lives on this device. Sync is how it reaches Lizzie\u2019s, and nowhere else.</p>' +
+        '</article>' +
+
+        '<div class="center" style="padding:8px 0 4px">' +
+          '<div class="profname" style="font-size:15px;color:var(--muted)">InSync</div>' +
+          '<div class="small" style="margin-top:6px">Version 5.0 &middot; built for two</div>' +
+        '</div>'
+    });
+  }
+
   window.Screens = {
     home: home, coach: coach, nutrition: nutrition, train: train, together: together,
+    settings: settings,
     route: route, leg: leg, verse: verse
   };
 })();

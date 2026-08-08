@@ -168,6 +168,15 @@ The expedition in Together IS the progression: where the two of you are on a rea
 - **Earning moment:** full-screen, fires at the end of the action (after saving the workout or meal), never mid-set.
 - **Lizzie's page:** her earned stamps only. Her unearned ones are not visible.
 
+## Onboarding
+- **Shape:** stepped cards, one question per screen, progress rule at the top.
+- **Collects:** name, height, age, sex, starting weight, goal, planned training frequency. Nothing else.
+- **Scripture:** present from the first screen.
+- **Provisional targets:** derived from height, age, sex and goal. Marked with a gold marker on each number AND one line under them ("a starting guess, refined after two weeks"). The marker disappears the day the coach proposes real ones.
+- **Training frequency** shapes the coach's first plan — which machines, what split. The plan is shown at the end of onboarding so he sees what he signed up for.
+- **Pairing:** a link sent to Lizzie; tapping it pairs the devices. Skippable. The reminder appears only when he opens Together — the tab it unlocks — not on Home.
+- **Ends on:** a written welcome from the coach explaining what happens over the next fortnight.
+
 ## Home content order
 1. Camp artwork hero (time-of-day) with verse, journal/streak line, and today's numbers overlaid at the bottom
 2. AI coach's next action for today

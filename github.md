@@ -30,6 +30,17 @@ date: 2026-08-08T18:12:00Z
 | Reflection | reflection.dc.html | Evening journal against the morning verse |
 | Settings | Settings.dc.html | Goal & targets, privacy, notifications, first run |
 
-## Not yet designed
-- Empty day-one Home
-- Full badge set (6 of 50+ drawn, no detail view)
+## App shell (working PWA)
+| File | Role |
+| --- | --- |
+| index.html | The one page |
+| store.js | State, localStorage, derived totals |
+| ui.js | Chrome: header, nav, photo-and-card frame |
+| screens.js | Home, Coach, Nutrition, Train, Together, Settings |
+| onboarding.js | Nine-screen first run |
+| app.js | Router, actions, store wiring |
+| sw.js | Network-first for code, cache-first for artwork |
+
+## Still to port
+- Records, Body, Badges, Reflection, Handshake (designs exist; router shows a stub)
+- Live Claude and GitHub calls (keys, storage and Sync button are in place)
