@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:30px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Nutrition, second pass</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">The gap leads, the log follows</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:64ch">Your provisions photograph carries the hero, and the day's live tension is set at 92px over it: 76 grams of protein still open. Below that, the four ways in sit together for the first time, then the log itself.</p>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <div class="om-photo" style="position:absolute;left:0;right:0;top:0;height:600px;background-image:linear-gradient(180deg,rgba(10,12,8,.72) 0%,rgba(10,12,8,.3) 24%,rgba(10,12,8,.22) 46%,rgba(16,18,13,.68) 74%,#14150F 95%),url('assets/art/provisions.png');background-size:cover;background-position:center 22%;transform-origin:center center;will-change:filter,transform"></div>
+
+        <div class="om-fade" style="position:absolute;left:0;right:0;top:96px;z-index:3;padding:22px 22px 58px;background:linear-gradient(180deg,rgba(11,12,8,0) 0%,rgba(11,12,8,.34) 30%,rgba(11,12,8,.64) 62%,rgba(11,12,8,.3) 84%,rgba(11,12,8,0) 100%);will-change:opacity">
+          <span style="display:inline-flex;align-items:center;padding:6px 12px;background:#0D0E0A;border:1px solid rgba(198,161,93,.5);border-radius:2px;margin-bottom:20px">
+            <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#F2DFB4;font-weight:600">Thursday · Day 11</span>
+          </span>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-family:'Playfair Display',Georgia,serif;font-size:92px;line-height:.92;font-variant-numeric:tabular-nums;text-shadow:0 3px 26px rgba(0,0,0,.8)">{{ proteinLeft }}</span>
+            <span style="font-family:'Playfair Display',Georgia,serif;font-size:34px;color:#E4D9C2;text-shadow:0 3px 20px rgba(0,0,0,.8)">g</span>
+          </div>
+          <p style="font-family:'Playfair Display',Georgia,serif;font-size:18.5px;line-height:1.42;margin:14px 0 0;max-width:290px;text-wrap:pretty;text-shadow:0 2px 16px rgba(0,0,0,.85)">of protein still open, with one meal left and {{ kcalLeft }} calories to spend on it.</p>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;top:0;z-index:11;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between">
+          <button style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.45);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+          </button>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px;text-shadow:0 2px 12px rgba(0,0,0,.7)">Nutrition</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#4B4327,#26281C);border:1px solid rgba(198,161,93,.55);display:grid;place-items:center;font-size:12px;font-weight:600">RB</div>
+        </div>
+
+        <div class="om-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:4;scrollbar-width:none">
+          <div style="height:540px;pointer-events:none"></div>
+          <div style="padding:0 14px 118px;display:grid;gap:12px">
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:17px 0 4px">
+              <div style="display:flex;align-items:center;gap:11px;padding:0 17px;margin-bottom:15px">
+                <span style="width:15px;height:1px;background:#D8B87C"></span>
+                <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600">Where the day stands</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:17px 16px;padding:0 17px 17px">
+                <sc-for list="{{ macroBars }}" as="m" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px">
+                      <span style="font-size:12.5px;color:#D6CDBA">{{ m.label }}</span>
+                      <span style="font-size:12px;color:{{ m.noteColor }};font-variant-numeric:tabular-nums">{{ m.note }}</span>
+                    </div>
+                    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+                      <span style="font-family:'Playfair Display',Georgia,serif;font-size:24px;line-height:1;font-variant-numeric:tabular-nums">{{ m.value }}</span>
+                      <span style="font-size:12px;color:#8B8474;font-variant-numeric:tabular-nums">of {{ m.target }}</span>
+                    </div>
+                    <div style="height:5px;background:rgba(243,237,225,.1);overflow:hidden">
+                      <span style="display:block;height:100%;width:{{ m.width }};background:{{ m.color }}"></span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </article>
+
+            <div style="display:flex;align-items:center;gap:11px;padding:0 2px;margin-top:8px">
+              <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Four ways in</span>
+              <span style="flex:1;height:1px;background:rgba(243,237,225,.16)"></span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+              <sc-for list="{{ entryPoints }}" as="e" hint-placeholder-count="4">
+                <button title="{{ e.title }}" style="min-height:84px;display:grid;place-items:center;gap:9px;padding:12px 6px;border:1px solid rgba(243,237,225,.2);border-radius:2px;background:#0D0E0A;color:#E8E0CF;font-family:Archivo,sans-serif;cursor:pointer" style-hover="border-color:#C6A15D">
+                  <div style="width:24px;height:24px;color:#D8B87C" dangerouslySetInnerHTML="{{ e.icon }}"></div>
+                  <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;text-align:center;line-height:1.25">{{ e.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:11px;padding:0 2px;margin-top:8px">
+              <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Today</span>
+              <span style="flex:1;height:1px;background:rgba(243,237,225,.16)"></span>
+              <span style="font-size:12px;color:#A29A87">{{ todayCount }}</span>
+            </div>
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 15px">
+              <sc-for list="{{ meals }}" as="m" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:15px 0;border-bottom:1px solid rgba(243,237,225,.1)">
+                  <div style="width:64px;height:64px;border-radius:12px;overflow:hidden;background:{{ m.thumbBg }};background-size:cover;background-position:center;border:1px solid {{ m.thumbLine }};display:grid;place-items:center;color:#8B8474;font-family:'Playfair Display',Georgia,serif;font-size:19px">{{ m.glyph }}</div>
+                  <div style="min-width:0">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">{{ m.time }}</span>
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8B8474">{{ m.slot }}</span>
+                    </div>
+                    <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:16.5px;font-weight:500;margin:0 0 5px;line-height:1.25">{{ m.name }}</h4>
+                    <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ m.macros }}</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ m.kcal }}</div>
+                    <div style="font-size:11px;color:#8B8474;margin-top:4px">kcal</div>
+                  </div>
+                </div>
+              </sc-for>
+
+              <div style="display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;padding:15px 0">
+                <div style="width:64px;height:64px;border-radius:12px;border:1px dashed rgba(216,184,124,.5);display:grid;place-items:center;color:#D8B87C">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                </div>
+                <div>
+                  <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:16.5px;font-weight:500;margin:0 0 5px;color:#E8E0CF">Dinner</h4>
+                  <div style="font-size:12px;color:#A29A87;line-height:1.5">{{ dinnerPrompt }}</div>
+                </div>
+              </div>
+            </article>
+
+            <div style="display:flex;align-items:center;gap:11px;padding:0 2px;margin-top:8px">
+              <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#95A889;font-weight:600">Yesterday</span>
+              <span style="flex:1;height:1px;background:rgba(243,237,225,.16)"></span>
+              <span style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ yesterdayTotal }}</span>
+            </div>
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 15px">
+              <sc-for list="{{ yesterday }}" as="m" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid rgba(243,237,225,.1)">
+                  <div style="min-width:0">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">{{ m.time }}</span>
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8B8474">{{ m.slot }}</span>
+                    </div>
+                    <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:16.5px;font-weight:500;margin:0 0 5px;line-height:1.25">{{ m.name }}</h4>
+                    <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ m.macros }}</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ m.kcal }}</div>
+                    <div style="font-size:11px;color:#8B8474;margin-top:4px">kcal</div>
+                  </div>
+                </div>
+              </sc-for>
+              <button style="width:100%;min-height:44px;margin:10px 0 14px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Full meal history</button>
+            </article>
+          </div>
+        </div>
+
+        <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:rgba(20,21,15,.94);border-top:1px solid rgba(243,237,225,.14);backdrop-filter:blur(22px);padding:0 6px 12px">
+          <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+            <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+              <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+              <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+            </button>
+          </sc-for>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:990}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+const ENTRY_ICONS = {
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z"/><path d="M9 8.5 10.5 5h3L15 8.5"/><circle cx="12" cy="13.5" r="3"/></svg>',
+  barcode: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8V5.5A2 2 0 0 1 5.5 3.5H8"/><path d="M16 3.5h2.5a2 2 0 0 1 2 2V8"/><path d="M20.5 16v2.5a2 2 0 0 1-2 2H16"/><path d="M8 20.5H5.5a2 2 0 0 1-2-2V16"/><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8"/></svg>',
+  place: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>',
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h9a3 3 0 0 1 3 3v12H8a3 3 0 0 0-3 3Z"/><path d="M17 7.5h2v12"/></svg>'
+};
+
+const PHOTO = "url('assets/art/meal-example.jpg')";
+
+// One canon shared with Home and the generator: 1,002 kcal and 79 g of protein logged
+// against 2,000 and 155. Every figure below is summed from these rows.
+const TARGETS = { kcal: 2000, p: 155, c: 200, f: 65 };
+
+const MEALS = [
+  { time: '06:40', slot: 'Breakfast', name: 'Eggs, oats and berries', p: 36, c: 44, f: 13, kcal: 437, photo: false },
+  { time: '12:15', slot: 'Lunch', name: 'Chicken and quinoa bowl', p: 35, c: 40, f: 15, kcal: 435, photo: true },
+  { time: '15:30', slot: 'Snack', name: 'Greek yoghurt', p: 8, c: 20, f: 2, kcal: 130, photo: false }
+];
+
+const YESTERDAY = [
+  { time: '19:20', slot: 'Dinner', name: 'Salmon, rice and greens', p: 46, c: 58, f: 21, kcal: 664 },
+  { time: '12:05', slot: 'Lunch', name: 'Turkey and avocado wrap', p: 32, c: 39, f: 18, kcal: 470 }
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this._cleanups = [];
+  }
+
+  componentDidMount() {
+    document.querySelectorAll('.om-scroll').forEach(scroller => {
+      const frame = scroller.parentElement;
+      const photo = frame.querySelector('.om-photo');
+      const fades = frame.querySelectorAll('.om-fade');
+      const RANGE = 250;
+      const onScroll = () => {
+        const p = Math.min(1, Math.max(0, scroller.scrollTop / RANGE));
+        if (photo) {
+          photo.style.filter = `blur(${(p * 16).toFixed(2)}px)`;
+          photo.style.transform = `scale(${(1 + p * 0.1).toFixed(4)})`;
+        }
+        const o = Math.max(0, 1 - p * 1.9);
+        fades.forEach(el => { el.style.opacity = o.toFixed(3); });
+      };
+      onScroll();
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      this._cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+    });
+  }
+
+  componentWillUnmount() {
+    this._cleanups.forEach(fn => fn());
+    this._cleanups = [];
+  }
+
+  renderVals() {
+    const sum = key => MEALS.reduce((n, m) => n + m[key], 0);
+    const logged = { kcal: sum('kcal'), p: sum('p'), c: sum('c'), f: sum('f') };
+    const left = {
+      kcal: TARGETS.kcal - logged.kcal,
+      p: TARGETS.p - logged.p,
+      c: TARGETS.c - logged.c,
+      f: TARGETS.f - logged.f
+    };
+
+    const bar = (label, key, unit) => {
+      const share = Math.min(100, Math.round((logged[key] / TARGETS[key]) * 100));
+      const behind = share < 60;
+      return {
+        label,
+        value: `${logged[key].toLocaleString()}${unit}`,
+        target: `${TARGETS[key].toLocaleString()}${unit}`,
+        note: `${left[key].toLocaleString()}${unit} to go`,
+        noteColor: behind ? '#D8B87C' : '#95A889',
+        width: `${share}%`,
+        color: behind ? '#C6A15D' : '#8FA184'
+      };
+    };
+
+    const row = m => ({
+      time: m.time,
+      slot: m.slot,
+      name: m.name,
+      kcal: m.kcal.toLocaleString(),
+      macros: `${m.p} g protein · ${m.c} g carbs · ${m.f} g fat`,
+      thumbBg: m.photo ? PHOTO : '#1A1C16',
+      thumbLine: m.photo ? 'transparent' : 'rgba(243,237,225,.14)',
+      glyph: m.photo ? '' : m.name.slice(0, 1)
+    });
+
+    const yTotals = YESTERDAY.reduce((a, m) => ({ kcal: a.kcal + m.kcal, p: a.p + m.p }), { kcal: 0, p: 0 });
+
+    return {
+      proteinLeft: left.p,
+      kcalLeft: left.kcal.toLocaleString(),
+      macroBars: [bar('Calories', 'kcal', ''), bar('Protein', 'p', 'g'), bar('Carbs', 'c', 'g'), bar('Fat', 'f', 'g')],
+      entryPoints: [
+        { label: 'Photo', title: 'Photograph the plate', icon: { __html: ENTRY_ICONS.camera } },
+        { label: 'Barcode', title: 'Scan a barcode', icon: { __html: ENTRY_ICONS.barcode } },
+        { label: 'Eating out', title: 'Find a restaurant', icon: { __html: ENTRY_ICONS.place } },
+        { label: 'Cookbook', title: 'Log from the cookbook', icon: { __html: ENTRY_ICONS.book } }
+      ],
+      todayCount: `${MEALS.length} logged`,
+      meals: MEALS.map(row),
+      dinnerPrompt: `${left.p} g of protein left. A palm of chicken closes it.`,
+      yesterday: YESTERDAY.map(row),
+      yesterdayTotal: `${yTotals.kcal.toLocaleString()} kcal · ${yTotals.p} g protein`,
+      navItems: ['home', 'journey', 'train', 'nutrition', 'together'].map(k => ({
+        icon: { __html: ICONS[k] },
+        color: k === 'nutrition' ? '#E4CB99' : '#8B8474',
+        rule: k === 'nutrition' ? '#C6A15D' : 'transparent'
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

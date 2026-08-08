@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+  .om-write::placeholder { color:#6E6857; }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Reflection</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">The verse he woke to, waiting at the end of the day</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:64ch">Morning's verse becomes the evening's prompt, set over the night camp. Below it a page he writes freely into — the box is real, type in it — and the day's numbers sit at the very bottom, quiet, present but not the point.</p>
+  </div>
+
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:30px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+      <button onClick="{{ t.onClick }}" style="min-height:40px;padding:0 16px;border:1px solid {{ t.line }};border-radius:2px;background:{{ t.bg }};color:{{ t.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <div class="om-photo" style="position:absolute;left:0;right:0;top:0;height:600px;background-image:linear-gradient(180deg,rgba(10,12,9,.7) 0%,rgba(10,12,9,.3) 26%,rgba(10,12,9,.34) 50%,rgba(16,18,13,.74) 76%,#14150F 96%),url('assets/art/camp-night.jpg');background-size:cover;background-position:center 38%;transform-origin:center center;will-change:filter,transform"></div>
+
+        <div class="om-fade" style="position:absolute;left:0;right:0;top:96px;z-index:3;padding:22px 22px 58px;background:linear-gradient(180deg,rgba(11,12,8,0) 0%,rgba(11,12,8,.32) 30%,rgba(11,12,8,.62) 62%,rgba(11,12,8,.28) 84%,rgba(11,12,8,0) 100%);will-change:opacity">
+          <span style="display:inline-flex;align-items:center;padding:6px 12px;background:#0D0E0A;border:1px solid rgba(198,161,93,.5);border-radius:2px;margin-bottom:20px">
+            <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#F2DFB4;font-weight:600">This morning's verse</span>
+          </span>
+          <p style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1.32;margin:0;max-width:300px;text-wrap:pretty;text-shadow:0 2px 20px rgba(0,0,0,.85)">He makes my feet like the feet of a deer; he causes me to stand on the heights.</p>
+          <cite style="display:block;font-style:normal;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#C8BFAB;margin-top:14px;text-shadow:0 1px 10px rgba(0,0,0,.8)">Habakkuk 3:19 · Day 11</cite>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;top:0;z-index:11;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between">
+          <button style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.45);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+          </button>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px;text-shadow:0 2px 12px rgba(0,0,0,.7)">{{ headerTitle }}</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#4B4327,#26281C);border:1px solid rgba(198,161,93,.55);display:grid;place-items:center;font-size:12px;font-weight:600">RB</div>
+        </div>
+
+        <div class="om-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:4;scrollbar-width:none">
+          <div style="height:{{ restH }};pointer-events:none"></div>
+          <div style="padding:0 14px 118px;display:grid;gap:12px">
+
+            <sc-if value="{{ isTonight }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid;gap:12px">
+                <article style="background:#0D0E0A;border:1px solid {{ pageLine }};border-radius:16px;padding:17px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+                    <div style="display:flex;align-items:center;gap:11px">
+                      <span style="width:15px;height:1px;background:#D8B87C"></span>
+                      <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600">Tonight</span>
+                    </div>
+                    <span style="font-size:11.5px;color:#8B8474;font-variant-numeric:tabular-nums">{{ countLabel }}</span>
+                  </div>
+
+                  <textarea class="om-write" value="{{ text }}" onChange="{{ onType }}" placeholder="Write against it." rows="8" style="width:100%;box-sizing:border-box;border:0;outline:none;resize:none;background:transparent;color:#EDE5D4;font-family:'Playfair Display',Georgia,serif;font-size:17px;line-height:1.65;padding:0;min-height:190px"></textarea>
+
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:15px;border-top:1px solid rgba(243,237,225,.13)">
+                    <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8B8474">{{ savedLabel }}</span>
+                    <button style="min-height:44px;padding:0 18px;border:0;border-radius:2px;background:{{ saveBg }};color:{{ saveFg }};font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:{{ saveCursor }}">Close the day</button>
+                  </div>
+                </article>
+
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.12);border-radius:16px;padding:15px 17px">
+                  <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8B8474;margin-bottom:12px">Attached to this entry</div>
+                  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px">
+                    <sc-for list="{{ dayFacts }}" as="f" hint-placeholder-count="6">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                        <span style="font-size:12px;color:#8B8474">{{ f.label }}</span>
+                        <span style="font-size:12.5px;color:{{ f.color }};font-variant-numeric:tabular-nums">{{ f.value }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </article>
+
+                <div style="display:flex;align-items:center;gap:11px;padding:0 2px;margin-top:8px">
+                  <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#95A889;font-weight:600">Last night</span>
+                  <span style="flex:1;height:1px;background:rgba(243,237,225,.16)"></span>
+                </div>
+
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px">
+                    <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">Wednesday · Day 10</span>
+                    <span style="font-size:11px;color:#8B8474">Psalm 121:1</span>
+                  </div>
+                  <p style="font-family:'Playfair Display',Georgia,serif;font-size:16px;line-height:1.55;margin:0;color:#D6CDBA;text-wrap:pretty">“Hard session. Legs went early and I nearly stopped at three sets. Lizzie came out for the last mile without being asked, which is the part I want to remember.”</p>
+                </article>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPast }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid;gap:12px">
+                <div style="display:flex;align-items:center;gap:11px;padding:0 2px">
+                  <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Eleven nights on the trail</span>
+                  <span style="flex:1;height:1px;background:rgba(243,237,225,.16)"></span>
+                  <span style="font-size:12px;color:#A29A87">9 written</span>
+                </div>
+
+                <sc-for list="{{ entries }}" as="e" hint-placeholder-count="4">
+                  <article style="background:#0D0E0A;border:1px solid {{ e.line }};border-radius:16px;padding:16px 17px">
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px">
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">{{ e.date }}</span>
+                      <span style="font-size:11px;color:#8B8474">{{ e.verse }}</span>
+                    </div>
+                    <sc-if value="{{ e.written }}" hint-placeholder-val="{{ true }}">
+                      <p style="font-family:'Playfair Display',Georgia,serif;font-size:16px;line-height:1.55;margin:0 0 12px;color:#D6CDBA;text-wrap:pretty">{{ e.excerpt }}</p>
+                    </sc-if>
+                    <sc-if value="{{ e.blank }}" hint-placeholder-val="{{ false }}">
+                      <p style="font-family:'Playfair Display',Georgia,serif;font-style:italic;font-size:15.5px;line-height:1.5;margin:0 0 12px;color:#8A8371">Nothing written. The numbers are still here if you want them.</p>
+                    </sc-if>
+                    <div style="display:flex;align-items:center;gap:14px;padding-top:11px;border-top:1px solid rgba(243,237,225,.1)">
+                      <span style="font-size:11.5px;color:#8B8474;font-variant-numeric:tabular-nums">{{ e.facts }}</span>
+                    </div>
+                  </article>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:rgba(20,21,15,.94);border-top:1px solid rgba(243,237,225,.14);backdrop-filter:blur(22px);padding:0 6px 12px">
+          <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+            <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+              <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+              <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+            </button>
+          </sc-for>
+        </nav>
+      </div>
+
+      <div style="margin-top:16px;max-width:390px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:7px">{{ captionTitle }}</div>
+        <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ captionBody }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:990}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+// The day, attached rather than displayed. Canon is shared with Home, Nutrition and
+// Together: 1,002 kcal, 79 g protein, 8,432 steps, weighed in, session still to come.
+// Points must match together.dc.html — Mon 9, Tue 10, Wed 10, today 1 of 10.
+const DAY_FACTS = [
+  { label: 'Calories', value: '1,002', warm: false },
+  { label: 'Protein', value: '79 g', warm: true },
+  { label: 'Steps', value: '8,432', warm: false },
+  { label: 'Workout', value: 'Still to come', warm: true },
+  { label: 'Weighed in', value: '212.9 lb', warm: false },
+  { label: 'Points', value: '1 of 10', warm: true }
+];
+
+const ENTRIES = [
+  {
+    date: 'Wednesday · Day 10', verse: 'Psalm 121:1',
+    excerpt: '“Hard session. Legs went early and I nearly stopped at three sets. Lizzie came out for the last mile without being asked, which is the part I want to remember.”',
+    facts: '2,040 kcal · 149 g protein · 10 of 10 points'
+  },
+  {
+    date: 'Tuesday · Day 9', verse: 'Isaiah 40:31',
+    excerpt: '“Everything went right and I have nothing interesting to say about it. Ten points. Ate the same lunch three days running.”',
+    facts: '1,960 kcal · 158 g protein · 10 of 10 points'
+  },
+  {
+    date: 'Monday · Day 8', verse: 'Proverbs 16:3', blank: true,
+    facts: '2,210 kcal · 131 g protein · 9 of 10 points'
+  },
+  {
+    date: 'Sunday · Day 7', verse: 'Matthew 11:28',
+    excerpt: '“Rest day and I actually rested, which took more discipline than the gym does. Cooked with Lizzie. First week done.”',
+    facts: '2,320 kcal · 118 g protein · 5 of 10 points'
+  }
+];
+
+class Component extends DCLogic {
+  state = { view: 'tonight', text: '', saved: false };
+
+  constructor(props) {
+    super(props);
+    this._cleanups = [];
+  }
+
+  componentDidMount() {
+    document.querySelectorAll('.om-scroll').forEach(scroller => {
+      const frame = scroller.parentElement;
+      const photo = frame.querySelector('.om-photo');
+      const fades = frame.querySelectorAll('.om-fade');
+      const RANGE = 250;
+      const onScroll = () => {
+        const p = Math.min(1, Math.max(0, scroller.scrollTop / RANGE));
+        if (photo) {
+          photo.style.filter = `blur(${(p * 16).toFixed(2)}px)`;
+          photo.style.transform = `scale(${(1 + p * 0.1).toFixed(4)})`;
+        }
+        const o = Math.max(0, 1 - p * 1.9);
+        fades.forEach(el => { el.style.opacity = o.toFixed(3); });
+      };
+      onScroll();
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      this._cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+    });
+  }
+
+  componentWillUnmount() {
+    this._cleanups.forEach(fn => fn());
+    this._cleanups = [];
+  }
+
+  renderVals() {
+    const { view, text, saved } = this.state;
+    const go = v => () => this.setState({ view: v });
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const hasText = words > 0;
+
+    const captions = {
+      tonight: ['Tonight', 'The verse he woke to is the prompt he writes against, so morning and evening are the same thought. The page is genuinely blank — no question, no template. What the day measured is attached underneath, where it cannot compete with what he has to say.'],
+      past: ['Past nights', 'A continuing journal rather than a set of records. The night he wrote nothing keeps its place and its numbers, because a blank page is also true.']
+    }[view];
+
+    return {
+      tabs: [['tonight', 'Tonight'], ['past', 'Past nights']].map(([k, label]) => ({
+        label,
+        onClick: go(k),
+        bg: k === view ? '#C6A15D' : 'transparent',
+        fg: k === view ? '#191A12' : '#B8AF9B',
+        line: k === view ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      headerTitle: view === 'tonight' ? 'Reflection' : 'Past nights',
+      isTonight: view === 'tonight',
+      isPast: view === 'past',
+      restH: view === 'tonight' ? '420px' : '340px',
+      text,
+      onType: e => this.setState({ text: e.target.value, saved: false }),
+      countLabel: hasText ? `${words} ${words === 1 ? 'word' : 'words'}` : 'Blank page',
+      savedLabel: saved ? 'Day closed' : (hasText ? 'Not saved yet' : 'Nothing written'),
+      pageLine: hasText ? 'rgba(198,161,93,.32)' : 'rgba(243,237,225,.14)',
+      saveBg: hasText ? '#C6A15D' : 'rgba(243,237,225,.08)',
+      saveFg: hasText ? '#191A12' : '#7E7767',
+      saveCursor: hasText ? 'pointer' : 'default',
+      dayFacts: DAY_FACTS.map(f => ({ ...f, color: f.warm ? '#D8B87C' : '#D6CDBA' })),
+      entries: ENTRIES.map(e => ({
+        date: e.date,
+        verse: e.verse,
+        excerpt: e.excerpt || '',
+        facts: e.facts,
+        written: !e.blank,
+        blank: !!e.blank,
+        line: e.blank ? 'rgba(243,237,225,.1)' : 'rgba(243,237,225,.14)'
+      })),
+      captionTitle: captions[0],
+      captionBody: captions[1],
+      navItems: ['home', 'journey', 'train', 'nutrition', 'together'].map(k => ({
+        icon: { __html: ICONS[k] },
+        color: '#8B8474',
+        rule: 'transparent'
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

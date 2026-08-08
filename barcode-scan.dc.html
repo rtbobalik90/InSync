@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+  @keyframes omRowIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes omPulse { 0%,100% { opacity:.35; transform:scale(1); } 50% { opacity:.9; transform:scale(1.6); } }
+  @keyframes omScan { 0% { transform:translateY(0); opacity:0; } 12% { opacity:1; } 88% { opacity:1; } 100% { transform:translateY(148px); opacity:0; } }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Barcode</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">The one entry point that isn't guessing</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:64ch">A barcode maps to one product with a printed label, so the numbers are read rather than estimated. The work left is the portion — which is where a packet quietly becomes two and a half servings.</p>
+  </div>
+
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:30px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+      <button onClick="{{ t.onClick }}" style="min-height:40px;padding:0 16px;border:1px solid {{ t.line }};border-radius:2px;background:{{ t.bg }};color:{{ t.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <div style="position:absolute;left:0;right:0;top:0;z-index:10;padding:52px 22px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(11,12,8,.92) 60%,rgba(11,12,8,0) 100%)">
+          <div style="width:79px;display:flex">
+            <button style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+            </button>
+          </div>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px">{{ headerTitle }}</div>
+          <div style="width:79px;display:flex;justify-content:flex-end;gap:11px">
+            <button title="Scan a barcode" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(198,161,93,.18);border:1px solid rgba(198,161,93,.62);color:#E4CB99;cursor:pointer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8V5.5A2 2 0 0 1 5.5 3.5H8" /><path d="M16 3.5h2.5a2 2 0 0 1 2 2V8" /><path d="M20.5 16v2.5a2 2 0 0 1-2 2H16" /><path d="M8 20.5H5.5a2 2 0 0 1-2-2V16" /><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8" /></svg>
+            </button>
+            <button title="Photograph the plate" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z" /><path d="M9 8.5 10.5 5h3L15 8.5" /><circle cx="12" cy="13.5" r="3" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <sc-if value="{{ isScanning }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 42%,#22241B 0%,#111309 62%,#0B0C08 100%)">
+            <div style="position:absolute;left:45px;right:45px;top:236px;height:172px">
+              <span style="position:absolute;left:0;top:0;width:32px;height:32px;border-top:2px solid #C6A15D;border-left:2px solid #C6A15D"></span>
+              <span style="position:absolute;right:0;top:0;width:32px;height:32px;border-top:2px solid #C6A15D;border-right:2px solid #C6A15D"></span>
+              <span style="position:absolute;left:0;bottom:0;width:32px;height:32px;border-bottom:2px solid #C6A15D;border-left:2px solid #C6A15D"></span>
+              <span style="position:absolute;right:0;bottom:0;width:32px;height:32px;border-bottom:2px solid #C6A15D;border-right:2px solid #C6A15D"></span>
+              <div style="position:absolute;left:12px;right:12px;top:12px;display:flex;gap:3px;align-items:stretch;height:148px;opacity:.5">
+                <sc-for list="{{ bars }}" as="b" hint-placeholder-count="18">
+                  <span style="flex:{{ b.w }};background:#E8E0CF;opacity:{{ b.o }}"></span>
+                </sc-for>
+              </div>
+              <span style="position:absolute;left:6px;right:6px;top:12px;height:2px;background:linear-gradient(90deg,rgba(198,161,93,0),#E4CB99,rgba(198,161,93,0));box-shadow:0 0 14px rgba(198,161,93,.8);animation:omScan 1.9s ease-in-out infinite"></span>
+            </div>
+
+            <div style="position:absolute;left:0;right:0;top:170px;display:flex;justify-content:center">
+              <span style="display:inline-flex;align-items:center;gap:9px;padding:6px 12px;background:#0D0E0A;border:1px solid rgba(198,161,93,.5);border-radius:2px">
+                <span style="width:7px;height:7px;border-radius:50%;background:#C6A15D;animation:omPulse 1.25s ease-in-out infinite"></span>
+                <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#F2DFB4;font-weight:600">Looking for a barcode</span>
+              </span>
+            </div>
+
+            <div style="position:absolute;left:22px;right:22px;top:446px">
+              <p style="font-size:13px;line-height:1.6;color:#A69C89;text-align:center;margin:0 0 20px;text-wrap:pretty">Hold the pack steady so the whole code sits inside the frame.</p>
+              <button style="width:100%;min-height:48px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Enter the number by hand</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+          <div class="om-scroll" style="position:absolute;left:0;right:0;top:102px;bottom:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none">
+            <div style="padding:14px 14px 118px;display:grid;gap:12px">
+
+              <sc-if value="{{ isFound }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;overflow:hidden">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 17px 15px;border-bottom:1px solid rgba(243,237,225,.13)">
+                      <div style="min-width:0">
+                        <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#B8AF9B;margin-bottom:7px">Ardmore Dairy</div>
+                        <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:500;margin:0 0 8px;line-height:1.2">Greek yoghurt, 5% fat</h3>
+                        <div style="font-size:11.5px;letter-spacing:.16em;color:#8B8474;font-variant-numeric:tabular-nums">5 012345 678900</div>
+                      </div>
+                      <div style="text-align:right;flex:none">
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:1;font-variant-numeric:tabular-nums">{{ kcal }}</div>
+                        <div style="font-size:11px;color:#8B8474;margin-top:5px">kcal</div>
+                      </div>
+                    </div>
+
+                    <div style="padding:15px 17px;border-bottom:1px solid rgba(243,237,225,.13)">
+                      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:11px">How much of it</div>
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                        <sc-for list="{{ portions }}" as="p" hint-placeholder-count="3">
+                          <button onClick="{{ p.onClick }}" style="min-height:52px;padding:6px 4px;display:grid;gap:3px;place-items:center;border:1px solid {{ p.line }};border-radius:2px;background:{{ p.bg }};color:{{ p.fg }};font-family:Archivo,sans-serif;cursor:pointer" style-hover="border-color:#C6A15D">
+                            <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">{{ p.label }}</span>
+                            <span style="font-size:11px;color:{{ p.gramColor }};font-variant-numeric:tabular-nums">{{ p.grams }}</span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                      <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                        <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Protein</div>
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ p }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                      </div>
+                      <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                        <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Carbs</div>
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ c }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                      </div>
+                      <div style="padding:14px">
+                        <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Fat</div>
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ f }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                      </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:9px;padding:13px 17px;border-top:1px solid rgba(243,237,225,.13);background:rgba(149,168,137,.08)">
+                      <span style="width:7px;height:7px;border-radius:50%;background:#95A889;flex:none"></span>
+                      <span style="font-size:12px;line-height:1.5;color:#C8BFAB">Read from the pack label. Nothing here is estimated.</span>
+                    </div>
+                  </article>
+
+                  <div style="display:flex;align-items:center;gap:11px;margin:20px 2px 12px">
+                    <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Rest of the label</span>
+                    <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                    <span style="font-size:12px;color:#A29A87">{{ portionLabel }}</span>
+                  </div>
+
+                  <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 17px">
+                    <sc-for list="{{ labelRows }}" as="l" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(243,237,225,.1)">
+                        <span style="font-size:13.5px;color:#C8BFAB">{{ l.name }}</span>
+                        <span style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-variant-numeric:tabular-nums">{{ l.value }}</span>
+                      </div>
+                    </sc-for>
+                  </article>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isUnknown }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:18px 17px">
+                    <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#B8AF9B;margin-bottom:9px">Read cleanly</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:24px;letter-spacing:.1em;font-variant-numeric:tabular-nums;margin-bottom:14px">0 419773 002185</div>
+                    <div style="display:flex;align-items:flex-start;gap:9px;padding-top:14px;border-top:1px solid rgba(243,237,225,.13)">
+                      <span style="width:7px;height:7px;border-radius:50%;background:#D8B87C;flex:none;margin-top:5px"></span>
+                      <p style="font-size:12.5px;line-height:1.6;color:#C8BFAB;margin:0;text-wrap:pretty">The code scanned, but no product is on file for it. Nothing was guessed — pick how you want to fill it in.</p>
+                    </div>
+                  </article>
+
+                  <div style="display:grid;gap:10px;margin-top:12px">
+                    <sc-for list="{{ fallbacks }}" as="fb" hint-placeholder-count="3">
+                      <button style="width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center;text-align:left;min-height:64px;padding:14px 17px;background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;color:inherit;font-family:Archivo,sans-serif;cursor:pointer;animation:omRowIn .3s ease-out both;animation-delay:{{ fb.delay }}" style-hover="border-color:#C6A15D">
+                        <div style="width:26px;height:26px;color:#D8B87C" dangerouslySetInnerHTML="{{ fb.icon }}"></div>
+                        <div style="min-width:0">
+                          <div style="font-family:'Playfair Display',Georgia,serif;font-size:16.5px;margin-bottom:4px">{{ fb.title }}</div>
+                          <div style="font-size:12px;color:#A29A87;line-height:1.45">{{ fb.note }}</div>
+                        </div>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isFound }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px;margin-top:8px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px">
+                      <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Add to</span>
+                      <button onClick="{{ toggleDate }}" style="display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 11px;border:1px solid {{ dateLine }};border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:12px;cursor:pointer" style-hover="border-color:#C6A15D">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D8B87C" stroke-width="1.6" stroke-linecap="round"><path d="M4.5 6.5h15v14h-15z" /><path d="M8 3.5v4M16 3.5v4M4.5 11h15" /></svg>
+                        {{ dateLabel }}
+                      </button>
+                    </div>
+
+                    <sc-if value="{{ dateOpen }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-bottom:14px;padding:14px 13px;border:1px solid rgba(243,237,225,.14);border-radius:2px;background:rgba(243,237,225,.03)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+                          <button onClick="{{ prevMonth }}" style="width:34px;height:34px;display:grid;place-items:center;border:1px solid rgba(243,237,225,.24);border-radius:2px;background:transparent;color:#E8E0CF;cursor:pointer" style-hover="border-color:#C6A15D">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+                          </button>
+                          <span style="font-family:'Playfair Display',Georgia,serif;font-size:16px">{{ monthLabel }}</span>
+                          <button onClick="{{ nextMonth }}" style="width:34px;height:34px;display:grid;place-items:center;border:1px solid {{ nextLine }};border-radius:2px;background:transparent;color:{{ nextColor }};cursor:{{ nextCursor }}" style-hover="border-color:#C6A15D">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:5px">
+                          <sc-for list="{{ weekdays }}" as="w" hint-placeholder-count="7">
+                            <span style="text-align:center;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8B8474">{{ w.label }}</span>
+                          </sc-for>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+                          <sc-for list="{{ cells }}" as="cl" hint-placeholder-count="35">
+                            <button onClick="{{ cl.onClick }}" disabled="{{ cl.disabled }}" style="height:38px;display:grid;place-items:center;border:1px solid {{ cl.line }};border-radius:2px;background:{{ cl.bg }};color:{{ cl.fg }};font-family:Archivo,sans-serif;font-size:12.5px;font-weight:{{ cl.weight }};font-variant-numeric:tabular-nums;cursor:{{ cl.cursor }}">{{ cl.label }}</button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                      <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="4">
+                        <button onClick="{{ sl.onClick }}" style="min-height:44px;padding:0 4px;border:1px solid {{ sl.line }};border-radius:2px;background:{{ sl.bg }};color:{{ sl.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ sl.label }}</button>
+                      </sc-for>
+                    </div>
+                    <p style="font-size:12px;line-height:1.55;color:#A29A87;margin:12px 0 0;text-wrap:pretty">{{ slotNote }}</p>
+                  </article>
+
+                  <div style="display:flex;gap:10px;margin-top:12px">
+                    <button style="flex:1;min-height:52px;border:0;border-radius:2px;background:#C6A15D;color:#191A12;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="background:#DCBE85">{{ saveLabel }}</button>
+                    <button style="min-height:52px;padding:0 20px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Scan again</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:rgba(20,21,15,.94);border-top:1px solid rgba(243,237,225,.14);backdrop-filter:blur(22px);padding:0 6px 12px">
+          <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+            <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+              <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+              <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+            </button>
+          </sc-for>
+        </nav>
+      </div>
+
+      <div style="margin-top:16px;max-width:390px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:7px">{{ captionTitle }}</div>
+        <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ captionBody }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:1180}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+const FALLBACK_ICONS = {
+  keypad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4.5 5.5h15v13h-15z"/><path d="M8 9.5h.01M12 9.5h.01M16 9.5h.01M8 14.5h.01M12 14.5h.01M16 14.5h.01"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z"/><path d="M9 8.5 10.5 5h3L15 8.5"/><circle cx="12" cy="13.5" r="3"/></svg>'
+};
+
+// Everything shown is derived from the label's per-100 g figures, so no
+// displayed number is ever typed twice at a different portion size.
+const PER_100G = { kcal: 97, p: 10, c: 4, f: 5, sat: 3.2, sugars: 3.8, fibre: 0, salt: 0.15 };
+
+const PORTIONS = [
+  { key: 'serving', label: 'One pot', grams: 170 },
+  { key: 'hundred', label: 'Per 100 g', grams: 100 },
+  { key: 'pack', label: 'Whole tub', grams: 500 }
+];
+
+const TODAY = new Date(2026, 7, 8);
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const iso = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+const fmt = n => (n < 10 ? Math.round(n * 10) / 10 : Math.round(n));
+
+class Component extends DCLogic {
+  state = {
+    view: 'scanning',
+    portion: 'serving',
+    slot: 'Snack', slotTouched: false,
+    dateOpen: false,
+    selected: new Date(2026, 7, 8),
+    viewYear: 2026, viewMonth: 7
+  };
+
+  isToday() {
+    return iso(this.state.selected) === iso(TODAY);
+  }
+
+  dayLabel() {
+    const d = this.state.selected;
+    return this.isToday() ? 'Today' : `${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+  }
+
+  slotNote() {
+    const { slotTouched, slot } = this.state;
+    // dayLabel() is either "Today" or a dated abbreviation like "Mon 3 Aug" —
+    // only the former can be lowercased mid-sentence.
+    if (!this.isToday()) return `Logging to ${this.dayLabel()} as ${slot.toLowerCase()}.`;
+    if (slotTouched) return `Logging as ${slot.toLowerCase()} today.`;
+    return 'A pot of yoghurt is a snack unless you say otherwise.';
+  }
+
+  dateVals() {
+    const { dateOpen, viewYear, viewMonth, selected } = this.state;
+    const offset = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+    const total = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const cellCount = Math.ceil((offset + total) / 7) * 7;
+    const atCurrentMonth = viewYear === TODAY.getFullYear() && viewMonth === TODAY.getMonth();
+
+    const cells = Array.from({ length: cellCount }, (_, i) => {
+      const dayNum = i - offset + 1;
+      if (dayNum < 1 || dayNum > total) {
+        return { label: '', disabled: true, bg: 'transparent', fg: 'transparent', line: 'transparent', weight: '400', cursor: 'default', onClick: () => {} };
+      }
+      const date = new Date(viewYear, viewMonth, dayNum);
+      const future = date > TODAY;
+      const isSel = iso(date) === iso(selected);
+      const isTod = iso(date) === iso(TODAY);
+      return {
+        label: String(dayNum),
+        disabled: future,
+        bg: isSel ? '#C6A15D' : 'transparent',
+        fg: isSel ? '#191A12' : (future ? '#4E4A3F' : '#E8E0CF'),
+        line: isSel ? '#C6A15D' : (isTod ? 'rgba(198,161,93,.55)' : 'rgba(243,237,225,.12)'),
+        weight: isSel || isTod ? '700' : '400',
+        cursor: future ? 'default' : 'pointer',
+        onClick: future ? () => {} : () => this.setState({ selected: date })
+      };
+    });
+
+    return {
+      dateOpen,
+      dateLine: dateOpen ? '#C6A15D' : 'rgba(243,237,225,.26)',
+      dateLabel: this.dayLabel(),
+      monthLabel: `${MONTHS[viewMonth]} ${viewYear}`,
+      weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => ({ label: d.slice(0, 1) })),
+      cells,
+      nextLine: atCurrentMonth ? 'rgba(243,237,225,.1)' : 'rgba(243,237,225,.24)',
+      nextColor: atCurrentMonth ? '#4E4A3F' : '#E8E0CF',
+      nextCursor: atCurrentMonth ? 'default' : 'pointer',
+      toggleDate: () => this.setState(s => ({ dateOpen: !s.dateOpen })),
+      prevMonth: () => this.setState(s => ({
+        viewYear: s.viewMonth === 0 ? s.viewYear - 1 : s.viewYear,
+        viewMonth: s.viewMonth === 0 ? 11 : s.viewMonth - 1
+      })),
+      nextMonth: () => this.setState(s => {
+        if (s.viewYear === TODAY.getFullYear() && s.viewMonth === TODAY.getMonth()) return null;
+        return {
+          viewYear: s.viewMonth === 11 ? s.viewYear + 1 : s.viewYear,
+          viewMonth: s.viewMonth === 11 ? 0 : s.viewMonth + 1
+        };
+      })
+    };
+  }
+
+  renderVals() {
+    const view = this.state.view;
+    const go = v => () => this.setState({ view: v });
+    const portion = PORTIONS.find(p => p.key === this.state.portion) || PORTIONS[0];
+    const k = portion.grams / 100;
+
+    const captions = {
+      scanning: ['Scanning', 'A live viewfinder with the code framed and a sweep line running it. No plate photograph here, because the subject is a packet — the frame is the whole interface.'],
+      found: ['Found', 'The label read verbatim, with the portion as the only open question. Switching between one pot, 100 g and the whole tub recalculates every figure on the screen from the per-100 g base.'],
+      unknown: ['Not on file', 'The code scanned but matched nothing. It shows the digits it read and offers three ways forward rather than inventing a product to fill the gap.']
+    }[view];
+
+    return {
+      tabs: [['scanning', 'Scanning'], ['found', 'Found'], ['unknown', 'Not on file']].map(([kk, label]) => ({
+        label,
+        onClick: go(kk),
+        bg: kk === view ? '#C6A15D' : 'transparent',
+        fg: kk === view ? '#191A12' : '#B8AF9B',
+        line: kk === view ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      headerTitle: view === 'scanning' ? 'Scan a barcode' : (view === 'found' ? 'Review item' : 'No match'),
+      isScanning: view === 'scanning',
+      isResult: view !== 'scanning',
+      isFound: view === 'found',
+      isUnknown: view === 'unknown',
+      bars: [3, 1, 1, 2, 1, 4, 1, 1, 3, 2, 1, 1, 4, 1, 2, 1, 3, 1, 1, 2].map((w, i) => ({
+        w, o: i % 3 === 0 ? 0.95 : 0.7
+      })),
+      kcal: Math.round(PER_100G.kcal * k).toLocaleString(),
+      p: fmt(PER_100G.p * k),
+      c: fmt(PER_100G.c * k),
+      f: fmt(PER_100G.f * k),
+      portionLabel: `${portion.label} · ${portion.grams} g`,
+      portions: PORTIONS.map(p => ({
+        label: p.label,
+        grams: `${p.grams} g`,
+        onClick: () => this.setState({ portion: p.key }),
+        bg: p.key === this.state.portion ? '#C6A15D' : 'transparent',
+        fg: p.key === this.state.portion ? '#191A12' : '#B8AF9B',
+        // Never dim 11px text with opacity — set the colour outright so contrast is knowable.
+        gramColor: p.key === this.state.portion ? 'rgba(25,26,18,.92)' : '#B8AF9B',
+        line: p.key === this.state.portion ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      labelRows: [
+        { name: 'of which saturates', value: `${fmt(PER_100G.sat * k)} g` },
+        { name: 'of which sugars', value: `${fmt(PER_100G.sugars * k)} g` },
+        { name: 'Fibre', value: `${fmt(PER_100G.fibre * k)} g` },
+        { name: 'Salt', value: `${fmt(PER_100G.salt * k)} g` }
+      ],
+      fallbacks: [
+        { icon: { __html: FALLBACK_ICONS.keypad }, title: 'Type the label in', note: 'Straight from the pack, 30 seconds', delay: '0s' },
+        { icon: { __html: FALLBACK_ICONS.search }, title: 'Search by name', note: 'If it is a common product', delay: '.06s' },
+        { icon: { __html: FALLBACK_ICONS.camera }, title: 'Photograph the label', note: 'Let the coach read it', delay: '.12s' }
+      ],
+      slots: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(label => ({
+        label,
+        onClick: () => this.setState({ slot: label, slotTouched: true }),
+        bg: label === this.state.slot ? '#C6A15D' : 'transparent',
+        fg: label === this.state.slot ? '#191A12' : '#B8AF9B',
+        line: label === this.state.slot ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      slotNote: this.slotNote(),
+      saveLabel: `Save to ${this.state.slot.toLowerCase()}`,
+      ...this.dateVals(),
+      captionTitle: captions[0],
+      captionBody: captions[1],
+      navItems: ['home', 'journey', 'train', 'nutrition', 'together'].map(kk => ({
+        icon: { __html: ICONS[kk] },
+        color: kk === 'nutrition' ? '#E4CB99' : '#8B8474',
+        rule: kk === 'nutrition' ? '#C6A15D' : 'transparent'
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

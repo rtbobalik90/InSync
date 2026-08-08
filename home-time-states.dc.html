@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0E0F0B; }
+  a { color:#C6A15D; text-decoration:none; }
+  a:hover { color:#DCBE85; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+</style>
+</helmet>
+<div style="padding:44px 40px 56px;background:#0E0F0B;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:34px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#C6A15D;font-weight:600;margin-bottom:9px">InSync · Home</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">Four states of light</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:62ch">The same screen across the day. The photograph is fixed and the journal card scrolls up over it, taking its tint from the light behind it. Scroll any frame to read the rest.</p>
+  </div>
+
+  <div ref="{{ rootRef }}" style="display:flex;gap:26px;flex-wrap:wrap">
+    <sc-for list="{{ states }}" as="s" hint-placeholder-count="4">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+          <span style="font-family:'Playfair Display',Georgia,serif;font-size:19px">{{ s.title }}</span>
+          <span style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#7E7767">{{ s.hours }}</span>
+        </div>
+
+        <div style="width:390px;height:844px;background:{{ s.ground }};color:{{ s.ink }};position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.5)">
+
+          <div class="om-photo" style="position:absolute;left:-24px;right:-24px;top:-24px;height:690px;background-image:{{ s.art }};background-size:cover;background-position:center bottom;will-change:filter;transform-origin:center top"></div>
+
+          <div class="om-fade" style="position:absolute;left:0;right:0;top:0;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between;z-index:3;pointer-events:none;will-change:opacity">
+            <div style="font-family:'Playfair Display',Georgia,serif;font-size:18px;color:{{ s.overInk }};text-shadow:{{ s.overShadow }}">InSync</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:{{ s.chipBg }};border:1px solid {{ s.chipLine }};backdrop-filter:blur(10px)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ s.overInk }}" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7" /><path d="M10.5 20a2 2 0 0 0 3 0" /></svg>
+              </div>
+              <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#4B4327,#26281C);border:1px solid rgba(198,161,93,.6);display:grid;place-items:center;font-size:12px;font-weight:600;color:#F3EDE1">RB</div>
+            </div>
+          </div>
+
+          <div class="om-fade" style="position:absolute;left:22px;right:22px;top:104px;z-index:2;pointer-events:none;color:{{ s.overInk }};will-change:opacity">
+            <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:{{ s.overAccent }};font-weight:600;margin-bottom:10px;text-shadow:{{ s.overShadow }}">Verse for the day</div>
+            <p style="font-family:'Playfair Display',Georgia,serif;font-size:21px;line-height:1.4;margin:0;max-width:298px;text-wrap:pretty;text-shadow:{{ s.overShadow }}">He makes my feet like the feet of a deer; he causes me to stand on the heights.</p>
+            <cite style="display:block;font-style:normal;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.76;margin-top:11px;text-shadow:{{ s.overShadow }}">Habakkuk 3:19</cite>
+          </div>
+
+          <div class="om-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:4;scrollbar-width:none">
+            <div style="height:{{ s.restH }}"></div>
+            <div style="padding:0 14px 118px;display:grid;gap:12px">
+
+              <article style="background:{{ s.card }};border:1px solid {{ s.cardLine }};border-radius:16px;backdrop-filter:blur(26px) saturate(1.15);box-shadow:{{ s.cardShadow }};overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 17px;border-bottom:1px solid {{ s.rule }}">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="width:15px;height:1px;background:{{ s.accent }}"></span>
+                    <span style="font-family:'Playfair Display',Georgia,serif;font-size:15px">Day 11 on the trail</span>
+                  </div>
+                  <span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:{{ s.muted }}">{{ s.camp }}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                  <div style="padding:16px 14px;border-right:1px solid {{ s.rule }}">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:{{ s.muted }};margin-bottom:9px">Calories</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">1,002</div>
+                    <div style="font-size:12px;color:{{ s.faint }};margin-top:6px;padding-top:6px;border-top:1px solid {{ s.rule }}">998 to go</div>
+                  </div>
+                  <div style="padding:16px 14px;border-right:1px solid {{ s.rule }}">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:{{ s.muted }};margin-bottom:9px">Protein</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">79<span style="font-size:15px;color:{{ s.muted }}">g</span></div>
+                    <div style="font-size:12px;color:{{ s.accent }};margin-top:6px;padding-top:6px;border-top:1px solid {{ s.rule }}">76 g short</div>
+                  </div>
+                  <div style="padding:16px 14px">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:{{ s.muted }};margin-bottom:9px">Steps</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">8,432</div>
+                    <div style="font-size:12px;color:{{ s.sage }};margin-top:6px;padding-top:6px;border-top:1px solid {{ s.rule }}">1,568 to go</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-top:1px solid {{ s.rule }}">
+                  <span style="font-size:12px;color:{{ s.muted }}">2,400 kcal spare this week</span>
+                  <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:{{ s.muted }}">4 days under</span>
+                </div>
+              </article>
+
+              <article style="background:{{ s.card }};border:1px solid {{ s.cardLine }};border-radius:16px;backdrop-filter:blur(26px) saturate(1.15);padding:17px 17px 17px 15px;display:grid;grid-template-columns:3px 1fr;gap:15px">
+                <span style="background:linear-gradient(180deg,#C6A15D,#8FA184)"></span>
+                <div>
+                  <div style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:{{ s.accent }};font-weight:600;margin-bottom:10px">Next step today</div>
+                  <p style="font-family:'Playfair Display',Georgia,serif;font-size:18.5px;line-height:1.45;margin:0;text-wrap:pretty">{{ s.nextStep }}</p>
+                  <div style="display:flex;gap:8px;margin-top:16px">
+                    <button style="min-height:44px;padding:0 20px;border:0;border-radius:2px;background:#C6A15D;color:#191A12;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;cursor:pointer" style-hover="background:#DCBE85">{{ s.primaryLabel }}</button>
+                    <button style="min-height:44px;padding:0 18px;border:1px solid {{ s.btnLine }};border-radius:2px;background:transparent;color:{{ s.ink }};font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Ask coach</button>
+                  </div>
+                </div>
+              </article>
+
+              <article style="background:{{ s.card }};border:1px solid {{ s.cardLine }};border-radius:16px;backdrop-filter:blur(26px) saturate(1.15);padding:17px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:14px">
+                  <div>
+                    <div style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:{{ s.sage }};font-weight:600;margin-bottom:6px">{{ exp.eyebrow }}</div>
+                    <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:500;margin:0">{{ exp.legName }}</h3>
+                  </div>
+                  <span style="font-size:11.5px;color:{{ s.muted }};white-space:nowrap">{{ exp.legCount }}</span>
+                </div>
+                <svg viewBox="0 0 330 46" width="100%" height="46" style="display:block;margin-top:16px;overflow:visible">
+                  <line x1="0" y1="12" x2="330" y2="12" stroke="{{ s.rule }}" stroke-width="1.5" />
+                  <line x1="0" y1="12" x2="{{ exp.dotX }}" y2="12" stroke="#C6A15D" stroke-width="2.5" stroke-linecap="round" />
+                  <sc-for list="{{ exp.stops }}" as="st" hint-placeholder-count="6">
+                    <circle cx="{{ st.x }}" cy="12" r="3" fill="{{ st.fill }}" stroke="{{ st.stroke }}" stroke-width="1.5" />
+                  </sc-for>
+                  <circle cx="{{ exp.dotX }}" cy="12" r="5" fill="#C6A15D" />
+                  <text x="0" y="40" fill="{{ s.faint }}" font-family="Archivo,sans-serif" font-size="11" letter-spacing=".8">{{ exp.startLabel }}</text>
+                  <text x="330" y="40" fill="{{ s.sage }}" font-family="Archivo,sans-serif" font-size="11" letter-spacing=".8" text-anchor="end">{{ exp.endLabel }}</text>
+                </svg>
+                <div style="font-size:12px;color:{{ s.muted }};margin-top:12px;font-variant-numeric:tabular-nums">{{ exp.miles }}</div>
+              </article>
+
+              <article style="background:{{ s.card }};border:1px solid rgba(198,161,93,.3);border-radius:16px;backdrop-filter:blur(26px) saturate(1.15);padding:16px 17px">
+                <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid {{ s.rule }};margin-bottom:12px">
+                  <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(150deg,#4A3A52,#26202B);border:1px solid rgba(198,161,93,.45);display:grid;place-items:center;font-size:10px;font-weight:600;flex:none;color:#F3EDE1">LZ</div>
+                  <span style="font-size:12px;color:{{ s.muted }}">Lizzie · workout complete · 9,140 steps</span>
+                </div>
+                <p style="font-family:'Playfair Display',Georgia,serif;font-style:italic;font-size:16px;line-height:1.5;margin:0;text-wrap:pretty">“Made it out before the rain. Your turn — I'll be insufferable if I win this week.”</p>
+                <div style="display:flex;gap:8px;margin-top:15px">
+                  <button style="min-height:40px;padding:0 16px;border:1px solid {{ s.btnLine }};border-radius:2px;background:transparent;color:{{ s.ink }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Reply</button>
+                  <button style="min-height:40px;padding:0 16px;border:1px solid {{ s.btnLine }};border-radius:2px;background:transparent;color:{{ s.ink }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Open Together</button>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:{{ s.navBg }};border-top:1px solid {{ s.navLine }};backdrop-filter:blur(22px);padding:0 6px 12px">
+            <sc-for list="{{ s.nav }}" as="n" hint-placeholder-count="5">
+              <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+                <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+                <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+              </button>
+            </sc-for>
+          </nav>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;daylightCards&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Adaptive&quot;}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+const DARK = {
+  ground: '#14150F', ink: '#F3EDE1', muted: '#B8AF9B', faint: '#A29A87',
+  card: '#0D0E0A', cardLine: 'rgba(243,237,225,.14)', rule: 'rgba(243,237,225,.13)',
+  cardShadow: 'none',
+  btnLine: 'rgba(243,237,225,.28)', accent: '#D8B87C', sage: '#95A889',
+  overInk: '#F6F1E6', overAccent: '#F2DFB4', overShadow: '0 2px 16px rgba(0,0,0,.72)',
+  chipBg: 'rgba(20,21,15,.4)', chipLine: 'rgba(243,237,225,.26)',
+  navBg: 'rgba(20,21,15,.9)', navLine: 'rgba(243,237,225,.14)',
+  navOn: '#E4CB99', navOff: '#8B8474'
+};
+
+const LIGHT = {
+  ground: '#EFE9DD', ink: '#25241F', muted: '#575145', faint: '#5F5A4E',
+  card: 'rgba(252,249,243,.56)', cardLine: 'rgba(45,42,33,.18)', rule: 'rgba(45,42,33,.16)',
+  cardShadow: 'none',
+  btnLine: 'rgba(45,42,33,.3)', accent: '#85602C', sage: '#4F6147',
+  overInk: '#FFFDF8', overAccent: '#F0D49A', overShadow: '0 2px 18px rgba(0,0,0,.6)',
+  chipBg: 'rgba(28,30,22,.3)', chipLine: 'rgba(255,255,255,.4)',
+  navBg: 'rgba(243,239,230,.9)', navLine: 'rgba(45,42,33,.16)',
+  navOn: '#7A5B2C', navOff: '#8A8372'
+};
+
+const SCRIM = {
+  dawn: 'linear-gradient(180deg,rgba(10,12,8,.68) 0%,rgba(10,12,8,.42) 18%,rgba(10,12,8,.02) 38%,rgba(10,12,8,.02) 74%,rgba(20,21,15,.5) 88%,rgba(20,21,15,.92) 96%,#14150F 100%)',
+  day: 'linear-gradient(180deg,rgba(10,12,8,.7) 0%,rgba(10,12,8,.46) 18%,rgba(10,12,8,.04) 38%,rgba(10,12,8,.03) 74%,rgba(20,21,15,.5) 88%,rgba(20,21,15,.92) 96%,#14150F 100%)',
+  sunset: 'linear-gradient(180deg,rgba(12,14,10,.54) 0%,rgba(12,14,10,.05) 24%,rgba(12,14,10,.04) 42%,rgba(12,14,10,.04) 74%,rgba(20,21,15,.52) 88%,rgba(20,21,15,.93) 96%,#14150F 100%)',
+  night: 'linear-gradient(180deg,rgba(10,12,9,.56) 0%,rgba(10,12,9,.12) 24%,rgba(10,12,9,.14) 42%,rgba(10,12,9,.14) 74%,rgba(20,21,15,.56) 88%,rgba(20,21,15,.94) 96%,#14150F 100%)'
+};
+
+// Daylight variants: the scrim has to land on the light ground instead of #14150F,
+// or the photo ends in a black band above cream cards.
+const SCRIM_LIGHT = {
+  dawn: 'linear-gradient(180deg,rgba(10,12,8,.62) 0%,rgba(10,12,8,.36) 18%,rgba(10,12,8,.02) 38%,rgba(10,12,8,.02) 70%,rgba(239,233,221,.46) 86%,rgba(239,233,221,.92) 95%,#EFE9DD 100%)',
+  day: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.4) 18%,rgba(10,12,8,.03) 38%,rgba(10,12,8,.02) 70%,rgba(239,233,221,.48) 86%,rgba(239,233,221,.93) 95%,#EFE9DD 100%)'
+};
+
+// The one progression system in the app: where the two of you are on the route.
+// No levels, no chapters — the expedition is the story.
+const ROUTE = {
+  name: 'Camino de Santiago',
+  startLabel: 'Saint-Jean',
+  endLabel: 'Los Arcos',
+  legs: [
+    { name: 'Saint-Jean to Roncesvalles', miles: 15.5 },
+    { name: 'Roncesvalles to Zubiri', miles: 13.7 },
+    { name: 'Zubiri to Pamplona', miles: 13.0 },
+    { name: 'Pamplona to Puente la Reina', miles: 14.9 },
+    { name: 'Puente la Reina to Estella', miles: 13.7 },
+    { name: 'Estella to Los Arcos', miles: 12.4 }
+  ],
+  walked: 22.4
+};
+
+function routeState() {
+  const total = ROUTE.legs.reduce((a, l) => a + l.miles, 0);
+  let acc = 0;
+  const stops = ROUTE.legs.map(l => {
+    acc += l.miles;
+    return { at: acc, x: (acc / total) * 330, done: acc <= ROUTE.walked };
+  });
+  const legIndex = stops.findIndex(s => s.at > ROUTE.walked);
+  const i = legIndex === -1 ? ROUTE.legs.length - 1 : legIndex;
+  return {
+    eyebrow: `Together · ${ROUTE.name}`,
+    legName: ROUTE.legs[i].name,
+    legCount: `Leg ${i + 1} of ${ROUTE.legs.length}`,
+    dotX: (ROUTE.walked / total) * 330,
+    miles: `${ROUTE.walked} of ${Math.round(total * 10) / 10} miles walked together`,
+    startLabel: ROUTE.startLabel.toUpperCase(),
+    endLabel: ROUTE.endLabel.toUpperCase(),
+    stops: stops.map(s => ({
+      x: s.x,
+      fill: s.done ? '#C6A15D' : 'transparent',
+      stroke: s.done ? '#C6A15D' : 'rgba(243,237,225,.3)'
+    }))
+  };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+    this._cleanups = [];
+  }
+
+  componentDidMount() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.querySelectorAll('.om-scroll').forEach(scroller => {
+      const frame = scroller.parentElement;
+      const photo = frame.querySelector('.om-photo');
+      const fades = frame.querySelectorAll('.om-fade');
+      const RANGE = 340;
+      const onScroll = () => {
+        const p = Math.min(1, Math.max(0, scroller.scrollTop / RANGE));
+        if (photo) {
+          photo.style.filter = `blur(${(p * 16).toFixed(2)}px)`;
+          photo.style.transform = `scale(${(1 + p * 0.04).toFixed(4)})`;
+        }
+        const o = Math.max(0, 1 - p * 1.9);
+        fades.forEach(el => { el.style.opacity = o.toFixed(3); });
+      };
+      onScroll();
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      this._cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+    });
+  }
+
+  componentWillUnmount() {
+    this._cleanups.forEach(fn => fn());
+    this._cleanups = [];
+  }
+
+  renderVals() {
+    const defs = [
+      ['dawn', 'Dawn', '05:00 – 09:00', 'camp-dawn.jpg', 'Dawn camp', DARK, 580, 468,
+        'Breakfast first. 155 g of protein is easier split across four meals than three.', 'Log breakfast'],
+      ['day', 'Day', '09:00 – 17:00', 'camp-day.jpg', 'Day camp', DARK, 580, 468,
+        'You are 3,100 steps behind pace. A twenty-minute walk after lunch puts you level.', 'Start a walk'],
+      ['sunset', 'Sunset', '17:00 – 21:00', 'camp-sunset.jpg', 'Sunset camp', DARK, 580, 468,
+        "Protein is the gap. You're 76 g short with one meal left — a palm of chicken at dinner closes it.", 'Log dinner'],
+      ['night', 'Night', '21:00 – 05:00', 'camp-night.jpg', 'Night camp', DARK, 580, 468,
+        'The day is closed out. Weigh in before breakfast tomorrow and the trend stays honest.', 'Open reflection']
+    ];
+
+    const navOrder = ['home', 'journey', 'train', 'nutrition', 'together'];
+
+    return {
+      rootRef: this.rootRef,
+      exp: routeState(),
+      states: defs.map(([id, title, hours, file, camp, baseTheme, photoH, restH, nextStep, primaryLabel]) => {
+      const daylight = (this.props.daylightCards ?? false) && (id === 'dawn' || id === 'day');
+      const t = daylight ? LIGHT : baseTheme;
+      return {
+        id, title, hours, camp, nextStep, primaryLabel,
+        // The weekly footer made the numbers card 36px taller, so the rest offset drops by
+        // the same amount and the whole card still clears the nav, as tuned.
+        photoH: '690px', restH: '551px',
+        art: `${daylight ? SCRIM_LIGHT[id] : SCRIM[id]},url('assets/art/${file}')`,
+        ground: t.ground, ink: t.ink, muted: t.muted, faint: t.faint,
+        card: t.card, cardLine: t.cardLine, rule: t.rule, btnLine: t.btnLine, cardShadow: t.cardShadow,
+        accent: t.accent, sage: t.sage,
+        overInk: t.overInk, overAccent: t.overAccent, overShadow: t.overShadow,
+        chipBg: t.chipBg, chipLine: t.chipLine,
+        navBg: t.navBg, navLine: t.navLine,
+        nav: navOrder.map(key => ({
+          icon: { __html: ICONS[key] },
+          color: key === 'home' ? t.navOn : t.navOff,
+          rule: key === 'home' ? '#C6A15D' : 'transparent'
+        }))
+      };
+      })
+    };
+  }
+}
+
+</script>
+</body>
+</html>
