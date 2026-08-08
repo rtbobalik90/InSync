@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+  @keyframes omStampIn { 0% { opacity:0; transform:scale(1.6) rotate(-8deg); } 60% { opacity:1; transform:scale(.94) rotate(1deg); } 100% { opacity:1; transform:scale(1) rotate(0deg); } }
+  @keyframes omRise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Badges</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">A page of stamps, most of them still blank</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A29A87;margin:9px 0 0;max-width:64ch">{{ badgeTotal }} stamps across {{ catCount }} categories. {{ artLine }} Locked ones show nothing — no name, no condition. The coach is the only thing that points at one, and only when you are close.</p>
+  </div>
+
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:30px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+      <button onClick="{{ t.onClick }}" style="min-height:40px;padding:0 16px;border:1px solid {{ t.line }};border-radius:2px;background:{{ t.bg }};color:{{ t.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:0;right:0;top:0;bottom:0">
+            <div style="position:absolute;left:0;right:0;top:0;height:250px;background-image:linear-gradient(180deg,rgba(10,12,8,.52) 0%,rgba(10,12,8,.18) 34%,rgba(20,21,15,.74) 78%,#14150F 100%),url('assets/art/expedition-overlook.png');background-size:cover;background-position:center 30%;filter:blur(15px)"></div>
+
+            <div style="position:absolute;left:0;right:0;top:0;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between;z-index:10">
+              <button onClick="{{ onBack }}" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+              </button>
+              <div style="width:34px"></div>
+            </div>
+
+            <div class="om-fade" style="position:absolute;left:22px;right:22px;top:104px;z-index:2;pointer-events:none;will-change:opacity">
+              <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#F2DFB4;font-weight:600;margin-bottom:9px;text-shadow:0 1px 8px rgba(0,0,0,.75)">{{ eyebrow }}</div>
+              <p style="font-family:'Playfair Display',Georgia,serif;font-size:25px;line-height:1.25;margin:0;max-width:270px;text-shadow:0 2px 16px rgba(0,0,0,.8)">{{ headline }}</p>
+            </div>
+
+            <div class="om-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:8;scrollbar-width:none">
+              <div style="height:214px;pointer-events:none"></div>
+              <div style="padding:0 14px 300px;display:grid;gap:12px">
+
+                <sc-if value="{{ isIndex }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:14px">
+                        <div style="display:flex;align-items:center;gap:9px">
+                          <span style="width:15px;height:1px;background:#D8B87C"></span>
+                          <span style="font-family:'Playfair Display',Georgia,serif;font-size:16px">Collected</span>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:6px">
+                          <span style="font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:1;font-variant-numeric:tabular-nums">{{ earnedTotal }}</span>
+                          <span style="font-size:13px;color:#8A8371">of {{ badgeTotal }}</span>
+                        </div>
+                      </div>
+                      <div style="height:4px;border-radius:99px;background:rgba(243,237,225,.12);margin-top:13px;overflow:hidden"><span style="display:block;height:100%;width:{{ earnedPct }};background:#C6A15D;border-radius:inherit"></span></div>
+                    </article>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <sc-for list="{{ categories }}" as="c" hint-placeholder-count="8">
+                        <button onClick="{{ c.onOpen }}" style="background:#0D0E0A;border:1px solid {{ c.border }};border-radius:16px;padding:16px 12px 14px;display:grid;justify-items:center;gap:10px;cursor:pointer" style-hover="border-color:rgba(198,161,93,.45)">
+                          <div style="width:62px;height:62px;color:{{ c.markColor }}" dangerouslySetInnerHTML="{{ c.mark }}"></div>
+                          <div style="display:grid;justify-items:center;gap:5px">
+                            <div style="font-family:'Playfair Display',Georgia,serif;font-size:16px;color:#F3EDE1">{{ c.name }}</div>
+                            <div style="font-size:11.5px;color:#8A8371;font-variant-numeric:tabular-nums"><span style="color:{{ c.countColor }};font-weight:600">{{ c.earned }}</span> of {{ c.total }}</div>
+                          </div>
+                        </button>
+                      </sc-for>
+                    </div>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(198,161,93,.32);border-radius:16px;padding:16px 17px">
+                      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+                        <span style="width:7px;height:7px;border-radius:50%;background:#C6A15D"></span>
+                        <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600">The coach mentioned</span>
+                      </div>
+                      <p style="font-family:'Playfair Display',Georgia,serif;font-size:18px;line-height:1.45;margin:0;text-wrap:pretty">You are two legs off a stamp in Distance. I will not tell you which one.</p>
+                    </article>
+
+                    <button onClick="{{ onLizzie }}" style="width:100%;background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px;display:flex;align-items:center;gap:13px;cursor:pointer;text-align:left" style-hover="border-color:rgba(198,161,93,.45)">
+                      <div style="width:34px;height:34px;flex:none;border-radius:50%;background:linear-gradient(150deg,#4A3A52,#26202B);border:1px solid rgba(198,161,93,.4);display:grid;place-items:center;font-size:12px;font-weight:600">LZ</div>
+                      <div style="min-width:0;flex:1">
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:16px;color:#F3EDE1;margin-bottom:4px">Lizzie's stamps</div>
+                        <div style="font-size:11.5px;color:#8A8371">What she has, and what you both hold</div>
+                      </div>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                    </button>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isCategory }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px">
+                      <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ catBlurb }}</p>
+                    </article>
+
+                    <div style="display:flex;align-items:center;gap:11px;margin:4px 2px 0">
+                      <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Earned</span>
+                      <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                      <span style="font-size:12px;color:#A29A87">{{ catEarnedCount }}</span>
+                    </div>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 12px">
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px">
+                        <sc-for list="{{ catEarned }}" as="b" hint-placeholder-count="4">
+                          <button onClick="{{ b.onOpen }}" style="border:0;background:transparent;cursor:pointer;padding:0;display:grid;justify-items:center;gap:9px">
+                            <div style="width:78px;height:78px" dangerouslySetInnerHTML="{{ b.stamp }}"></div>
+                            <div style="font-size:11px;line-height:1.35;color:#E8E0CF;text-align:center;max-width:96px">{{ b.name }}</div>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </article>
+
+                    <div style="display:flex;align-items:center;gap:11px;margin:4px 2px 0">
+                      <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#8A8371;font-weight:600">Not yet</span>
+                      <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                      <span style="font-size:12px;color:#8A8371">{{ catLockedCount }}</span>
+                    </div>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 12px">
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px">
+                        <sc-for list="{{ catLocked }}" as="b" hint-placeholder-count="3">
+                          <div style="display:grid;justify-items:center;gap:9px">
+                            <div style="width:78px;height:78px;border-radius:50%;border:1px dashed rgba(243,237,225,.16);display:grid;place-items:center">
+                              <span style="width:7px;height:7px;border-radius:50%;background:rgba(243,237,225,.14)"></span>
+                            </div>
+                            <div style="font-size:11px;color:#8A8371;text-align:center">Not earned</div>
+                          </div>
+                        </sc-for>
+                      </div>
+                      <p style="font-size:11.5px;line-height:1.55;color:#8A8371;margin:15px 5px 2px;text-wrap:pretty">Blank on purpose. You find out what they were when you earn them.</p>
+                    </article>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(198,161,93,.36);border-radius:16px;padding:22px 17px 18px;text-align:center">
+                      <div style="width:132px;height:132px;margin:0 auto 16px" dangerouslySetInnerHTML="{{ detailStamp }}"></div>
+                      <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:500;margin:0 0 8px">{{ detailName }}</h3>
+                      <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+                        <span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:{{ detailTierColor }};font-weight:600">{{ detailTier }}</span>
+                        <span style="width:3px;height:3px;border-radius:50%;background:#5F5A4C"></span>
+                        <span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A8371">{{ detailDate }}</span>
+                      </div>
+                    </article>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:17px">
+                      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:11px">What you did</div>
+                      <p style="font-family:'Playfair Display',Georgia,serif;font-size:18px;line-height:1.45;margin:0;text-wrap:pretty">{{ detailDeed }}</p>
+                    </article>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;overflow:hidden">
+                      <sc-for list="{{ detailRows }}" as="r" hint-placeholder-count="3">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 17px;border-bottom:1px solid rgba(243,237,225,.1)">
+                          <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8A8371;flex:none;padding-top:2px">{{ r.label }}</div>
+                          <div style="font-size:13px;line-height:1.5;color:{{ r.color }};text-align:right">{{ r.value }}</div>
+                        </div>
+                      </sc-for>
+                      <div style="height:4px"></div>
+                    </article>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:17px">
+                      <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#95A889;font-weight:600;margin-bottom:11px">Next in this series</div>
+                      <div style="display:flex;align-items:center;gap:14px">
+                        <div style="width:56px;height:56px;flex:none;border-radius:50%;border:1px dashed rgba(243,237,225,.18);display:grid;place-items:center">
+                          <span style="width:6px;height:6px;border-radius:50%;background:rgba(243,237,225,.14)"></span>
+                        </div>
+                        <p style="font-size:12.5px;line-height:1.55;color:#A29A87;margin:0;text-wrap:pretty">There is one. It is further along the same road, and that is all you get.</p>
+                      </div>
+                    </article>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isLizzie }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px">
+                      <div style="display:flex;align-items:center;gap:14px">
+                        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(150deg,#4A3A52,#26202B);border:1px solid rgba(198,161,93,.45);display:grid;place-items:center;font-size:14px;font-weight:600;flex:none">LZ</div>
+                        <div style="min-width:0;flex:1">
+                          <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;margin-bottom:4px">Lizzie</div>
+                          <div style="font-size:11.5px;color:#8A8371">{{ lizzieCount }}</div>
+                        </div>
+                      </div>
+                    </article>
+
+                    <div style="display:flex;align-items:center;gap:11px;margin:4px 2px 0">
+                      <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#95A889;font-weight:600">Hers alone</span>
+                      <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                      <span style="font-size:12px;color:#A29A87">{{ hersAloneCount }}</span>
+                    </div>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 12px">
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px">
+                        <sc-for list="{{ hersAlone }}" as="b" hint-placeholder-count="3">
+                          <div style="display:grid;justify-items:center;gap:9px">
+                            <div style="width:78px;height:78px" dangerouslySetInnerHTML="{{ b.stamp }}"></div>
+                            <div style="font-size:11px;line-height:1.35;color:#E8E0CF;text-align:center;max-width:96px">{{ b.name }}</div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </article>
+
+                    <div style="display:flex;align-items:center;gap:11px;margin:4px 2px 0">
+                      <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Both of you</span>
+                      <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                      <span style="font-size:12px;color:#A29A87">{{ sharedCount }}</span>
+                    </div>
+
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 12px">
+                      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px">
+                        <sc-for list="{{ sharedStamps }}" as="b" hint-placeholder-count="3">
+                          <div style="display:grid;justify-items:center;gap:9px">
+                            <div style="width:78px;height:78px" dangerouslySetInnerHTML="{{ b.stamp }}"></div>
+                            <div style="font-size:11px;line-height:1.35;color:#E8E0CF;text-align:center;max-width:96px">{{ b.name }}</div>
+                          </div>
+                        </sc-for>
+                      </div>
+                      <p style="font-size:11.5px;line-height:1.55;color:#8A8371;margin:15px 5px 2px;text-wrap:pretty">You cannot see what she has not earned. She cannot see yours either.</p>
+                    </article>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isStreaks }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px">
+                      <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+                        <span style="width:15px;height:1px;background:#D8B87C"></span>
+                        <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600">{{ setCount }}</span>
+                      </div>
+                      <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ setBlurb }}</p>
+                    </article>
+
+                    <sc-for list="{{ streakSet }}" as="s" hint-placeholder-count="5">
+                      <article style="background:#0D0E0A;border:1px solid {{ s.border }};border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:16px">
+                        <div style="width:76px;height:76px;flex:none" dangerouslySetInnerHTML="{{ s.mark }}"></div>
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                            <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:18px;font-weight:500;margin:0">{{ s.name }}</h4>
+                            <span style="font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:{{ s.tierColor }}">{{ s.tier }}</span>
+                          </div>
+                          <div style="font-size:12px;line-height:1.5;color:#A29A87">{{ s.cond }}</div>
+                          <div style="font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:{{ s.stateColor }};margin-top:7px">{{ s.state }}</div>
+                        </div>
+                      </article>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:12px">
+                    <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:24px 17px;text-align:center">
+                      <div style="width:96px;height:96px;margin:0 auto 16px;border-radius:50%;border:1px dashed rgba(243,237,225,.2);display:grid;place-items:center">
+                        <span style="width:8px;height:8px;border-radius:50%;background:rgba(243,237,225,.14)"></span>
+                      </div>
+                      <p style="font-family:'Playfair Display',Georgia,serif;font-size:20px;line-height:1.4;margin:0 0 10px;color:#B8AF9B;text-wrap:pretty">{{ badgeTotal }} blank stamps.</p>
+                      <p style="font-size:12.5px;line-height:1.6;color:#8A8371;margin:0;text-wrap:pretty">The first one is a workout away. You will not know which until it lands.</p>
+                    </article>
+
+                    <sc-for list="{{ emptyCategories }}" as="c" hint-placeholder-count="8">
+                      <div style="background:#0D0E0A;border:1px solid rgba(243,237,225,.1);border-radius:16px;padding:15px 17px;display:flex;align-items:center;gap:14px">
+                        <div style="width:46px;height:46px;flex:none;color:#4E4A3E">
+                          <div style="width:46px;height:46px" dangerouslySetInnerHTML="{{ c.mark }}"></div>
+                        </div>
+                        <div style="min-width:0;flex:1">
+                          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px;color:#8A8371">{{ c.name }}</div>
+                        </div>
+                        <div style="flex:none;font-family:'Playfair Display',Georgia,serif;font-size:17px;color:#8A8371;font-variant-numeric:tabular-nums">0 of {{ c.total }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isMoment }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:20;background:#0B0C08;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 34px;text-align:center">
+            <div style="position:absolute;left:0;right:0;top:0;height:100%;background-image:radial-gradient(circle at 50% 38%,rgba(198,161,93,.16) 0%,rgba(11,12,8,0) 58%)"></div>
+            <div style="position:relative;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:34px;animation:omRise .5s ease-out both;animation-delay:.55s">Stamped</div>
+            <div style="position:relative;width:186px;height:186px;margin-bottom:32px;animation:omStampIn .62s cubic-bezier(.2,.9,.3,1.2) both" dangerouslySetInnerHTML="{{ momentStamp }}"></div>
+            <h2 style="position:relative;font-family:'Playfair Display',Georgia,serif;font-size:30px;font-weight:500;margin:0 0 12px;line-height:1.2;animation:omRise .5s ease-out both;animation-delay:.7s">{{ momentName }}</h2>
+            <p style="position:relative;font-size:13.5px;line-height:1.6;color:#A29A87;margin:0 0 8px;max-width:280px;text-wrap:pretty;animation:omRise .5s ease-out both;animation-delay:.82s">{{ momentDeed }}</p>
+            <div style="position:relative;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8FA184;font-weight:600;animation:omRise .5s ease-out both;animation-delay:.9s">{{ momentTier }}</div>
+            <div style="position:absolute;left:24px;right:24px;bottom:44px;display:grid;gap:10px;animation:omRise .5s ease-out both;animation-delay:1s">
+              <button style="width:100%;min-height:52px;border:0;border-radius:2px;background:#C6A15D;color:#191A12;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="background:#DCBE85">Good</button>
+              <button style="width:100%;min-height:44px;border:1px solid rgba(243,237,225,.24);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Tell Lizzie</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="margin-top:16px;max-width:390px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:7px">{{ captionTitle }}</div>
+        <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ captionBody }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:1180}}">
+const GOLD = '#C6A15D', SAGE = '#8FA184', INK = '#F3EDE1';
+
+// A stamp is a category silhouette plus a per-badge device. The border says which
+// category; the mark inside says which badge. Eight borders, one mark per badge.
+const BORDERS = {
+  ring: c => `<circle cx="50" cy="50" r="42" fill="none" stroke="${c}" stroke-width="2"/>
+    <circle cx="50" cy="50" r="34" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="2 5"/>`,
+  sun: c => `<path d="M50 4l6 10 11-6-1 12 12 1-7 10 10 7-11 5 4 12-12-3-3 12-9-8-9 8-3-12-12 3 4-12-11-5 10-7-7-10 12-1-1-12 11 6z" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="50" cy="50" r="25" fill="none" stroke="${c}" stroke-width="1.3"/>`,
+  hex: c => `<path d="M50 6l38 22v44L50 94 12 72V28z" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 16l29 17v34L50 84 21 67V33z" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="3 4"/>`,
+  shield: c => `<path d="M50 5l36 12v34c0 24-18 37-36 44-18-7-36-20-36-44V17z" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 14l28 9v27c0 19-14 29-28 35-14-6-28-16-28-35V23z" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="3 4"/>`,
+  square: c => `<rect x="9" y="9" width="82" height="82" rx="3" fill="none" stroke="${c}" stroke-width="2"/>
+    <rect x="18" y="18" width="64" height="64" rx="2" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="3 4"/>`,
+  octa: c => `<path d="M32 8h36l24 24v36L68 92H32L8 68V32z" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M35 18h30l17 17v30L65 82H35L18 65V35z" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="3 4"/>`,
+  rings: c => `<circle cx="37" cy="50" r="28" fill="none" stroke="${c}" stroke-width="2"/>
+    <circle cx="63" cy="50" r="28" fill="none" stroke="${c}" stroke-width="2"/>`,
+  arch: c => `<path d="M18 92V44a32 32 0 0 1 64 0v48z" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M27 88V45a23 23 0 0 1 46 0v43" fill="none" stroke="${c}" stroke-width=".7" stroke-dasharray="3 4"/>`
+};
+
+const MARKS = {
+  tick: c => `<path d="M38 50l8 9 17-19" fill="none" stroke="${c}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chain: c => `<circle cx="38" cy="50" r="5" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="50" cy="50" r="5" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="62" cy="50" r="5" fill="none" stroke="${c}" stroke-width="2.4"/>`,
+  sunrise: c => `<path d="M36 60a14 14 0 0 1 28 0" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/><path d="M32 60h36M50 34v6M36 42l4 4M64 42l-4 4" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`,
+  one: c => `<path d="M50 36v28M43 43l7-7M42 64h16" fill="none" stroke="${c}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  peak: c => `<path d="M32 62l11-18 7 10 7-13 11 21z" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>`,
+  plate: c => `<circle cx="50" cy="50" r="13" fill="none" stroke="${c}" stroke-width="2.6"/><circle cx="50" cy="50" r="4.5" fill="none" stroke="${c}" stroke-width="1.8"/>`,
+  stack: c => `<circle cx="42" cy="50" r="11" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="58" cy="50" r="11" fill="none" stroke="${c}" stroke-width="2.4"/>`,
+  sixbars: c => `<path d="M33 55v-6M39 57v-10M45 59v-14M51 60v-18M57 61v-22M63 62v-26" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>`,
+  boot: c => `<path d="M42 34v20l-8 5v6h30v-6l-10-4V34z" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`,
+  flag: c => `<path d="M39 34v30M39 37h21l-5 6 5 6H39" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  rule: c => `<path d="M36 43h28M36 51h28M36 59h17" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>`,
+  scale: c => `<path d="M50 37v26M39 45h22M43 63h14" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/><circle cx="50" cy="37" r="3.5" fill="none" stroke="${c}" stroke-width="2"/>`,
+  link: c => `<circle cx="44" cy="50" r="8" fill="none" stroke="${c}" stroke-width="2.4"/><circle cx="56" cy="50" r="8" fill="none" stroke="${c}" stroke-width="2.4"/>`,
+  book: c => `<path d="M50 43v22M50 43c-5-3-10-4-15-3v21c5-1 10 0 15 3M50 43c5-3 10-4 15-3v21c-5-1-10 0-15 3" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`,
+  cross: c => `<path d="M50 34v32M38 46h24" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
+  lamp: c => `<path d="M38 62h24l-3-9H41z" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/><path d="M50 53v-7" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/><path d="M46 42a4 4 0 0 1 8 0c0 3-4 4-4 4s-4-1-4-4z" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`,
+  dove: c => `<path d="M34 56c8 2 14-1 18-6 3-4 7-6 12-5-2 5-2 9-5 13-4 6-11 9-19 8l-6 4 2-8z" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`
+};
+
+// Real stamped artwork, drawn by hand. When a badge has art it replaces the
+// generated silhouette entirely — the art carries its own border.
+const ART = {
+  chain: 'assets/badges/streak-three-days.png',
+  chain5: 'assets/badges/streak-two-weeks.png',
+  knot: 'assets/badges/streak-forty-days.png',
+  ringcircle: 'assets/badges/streak-hundred-days.png',
+  sunrise: 'assets/badges/streak-dawn-riser.png',
+  firstOne: 'assets/badges/first-first-step.png',
+  firstBowl: 'assets/badges/first-first-meal.png',
+  firstBarbell: 'assets/badges/first-first-session.png',
+  firstScale: 'assets/badges/first-first-weigh-in.png',
+  firstQuill: 'assets/badges/first-first-reflection.png',
+  firstFlag: 'assets/badges/first-first-leg.png',
+  strengthPlate: 'assets/badges/strength-first-plate.png',
+  strengthStack: 'assets/badges/strength-two-hundred.png',
+  strengthSixbars: 'assets/badges/strength-six-for-six.png',
+  strengthFigure: 'assets/badges/strength-bodyweight.png',
+  strengthTonnage: 'assets/badges/strength-ten-thousand.png',
+  strengthGrid: 'assets/badges/strength-unbroken-block.png',
+  distBoot: 'assets/badges/distance-fifty-miles.png',
+  distFlag: 'assets/badges/distance-first-leg-walked.png',
+  distMilepost: 'assets/badges/distance-hundred-miles.png',
+  distSummit: 'assets/badges/distance-route-finished.png',
+  distTwinBoot: 'assets/badges/distance-both-of-you.png',
+  consRule: 'assets/badges/consistency-clean-week.png',
+  consColumn: 'assets/badges/consistency-protein-month.png',
+  consLedger: 'assets/badges/consistency-nothing-missed.png',
+  consWeekend: 'assets/badges/consistency-weekend-held.png',
+  bodyFrame: 'assets/badges/body-first-photograph.png',
+  bodyScale: 'assets/badges/body-five-pounds.png',
+  bodyBeam: 'assets/badges/body-goal-weight.png',
+  bodyFilm: 'assets/badges/body-twelve-weeks.png',
+  togLink: 'assets/badges/together-a-week-together.png',
+  togHandshake: 'assets/badges/together-expedition-agreed.png',
+  togLaurel: 'assets/badges/together-challenge-won.png',
+  togEnvelope: 'assets/badges/together-ten-notes.png',
+  togBalance: 'assets/badges/together-neck-and-neck.png',
+  faithCross: 'assets/badges/faith-first-verse.png',
+  faithBook: 'assets/badges/faith-ten-reflections.png',
+  faithLamp: 'assets/badges/faith-forty-evenings.png',
+  faithDove: 'assets/badges/faith-sabbath-kept.png'
+};
+
+function stamp(kind, markKey, opts) {
+  const o = opts || {};
+  const c = o.color || GOLD;
+  const dim = o.dim ? 0.42 : 1;
+  if (ART[markKey] && !o.noArt) {
+    const gray = o.color === '#4E4A3E' ? 'filter:grayscale(1) brightness(.55);' : '';
+    return `<img src="${ART[markKey]}" alt="" style="width:100%;height:100%;object-fit:contain;opacity:${dim};${gray}">`;
+  }
+  const border = BORDERS[kind] ? BORDERS[kind](c) : '';
+  const inner = MARKS[markKey] ? MARKS[markKey](c) : '';
+  return `<svg viewBox="0 0 100 100" width="100%" height="100%" style="opacity:${dim}">${border}${inner}</svg>`;
+}
+
+// The badge shown on the detail and earning-moment screens. Everything about
+// those views reads from here, so a mark rename can never strand one of them.
+const FEATURED_INDEX = 2;
+
+const WORDS = { 4: 'Four', 5: 'Five', 6: 'Six' };
+
+const CATS = [
+  { key: 'streaks', name: 'Streaks', kind: 'ring', mark: 'chain', blurb: 'Days logged without a gap', total: 5, earned: 2 },
+  { key: 'firsts', name: 'Firsts', kind: 'sun', mark: 'firstOne', blurb: 'The first time you did each thing', total: 6, earned: 5 },
+  { key: 'strength', name: 'Strength', kind: 'hex', mark: 'strengthPlate', blurb: 'Personal bests, machine by machine', total: 6, earned: 3 },
+  { key: 'distance', name: 'Distance', kind: 'shield', mark: 'distBoot', blurb: 'Miles walked, legs and routes finished', total: 5, earned: 2 },
+  { key: 'consistency', name: 'Consistency', kind: 'square', mark: 'consRule', blurb: 'Targets hit day after day', total: 4, earned: 1 },
+  { key: 'body', name: 'Body', kind: 'octa', mark: 'bodyFrame', blurb: 'Weight and the photographs', total: 4, earned: 2 },
+  { key: 'together', name: 'Together', kind: 'rings', mark: 'togLink', blurb: 'Weeks shared, challenges settled', total: 5, earned: 3 },
+  { key: 'faith', name: 'Faith', kind: 'arch', mark: 'faithCross', blurb: 'Reflections written, verses read', total: 4, earned: 2 }
+];
+
+const FIRSTS_SET = [
+  { name: 'First step', mark: 'firstOne', tier: 'Common', cond: 'The first day logged' },
+  { name: 'First meal', mark: 'firstBowl', tier: 'Common', cond: 'The first meal photographed' },
+  { name: 'First session', mark: 'firstBarbell', tier: 'Common', cond: 'The first workout saved' },
+  { name: 'First weigh-in', mark: 'firstScale', tier: 'Common', cond: 'The first morning entry' },
+  { name: 'First reflection', mark: 'firstQuill', tier: 'Common', cond: 'The first evening written' },
+  { name: 'First leg', mark: 'firstFlag', tier: 'Hard', cond: 'The first expedition leg walked' }
+];
+
+const STREAK_SET = [
+  { name: 'Three days', mark: 'chain', tier: 'Common', cond: 'Logged three days running' },
+  { name: 'Two weeks', mark: 'chain5', tier: 'Common', cond: 'Fourteen days unbroken' },
+  { name: 'Forty days', mark: 'knot', tier: 'Hard', cond: 'Forty days unbroken' },
+  { name: 'A hundred days', mark: 'ringcircle', tier: 'Rare', cond: 'One hundred days unbroken' },
+  { name: 'Dawn riser', mark: 'sunrise', tier: 'Hard', cond: 'Logged before 7am, ten days running' }
+];
+
+const STRENGTH_EARNED = [
+  { name: 'First plate', mark: 'strengthPlate', tier: 'Common', date: '2 August', deed: 'Pressed 135 lb on the chest press for eight clean reps.' },
+  { name: 'Two hundred', mark: 'strengthStack', tier: 'Hard', date: '19 August', deed: 'Leg press at 200 lb, three sets of ten, no rest longer than ninety seconds.' },
+  { name: 'Six for six', mark: 'strengthSixbars', tier: 'Hard', date: '4 September', deed: 'Raised the weight on all six machines inside a single eight-week block.' }
+];
+
+const TOGETHER_SET = [
+  { name: 'A week together', mark: 'togLink', tier: 'Common', cond: 'Seven days you both logged' },
+  { name: 'Expedition agreed', mark: 'togHandshake', tier: 'Common', cond: 'The first invitation accepted' },
+  { name: 'Challenge won', mark: 'togLaurel', tier: 'Hard', cond: 'Win a weekly challenge' },
+  { name: 'Ten notes', mark: 'togEnvelope', tier: 'Common', cond: 'Ten encouragements sent' },
+  { name: 'Neck and neck', mark: 'togBalance', tier: 'Rare', cond: 'Finish a week within three points' }
+];
+
+const BODY_SET = [
+  { name: 'First photograph', mark: 'bodyFrame', tier: 'Common', cond: 'The first progress photo taken' },
+  { name: 'Five pounds', mark: 'bodyScale', tier: 'Common', cond: 'Five pounds down from the start' },
+  { name: 'Goal weight', mark: 'bodyBeam', tier: 'Rare', cond: 'Reach the target weight' },
+  { name: 'Twelve weeks', mark: 'bodyFilm', tier: 'Hard', cond: 'Twelve weeks of photographs' }
+];
+
+const CONSISTENCY_SET = [
+  { name: 'Clean week', mark: 'consRule', tier: 'Common', cond: 'Every target, seven days running' },
+  { name: 'Protein month', mark: 'consColumn', tier: 'Hard', cond: 'Protein target hit thirty days' },
+  { name: 'Nothing missed', mark: 'consLedger', tier: 'Hard', cond: 'Four weeks with every meal logged' },
+  { name: 'Weekend held', mark: 'consWeekend', tier: 'Rare', cond: 'Eight weekends logged in full' }
+];
+
+const DISTANCE_SET = [
+  { name: 'Fifty miles', mark: 'distBoot', tier: 'Common', cond: 'Fifty miles walked' },
+  { name: 'First leg walked', mark: 'distFlag', tier: 'Common', cond: 'Complete an expedition leg' },
+  { name: 'A hundred miles', mark: 'distMilepost', tier: 'Hard', cond: 'One hundred miles walked' },
+  { name: 'Route finished', mark: 'distSummit', tier: 'Rare', cond: 'Complete a whole expedition' },
+  { name: 'Both of you', mark: 'distTwinBoot', tier: 'Hard', cond: 'A leg where you each walked some of it' }
+];
+
+const STRENGTH_SET = [
+  { name: 'First plate', mark: 'strengthPlate', tier: 'Common', cond: '135 lb on the chest press, eight clean reps' },
+  { name: 'Two hundred', mark: 'strengthStack', tier: 'Hard', cond: 'Leg press at 200 lb, three sets of ten' },
+  { name: 'Six for six', mark: 'strengthSixbars', tier: 'Hard', cond: 'Weight raised on all six machines in one block' },
+  { name: 'Bodyweight', mark: 'strengthFigure', tier: 'Hard', cond: 'Press your own bodyweight' },
+  { name: 'Ten thousand', mark: 'strengthTonnage', tier: 'Rare', cond: '10,000 lb of total volume in one session' },
+  { name: 'Unbroken block', mark: 'strengthGrid', tier: 'Rare', cond: 'Eight weeks, no session missed' }
+];
+
+const FAITH_SET = [
+  { name: 'First verse', mark: 'faithCross', tier: 'Common', cond: 'Read the day’s verse' },
+  { name: 'Ten reflections', mark: 'faithBook', tier: 'Common', cond: 'Ten evenings written' },
+  { name: 'Forty evenings', mark: 'faithLamp', tier: 'Hard', cond: 'Forty reflections written' },
+  { name: 'Sabbath kept', mark: 'faithDove', tier: 'Rare', cond: 'A rest day taken twelve weeks running' }
+];
+
+// Only the names she holds. Which group each falls into is derived from
+// Robert's own earned state, so the two pages cannot disagree.
+const HER_NAMES = [
+  'Fifty miles', 'Dawn riser', 'Ten reflections',
+  'First leg walked', 'A week together', 'Route finished'
+];
+
+const VIEWS = {
+  streaks: { label: 'Streaks', title: 'Streaks', eyebrow: 'Streaks', headline: 'Days logged without a gap.',
+    capTitle: 'The struck set',
+    capBody: 'Real stamped artwork rather than drawn silhouettes. Two earned; the remaining three appear blank in the app, and this sheet is the only place all five are visible at once.' },
+  strength: { label: 'Strength set', title: 'Strength', eyebrow: 'Strength', headline: 'Personal bests, machine by machine.',
+    capTitle: 'Strength',
+    capBody: 'The hexagonal plate. Three earned, three still blank in the app — this category fills slowly and keeps giving, which is the opposite of Firsts.' },
+  distance: { label: 'Distance set', title: 'Distance', eyebrow: 'Distance', headline: 'Miles walked, legs and routes finished.',
+    capTitle: 'Distance',
+    capBody: 'The milestone shield. Two earned. This is the only category tied to the expedition, so its stamps arrive on the days a leg closes rather than on ordinary ones.' },
+  together: { label: 'Together set', title: 'Together', eyebrow: 'Together', headline: 'Weeks shared, challenges settled.',
+    capTitle: 'Together',
+    capBody: 'The coin. Three earned, and the only set where the rarest badge is not for winning — it is for finishing a week within three points of each other.' },
+  body: { label: 'Body set', title: 'Body', eyebrow: 'Body', headline: 'Weight, and the photographs.',
+    capTitle: 'Body',
+    capBody: 'The octagon. Two earned, and the two that remain are the long ones — twelve weeks of photographs, and the goal weight itself.' },
+  consistency: { label: 'Consistency set', title: 'Consistency', eyebrow: 'Consistency', headline: 'Targets hit day after day.',
+    capTitle: 'Consistency',
+    capBody: 'The ruled square, the only set that rewards nothing remarkable — just days that all went right. One earned, and the hardest of the four is a weekend.' },
+  faith: { label: 'Faith set', title: 'Faith', eyebrow: 'Faith', headline: 'Reflections written, verses read.',
+    capTitle: 'Faith',
+    capBody: 'The arch, and the only set where the rarest badge asks you to stop rather than push — a rest day taken twelve weeks running.' },
+  firsts: { label: 'Firsts', title: 'Firsts', eyebrow: 'Firsts', headline: 'The first time you did each thing.',
+    capTitle: 'Firsts',
+    capBody: 'Rayed sunburst rather than the ticked ring, so the two sets read apart at a glance. Five of the six are earned in the first fortnight — this is the category that fills quickly and then stops.' },
+  index: { label: 'Categories', title: 'Badges', eyebrow: '', headline: '',
+    capTitle: 'The index',
+    capBody: 'Eight categories, each with its stamp and a count. The coach card at the bottom is the only pull toward a locked badge, and it deliberately refuses to say which one.' },
+  category: { label: 'A category', title: 'Strength', eyebrow: 'Strength', headline: 'Three earned. Three you know nothing about.',
+    capTitle: 'Inside a category',
+    capBody: 'Earned stamps carry their name. Locked ones are a dashed circle and the words Not earned — no name, no condition, no progress bar. The sentence underneath says that is deliberate.' },
+  detail: { label: 'A badge', title: 'Six for six', eyebrow: 'Strength', headline: 'What it took, and where you were.',
+    capTitle: 'A badge detail',
+    capBody: 'Date, the deed in full, where you were on the route when it landed, and whether Lizzie holds it. Next in series exists but says nothing — consistent with the locked stamps.' },
+  moment: { label: 'Earning it', title: '', eyebrow: '', headline: '',
+    capTitle: 'The earning moment',
+    capBody: 'Fires after the workout is saved, never mid-set. The stamp lands hard, the words follow. Two ways out: acknowledge it, or send it to Lizzie.' },
+  lizzie: { label: "Lizzie's", title: 'Lizzie', eyebrow: '', headline: 'What she has, and what you both hold.',
+    capTitle: "Lizzie's page",
+    capBody: 'Only her earned stamps. Her locked ones are not shown and never will be — the same privacy rule that governs the rest of the app, stated at the bottom.' },
+  empty: { label: 'Empty', title: 'Badges', eyebrow: 'Day one', headline: 'Nothing stamped yet.',
+    capTitle: 'Empty',
+    capBody: 'Thirty-four blanks and one true sentence: the first is a workout away, and you will not know which until it lands. No sample badges, no teaser list.' }
+};
+
+class Component extends DCLogic {
+  state = { view: 'index' };
+
+  componentDidMount() {
+    this._cleanups = [];
+    document.querySelectorAll('.om-scroll').forEach(scroller => {
+      const fades = scroller.parentElement.querySelectorAll('.om-fade');
+      const onScroll = () => {
+        const o = Math.max(0, 1 - (scroller.scrollTop / 150) * 1.9);
+        fades.forEach(el => { el.style.opacity = o.toFixed(3); });
+      };
+      onScroll();
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      this._cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+    });
+  }
+
+  componentWillUnmount() {
+    (this._cleanups || []).forEach(fn => fn());
+  }
+
+  renderVals() {
+    const key = this.state.view;
+    const v = VIEWS[key];
+    const earnedTotal = CATS.reduce((a, c) => a + c.earned, 0);
+    const badgeTotal = CATS.reduce((a, c) => a + c.total, 0);
+    const cat = CATS.find(c => c.key === 'strength');
+    const FEATURED = STRENGTH_EARNED[FEATURED_INDEX];
+    const SETS = { streaks: STREAK_SET, firsts: FIRSTS_SET, strength: STRENGTH_SET, distance: DISTANCE_SET, consistency: CONSISTENCY_SET, body: BODY_SET, together: TOGETHER_SET, faith: FAITH_SET };
+    const SET_EARNED = { streaks: 2, firsts: 5, strength: 3, distance: 2, consistency: 1, body: 2, together: 3, faith: 2 };
+
+    const CAT_KIND = {};
+    CATS.forEach(c => { CAT_KIND[c.key] = c.kind; });
+    const INFO = {};
+    Object.entries(SETS).forEach(([k, set]) => set.forEach((b, i) => {
+      INFO[b.name] = { mark: b.mark, kind: CAT_KIND[k], mine: i < SET_EARNED[k] };
+    }));
+    const herBadges = HER_NAMES.map(n => ({ name: n, ...INFO[n] })).filter(b => b.mark);
+    const hersAloneList = herBadges.filter(b => !b.mine);
+    const sharedList = herBadges.filter(b => b.mine);
+    // A badge's stamp is its name, wherever it appears. Lizzie's stamps resolve
+    // through the same sets as Robert's, so a mark rename can never strand them.
+    const BY_NAME = {};
+    Object.values(SETS).forEach(set => set.forEach(b => { BY_NAME[b.name] = b.mark; }));
+    const markFor = b => BY_NAME[b.name] || b.mark;
+
+    const SET_BLURB = {
+      streaks: 'The struck set. In the app only the first two are visible to Robert — the other three are blank until earned.',
+      firsts: 'The struck set. Five of the six are earned; only the last stays blank in the app until an expedition leg is walked.',
+      strength: 'The struck set. Three earned; the last three are blank in the app — bodyweight, ten thousand pounds and an unbroken eight-week block.',
+      distance: 'The struck set. Two earned. The last three all wait on the expedition rather than on a gym or a kitchen.',
+      consistency: 'The struck set. One earned. Nothing here is a feat — they are all just days that went right, several in a row.',
+      body: 'The struck set. Two earned. The other two cannot be rushed — one needs twelve weeks, the other needs the whole journey.',
+      together: 'The struck set. Three earned. Every one of these needs both of you, which is why it is the only set she can affect.'
+    };
+
+    return {
+      tabs: Object.keys(VIEWS).map(k => ({
+        label: VIEWS[k].label,
+        onClick: () => this.setState({ view: k }),
+        bg: k === key ? GOLD : 'transparent',
+        fg: k === key ? '#191A12' : '#B8AF9B',
+        line: k === key ? GOLD : 'rgba(243,237,225,.26)'
+      })),
+      headerTitle: v.title,
+      eyebrow: v.eyebrow,
+      headline: key === 'index'
+        ? `${earnedTotal} stamps. ${badgeTotal - earnedTotal} still blank.`
+        : v.headline,
+      catCount: CATS.length,
+      captionTitle: v.capTitle,
+      captionBody: v.capBody,
+      showChrome: key !== 'moment',
+      isIndex: key === 'index',
+      isCategory: key === 'category',
+      isDetail: key === 'detail',
+      isLizzie: key === 'lizzie',
+      isEmpty: key === 'empty',
+      isMoment: key === 'moment',
+      onBack: () => this.setState({ view: 'index' }),
+      onLizzie: () => this.setState({ view: 'lizzie' }),
+      lizzieRing: key === 'lizzie' ? 'rgba(198,161,93,.85)' : 'rgba(198,161,93,.5)',
+
+      earnedTotal,
+      badgeTotal,
+      earnedPct: `${Math.round((earnedTotal / badgeTotal) * 100)}%`,
+      isStreaks: !!SETS[key],
+      streakSet: (SETS[key] || STREAK_SET).map((s, i) => {
+        const earned = i < (SET_EARNED[key] || 0);
+        return {
+          name: s.name, tier: s.tier, cond: s.cond,
+          mark: { __html: stamp('ring', s.mark, {}) },
+          border: earned ? 'rgba(198,161,93,.3)' : 'rgba(243,237,225,.12)',
+          tierColor: s.tier === 'Rare' ? '#D8B87C' : s.tier === 'Hard' ? '#95A889' : '#8A8371',
+          state: earned ? 'Earned' : 'Not yet earned — blank in the app',
+          stateColor: earned ? '#D8B87C' : '#8A8371'
+        };
+      }),
+      artCount: Object.keys(ART).length,
+      artLine: Object.keys(ART).length >= badgeTotal
+        ? 'Every one struck from real artwork.'
+        : `${Object.keys(ART).length} struck from real artwork so far; the rest are placeholder silhouettes until their sheets arrive.`,
+      setCount: `${WORDS[(SETS[key] || STREAK_SET).length] || (SETS[key] || STREAK_SET).length} stamps`,
+      setBlurb: SET_BLURB[key] || SET_BLURB.streaks,
+      categories: CATS.map(c => ({
+        name: c.name,
+        blurb: c.blurb,
+        earned: c.earned,
+        total: c.total,
+        mark: { __html: stamp(c.kind, c.mark, { dim: c.earned === 0 }) },
+        markColor: c.earned ? GOLD : '#4E4A3E',
+        border: c.earned ? 'rgba(243,237,225,.14)' : 'rgba(243,237,225,.09)',
+        countColor: c.earned ? INK : '#4E4A3E',
+        onOpen: () => this.setState({ view: 'category' })
+      })),
+      emptyCategories: CATS.map(c => ({
+        name: c.name,
+        total: c.total,
+        mark: { __html: stamp(c.kind, c.mark, { color: '#4E4A3E' }) }
+      })),
+
+      catBlurb: 'Six machines, six stamps. Each one is a weight you had not lifted before, held for a full session rather than a single rep.',
+      catEarnedCount: `${cat.earned} of ${cat.total}`,
+      catLockedCount: `${cat.total - cat.earned} left`,
+      catEarned: STRENGTH_EARNED.map(b => ({
+        name: b.name,
+        stamp: { __html: stamp('hex', b.mark) },
+        onOpen: () => this.setState({ view: 'detail' })
+      })),
+      catLocked: Array.from({ length: cat.total - cat.earned }, (_, i) => ({ i })),
+
+      detailStamp: { __html: stamp('hex', FEATURED.mark) },
+      detailName: FEATURED.name,
+      detailTier: 'Hard',
+      detailTierColor: GOLD,
+      detailDate: '4 September',
+      detailDeed: 'Raised the weight on all six machines inside a single eight-week block. Nothing was skipped and nothing went backwards.',
+      detailRows: [
+        { label: 'Where you were', value: 'Day 39 · Camino, past Zubiri', color: '#E8E0CF' },
+        { label: 'Lizzie', value: 'Does not have this one', color: SAGE },
+        { label: 'Tier', value: 'Hard', color: '#E8E0CF' }
+      ],
+
+      momentStamp: { __html: stamp('hex', FEATURED.mark) },
+      momentName: FEATURED.name,
+      momentDeed: 'Every machine heavier than eight weeks ago. Nothing skipped, nothing backwards.',
+      momentTier: 'Hard',
+
+      lizzieCount: `${herBadges.length} stamps earned`,
+      hersAlone: hersAloneList.map(b => ({ name: b.name, stamp: { __html: stamp(b.kind, b.mark, { color: SAGE }) } })),
+      hersAloneCount: `${hersAloneList.length} she has, you don't`,
+      sharedStamps: sharedList.map(b => ({ name: b.name, stamp: { __html: stamp(b.kind, b.mark) } })),
+      sharedCount: `${sharedList.length} held by both`
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -158,6 +158,16 @@ The expedition in Together IS the progression: where the two of you are on a rea
 - **Privacy:** per-metric toggles (weight, calories, workouts, steps). Progress photos have no toggle — never shared, and Settings says so plainly.
 - **Notifications:** the eight from the handshake spec, controllable here. The daily logging reminder stays cut.
 
+## Badges
+- **Eight categories:** Streaks, Firsts, Strength, Distance, Consistency, Body, Together, Faith. No target count — as many as each category needs.
+- **Form:** stamped seals, passport style, each drawn individually as hand-built SVG (no generated artwork).
+- **Tier:** common / hard / rare, shown as a small label.
+- **Browsing:** categories with counts; open one to see its stamps.
+- **Locked stamps:** name and condition both hidden — a blank stamp and a count. The coach mentions one occasionally when he's near it; that is the only pull.
+- **Detail:** date earned, exactly what was done, where he was in the expedition, whether Lizzie has it, tier, next in series.
+- **Earning moment:** full-screen, fires at the end of the action (after saving the workout or meal), never mid-set.
+- **Lizzie's page:** her earned stamps only. Her unearned ones are not visible.
+
 ## Home content order
 1. Camp artwork hero (time-of-day) with verse, journal/streak line, and today's numbers overlaid at the bottom
 2. AI coach's next action for today

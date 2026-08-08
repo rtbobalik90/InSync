@@ -1,0 +1,12 @@
+{
+  "name": "InSync",
+  "short_name": "InSync",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#14150F",
+  "theme_color": "#14150F",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "assets/badges/faith-first-verse.png", "sizes": "320x320", "type": "image/png", "purpose": "any" }
+  ]
+}

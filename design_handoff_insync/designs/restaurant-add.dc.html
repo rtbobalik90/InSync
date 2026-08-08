@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+  @keyframes omRowIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes omPulse { 0%,100% { opacity:.35; transform:scale(1); } 50% { opacity:.9; transform:scale(1.6); } }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Eating out</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">Find the place, then the plate</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:64ch">The third way into a meal, alongside the camera and the barcode. It lands in the same editable ingredient list, so a restaurant lookup is a faster way to fill the rows — not a separate answer he has to take on faith.</p>
+  </div>
+
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:30px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.onClick }}" style="min-height:40px;padding:0 16px;border:1px solid {{ t.line }};border-radius:2px;background:{{ t.bg }};color:{{ t.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <div style="position:absolute;left:0;right:0;top:0;z-index:10;padding:52px 22px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#14150F 72%,rgba(20,21,15,0) 100%)">
+          <div style="width:79px;display:flex">
+            <button style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+            </button>
+          </div>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px">{{ headerTitle }}</div>
+          <div style="width:79px;display:flex;justify-content:flex-end;gap:11px">
+            <button title="Scan a barcode" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8V5.5A2 2 0 0 1 5.5 3.5H8" /><path d="M16 3.5h2.5a2 2 0 0 1 2 2V8" /><path d="M20.5 16v2.5a2 2 0 0 1-2 2H16" /><path d="M8 20.5H5.5a2 2 0 0 1-2-2V16" /><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8" /></svg>
+            </button>
+            <button title="Photograph the plate" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z" /><path d="M9 8.5 10.5 5h3L15 8.5" /><circle cx="12" cy="13.5" r="3" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="om-scroll" style="position:absolute;left:0;right:0;top:102px;bottom:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none">
+          <div style="padding:14px 14px 118px;display:grid;gap:12px">
+
+            <div style="display:flex;align-items:center;gap:11px;padding:0 15px;min-height:52px;background:#0D0E0A;border:1px solid {{ searchLine }};border-radius:2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ searchIcon }}" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
+              <span style="font-size:14px;color:{{ searchColor }}">{{ searchText }}</span>
+            </div>
+
+            <sc-if value="{{ isPlaces }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="display:flex;align-items:center;gap:11px;margin:8px 2px 12px">
+                  <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Near you</span>
+                  <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                  <span style="font-size:12px;color:#A29A87">Within 3 miles</span>
+                </div>
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 0;overflow:hidden">
+                  <sc-for list="{{ places }}" as="pl" hint-placeholder-count="4">
+                    <button onClick="{{ pl.onClick }}" style="width:100%;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;text-align:left;padding:16px 17px;border:0;border-bottom:1px solid rgba(243,237,225,.1);background:transparent;color:inherit;font-family:Archivo,sans-serif;cursor:pointer;animation:omRowIn .3s ease-out both;animation-delay:{{ pl.delay }}" style-hover="background:rgba(243,237,225,.04)">
+                      <div style="min-width:0">
+                        <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0 0 6px;line-height:1.25">{{ pl.name }}</h4>
+                        <div style="display:flex;align-items:center;gap:9px">
+                          <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:{{ pl.tagColor }};font-weight:600">{{ pl.tag }}</span>
+                          <span style="width:3px;height:3px;border-radius:50%;background:#6E6857"></span>
+                          <span style="font-size:12px;color:#A29A87">{{ pl.distance }}</span>
+                        </div>
+                      </div>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                    </button>
+                  </sc-for>
+                  <div style="padding:14px 17px 15px">
+                    <button style="width:100%;min-height:44px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Somewhere else</button>
+                  </div>
+                </article>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isMenu }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:17px;margin-bottom:12px">
+                  <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:500;margin:0 0 8px">{{ placeName }}</h3>
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:{{ placeTagDot }}"></span>
+                    <span style="font-size:12px;line-height:1.5;color:#A29A87">{{ placeNote }}</span>
+                  </div>
+                </article>
+                <div style="display:flex;align-items:center;gap:11px;margin:8px 2px 12px">
+                  <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Menu</span>
+                  <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                  <span style="font-size:12px;color:#A29A87">{{ menuCount }}</span>
+                </div>
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 0;overflow:hidden">
+                  <sc-for list="{{ menu }}" as="mi" hint-placeholder-count="4">
+                    <button onClick="{{ mi.onClick }}" style="width:100%;display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;text-align:left;padding:16px 17px;border:0;border-bottom:1px solid rgba(243,237,225,.1);background:transparent;color:inherit;font-family:Archivo,sans-serif;cursor:pointer;animation:omRowIn .3s ease-out both;animation-delay:{{ mi.delay }}" style-hover="background:rgba(243,237,225,.04)">
+                      <div style="min-width:0">
+                        <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0 0 6px;line-height:1.25">{{ mi.name }}</h4>
+                        <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ mi.macros }}</div>
+                      </div>
+                      <div style="text-align:right">
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ mi.kcal }}</div>
+                        <div style="font-size:11px;color:#8B8474;margin-top:4px">kcal</div>
+                      </div>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                    </button>
+                  </sc-for>
+                </article>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isFilled }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:relative;height:196px;border-radius:16px;overflow:hidden;margin-bottom:12px;background-image:linear-gradient(180deg,rgba(10,12,8,.1) 40%,rgba(13,14,10,.86) 100%),url('assets/art/meal-example.jpg');background-size:cover;background-position:center 46%">
+                    <span style="position:absolute;left:14px;bottom:13px;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#C8BFAB">Photo from the restaurant</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ false }}">
+                  <button style="width:100%;height:120px;border:1px dashed rgba(243,237,225,.24);border-radius:16px;background:#0D0E0A;color:#A29A87;font-family:Archivo,sans-serif;cursor:pointer;display:grid;place-items:center;gap:9px;margin-bottom:12px" style-hover="border-color:#C6A15D">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z" /><path d="M9 8.5 10.5 5h3L15 8.5" /><circle cx="12" cy="13.5" r="3" /></svg>
+                    <span style="font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">Photograph it yourself</span>
+                  </button>
+                </sc-if>
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;overflow:hidden;margin-bottom:12px">
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 17px 15px;border-bottom:1px solid rgba(243,237,225,.13)">
+                    <div style="min-width:0">
+                      <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#B8AF9B;margin-bottom:7px">{{ placeName }}</div>
+                      <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:500;margin:0;line-height:1.2">{{ itemName }}</h3>
+                    </div>
+                    <div style="text-align:right;flex:none">
+                      <div style="font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:1;font-variant-numeric:tabular-nums">{{ totalKcal }}</div>
+                      <div style="font-size:11px;color:#8B8474;margin-top:5px">kcal</div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                    <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                      <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Protein</div>
+                      <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ pTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                    </div>
+                    <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                      <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Carbs</div>
+                      <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ cTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                    </div>
+                    <div style="padding:14px">
+                      <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Fat</div>
+                      <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums">{{ fTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:9px;padding:13px 17px;border-top:1px solid rgba(243,237,225,.13);background:{{ sourceBg }}">
+                    <span style="width:7px;height:7px;border-radius:50%;background:{{ sourceDot }};flex:none"></span>
+                    <span style="font-size:12px;line-height:1.5;color:#C8BFAB">{{ sourceNote }}</span>
+                  </div>
+                </article>
+
+                <div style="display:flex;align-items:center;gap:11px;margin:8px 2px 12px">
+                  <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">What's in it</span>
+                  <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+                  <span style="font-size:12px;color:#A29A87">{{ rowCount }}</span>
+                </div>
+
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 0;overflow:hidden">
+                  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+                    <div style="position:relative;overflow:hidden;border-bottom:1px solid rgba(243,237,225,.1)">
+                      <div style="position:absolute;right:0;top:0;bottom:0;width:96px;background:#5E2A22;display:flex;align-items:center;justify-content:center;gap:7px;color:#F6DED8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.5 7h13M9.5 7V5h5v2M7 7l1 12h8l1-12" /></svg>
+                        Remove
+                      </div>
+                      <div style="position:relative;background:#0D0E0A;transform:translateX({{ r.shift }});transition:transform .22s ease;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 17px;animation:omRowIn .32s ease-out both;animation-delay:{{ r.delay }}">
+                        <div style="min-width:0">
+                          <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                            <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0;line-height:1.25">{{ r.name }}</h4>
+                            <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8B8474">{{ r.weight }}</span>
+                          </div>
+                          <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ r.macros }}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;flex:none">
+                          <div style="text-align:right">
+                            <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ r.kcal }}</div>
+                            <div style="font-size:11px;color:#8B8474;margin-top:4px">kcal</div>
+                          </div>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="padding:14px 17px 15px">
+                    <button style="width:100%;min-height:44px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px" style-hover="border-color:#C6A15D">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                      Something missing?
+                    </button>
+                  </div>
+                </article>
+
+                <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px;margin-top:12px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px">
+                    <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Add to</span>
+                    <button onClick="{{ toggleDate }}" style="display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 11px;border:1px solid {{ dateLine }};border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:12px;cursor:pointer" style-hover="border-color:#C6A15D">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D8B87C" stroke-width="1.6" stroke-linecap="round"><path d="M4.5 6.5h15v14h-15z" /><path d="M8 3.5v4M16 3.5v4M4.5 11h15" /></svg>
+                      {{ dateLabel }}
+                    </button>
+                  </div>
+
+                  <sc-if value="{{ dateOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-bottom:14px;padding:14px 13px;border:1px solid rgba(243,237,225,.14);border-radius:2px;background:rgba(243,237,225,.03)">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+                        <button onClick="{{ prevMonth }}" style="width:34px;height:34px;display:grid;place-items:center;border:1px solid rgba(243,237,225,.24);border-radius:2px;background:transparent;color:#E8E0CF;cursor:pointer" style-hover="border-color:#C6A15D">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+                        </button>
+                        <span style="font-family:'Playfair Display',Georgia,serif;font-size:16px">{{ monthLabel }}</span>
+                        <button onClick="{{ nextMonth }}" style="width:34px;height:34px;display:grid;place-items:center;border:1px solid {{ nextLine }};border-radius:2px;background:transparent;color:{{ nextColor }};cursor:{{ nextCursor }}" style-hover="border-color:#C6A15D">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                      </div>
+                      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:5px">
+                        <sc-for list="{{ weekdays }}" as="w" hint-placeholder-count="7">
+                          <span style="text-align:center;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8B8474">{{ w.label }}</span>
+                        </sc-for>
+                      </div>
+                      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+                        <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35">
+                          <button onClick="{{ c.onClick }}" disabled="{{ c.disabled }}" style="height:38px;display:grid;place-items:center;border:1px solid {{ c.line }};border-radius:2px;background:{{ c.bg }};color:{{ c.fg }};font-family:Archivo,sans-serif;font-size:12.5px;font-weight:{{ c.weight }};font-variant-numeric:tabular-nums;cursor:{{ c.cursor }}">{{ c.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                    <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="4">
+                      <button onClick="{{ sl.onClick }}" style="min-height:44px;padding:0 4px;border:1px solid {{ sl.line }};border-radius:2px;background:{{ sl.bg }};color:{{ sl.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ sl.label }}</button>
+                    </sc-for>
+                  </div>
+                  <p style="font-size:12px;line-height:1.55;color:#A29A87;margin:12px 0 0;text-wrap:pretty">{{ slotNote }}</p>
+                </article>
+
+                <div style="display:flex;gap:10px;margin-top:12px">
+                  <button style="flex:1;min-height:52px;border:0;border-radius:2px;background:#C6A15D;color:#191A12;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="background:#DCBE85">{{ saveLabel }}</button>
+                  <button style="min-height:52px;padding:0 20px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Back</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:rgba(20,21,15,.94);border-top:1px solid rgba(243,237,225,.14);backdrop-filter:blur(22px);padding:0 6px 12px">
+          <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+            <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+              <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+              <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+            </button>
+          </sc-for>
+        </nav>
+      </div>
+
+      <div style="margin-top:16px;max-width:390px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:7px">{{ captionTitle }}</div>
+        <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ captionBody }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:1180}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+const PLACES = [
+  { name: 'Verde Cantina', tag: 'Publishes nutrition', published: true, distance: '0.4 mi' },
+  { name: 'Northside Grill', tag: 'Publishes nutrition', published: true, distance: '1.2 mi' },
+  { name: 'Bracken House', tag: 'Estimated', published: false, distance: '1.8 mi' },
+  { name: 'The Mill Room', tag: 'Estimated', published: false, distance: '2.6 mi' }
+];
+
+const MENU = [
+  { name: 'Chicken burrito bowl', macros: '52 g protein · 67 g carbs · 22 g fat', kcal: '650' },
+  { name: 'Steak burrito bowl', macros: '48 g protein · 60 g carbs · 31 g fat', kcal: '742' },
+  { name: 'Chicken salad bowl', macros: '46 g protein · 22 g carbs · 19 g fat', kcal: '441' },
+  { name: 'Three chicken tacos', macros: '39 g protein · 44 g carbs · 21 g fat', kcal: '531' }
+];
+
+// kcal/p/c/f are numeric so the header totals are summed from the rows, never typed twice.
+const VERDE_ROWS = [
+  { name: 'Cilantro-lime rice', weight: '130 g', p: 4, c: 40, f: 4, kcal: 210 },
+  { name: 'Grilled chicken', weight: '115 g', p: 32, c: 0, f: 7, kcal: 180 },
+  { name: 'Black beans', weight: '90 g', p: 7, c: 18, f: 1, kcal: 105 },
+  { name: 'Fajita vegetables', weight: '60 g', p: 1, c: 4, f: 1, kcal: 20 },
+  { name: 'Tomato salsa', weight: '55 g', p: 1, c: 4, f: 0, kcal: 25 },
+  { name: 'Shredded cheese', weight: '30 g', p: 7, c: 1, f: 9, kcal: 110 }
+];
+
+const BRACKEN_ROWS = [
+  { name: 'Roast half chicken', weight: '200 g', p: 55, c: 0, f: 22, kcal: 420 },
+  { name: 'Buttered new potatoes', weight: '130 g', p: 3, c: 26, f: 7, kcal: 175 },
+  { name: 'Charred greens', weight: '90 g', p: 3, c: 6, f: 4, kcal: 70 },
+  { name: 'Pan gravy', weight: '50 g', p: 1, c: 3, f: 3, kcal: 40 }
+];
+
+const TODAY = new Date(2026, 7, 8);
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const iso = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+class Component extends DCLogic {
+  // 19:05 falls in the dinner window, so dinner is preselected rather than asked for.
+  state = {
+    view: 'places', slot: 'Dinner', slotTouched: false,
+    dateOpen: false,
+    selected: new Date(2026, 7, 8),
+    viewYear: 2026, viewMonth: 7
+  };
+
+  isToday() {
+    return iso(this.state.selected) === iso(TODAY);
+  }
+
+  dayLabel() {
+    const d = this.state.selected;
+    return this.isToday() ? 'Today' : `${DOW[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+  }
+
+  slotNote() {
+    const { slotTouched, slot } = this.state;
+    // dayLabel() is either "Today" or a dated abbreviation like "Mon 3 Aug" —
+    // only the former can be lowercased mid-sentence.
+    if (!this.isToday()) return `Logging to ${this.dayLabel()} as ${slot.toLowerCase()}.`;
+    if (slotTouched) return `Logging as ${slot.toLowerCase()} today.`;
+    return 'Dinner, because you are logging this evening. Tap another if this belongs somewhere else.';
+  }
+
+  dateVals() {
+    const { dateOpen, viewYear, viewMonth, selected } = this.state;
+    const offset = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7;
+    const total = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const cellCount = Math.ceil((offset + total) / 7) * 7;
+    const atCurrentMonth = viewYear === TODAY.getFullYear() && viewMonth === TODAY.getMonth();
+
+    const cells = Array.from({ length: cellCount }, (_, i) => {
+      const dayNum = i - offset + 1;
+      if (dayNum < 1 || dayNum > total) {
+        return { label: '', disabled: true, bg: 'transparent', fg: 'transparent', line: 'transparent', weight: '400', cursor: 'default', onClick: () => {} };
+      }
+      const date = new Date(viewYear, viewMonth, dayNum);
+      // A meal cannot have been eaten in the future, so later dates are unselectable.
+      const future = date > TODAY;
+      const isSel = iso(date) === iso(selected);
+      const isToday = iso(date) === iso(TODAY);
+      return {
+        label: String(dayNum),
+        disabled: future,
+        bg: isSel ? '#C6A15D' : 'transparent',
+        fg: isSel ? '#191A12' : (future ? '#4E4A3F' : '#E8E0CF'),
+        line: isSel ? '#C6A15D' : (isToday ? 'rgba(198,161,93,.55)' : 'rgba(243,237,225,.12)'),
+        weight: isSel || isToday ? '700' : '400',
+        cursor: future ? 'default' : 'pointer',
+        onClick: future ? () => {} : () => this.setState({ selected: date })
+      };
+    });
+
+    return {
+      dateOpen,
+      dateLine: dateOpen ? '#C6A15D' : 'rgba(243,237,225,.26)',
+      dateLabel: this.dayLabel(),
+      monthLabel: `${MONTHS[viewMonth]} ${viewYear}`,
+      weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => ({ label: d.slice(0, 1) })),
+      cells,
+      nextLine: atCurrentMonth ? 'rgba(243,237,225,.1)' : 'rgba(243,237,225,.24)',
+      nextColor: atCurrentMonth ? '#4E4A3F' : '#E8E0CF',
+      nextCursor: atCurrentMonth ? 'default' : 'pointer',
+      toggleDate: () => this.setState(s => ({ dateOpen: !s.dateOpen })),
+      prevMonth: () => this.setState(s => ({
+        viewYear: s.viewMonth === 0 ? s.viewYear - 1 : s.viewYear,
+        viewMonth: s.viewMonth === 0 ? 11 : s.viewMonth - 1
+      })),
+      nextMonth: () => this.setState(s => {
+        if (s.viewYear === TODAY.getFullYear() && s.viewMonth === TODAY.getMonth()) return null;
+        return {
+          viewYear: s.viewMonth === 11 ? s.viewYear + 1 : s.viewYear,
+          viewMonth: s.viewMonth === 11 ? 0 : s.viewMonth + 1
+        };
+      })
+    };
+  }
+
+  renderVals() {
+    const view = this.state.view;
+    const go = v => () => this.setState({ view: v });
+    const estimated = view === 'estimated';
+    const filled = view === 'filled' || estimated;
+    const activeRows = estimated ? BRACKEN_ROWS : VERDE_ROWS;
+    const sum = key => activeRows.reduce((n, r) => n + r[key], 0);
+
+    const tabs = [
+      ['places', 'Places'],
+      ['menu', 'Menu'],
+      ['filled', 'Filled in'],
+      ['estimated', 'Local place']
+    ].map(([k, label]) => ({
+      label,
+      onClick: go(k),
+      bg: k === view ? '#C6A15D' : 'transparent',
+      fg: k === view ? '#191A12' : '#B8AF9B',
+      line: k === view ? '#C6A15D' : 'rgba(243,237,225,.26)'
+    }));
+
+    const searchByView = {
+      places: { text: 'Search for a place', color: '#8B8474', icon: '#8B8474', line: 'rgba(243,237,225,.2)' },
+      menu: { text: 'Verde Cantina', color: '#F3EDE1', icon: '#D8B87C', line: 'rgba(198,161,93,.5)' },
+      filled: { text: 'Verde Cantina', color: '#F3EDE1', icon: '#D8B87C', line: 'rgba(198,161,93,.5)' },
+      estimated: { text: 'Bracken House', color: '#F3EDE1', icon: '#D8B87C', line: 'rgba(198,161,93,.5)' }
+    }[view];
+
+    const captions = {
+      places: ['Places', 'Nearby restaurants, each labelled by how good its numbers are. Chains publish real nutrition data; independents do not, and the list says which is which before he taps.'],
+      menu: ['Menu', 'The place he picked, with its menu and the published figures. Nothing is committed yet — this is still a list of options, not a logged meal.'],
+      filled: ['Filled in', 'The item lands as the same editable ingredient list the camera produces. He can drop the cheese, halve the rice, and the totals follow. A green marker confirms the figures come from the restaurant.'],
+      estimated: ['Local place', 'An independent kitchen that publishes nothing. Same screen, same list, but the marker turns gold and the line says plainly that these are estimates from a typical recipe.']
+    }[view];
+
+    return {
+      tabs,
+      headerTitle: view === 'places' ? 'Eating out' : (filled ? 'Review meal' : 'Verde Cantina'),
+      isPlaces: view === 'places',
+      isMenu: view === 'menu',
+      isFilled: filled,
+      searchText: searchByView.text,
+      searchColor: searchByView.color,
+      searchIcon: searchByView.icon,
+      searchLine: searchByView.line,
+      places: PLACES.map((p, i) => ({
+        ...p,
+        onClick: go(p.published ? 'menu' : 'estimated'),
+        tagColor: p.published ? '#95A889' : '#D8B87C',
+        delay: `${i * 0.05}s`
+      })),
+      placeName: estimated ? 'Bracken House' : 'Verde Cantina',
+      placeNote: 'Figures published by the restaurant, updated March 2026.',
+      placeTagDot: '#95A889',
+      menuCount: '4 of 22',
+      menu: MENU.map((m, i) => ({ ...m, onClick: go('filled'), delay: `${i * 0.05}s` })),
+      itemName: estimated ? 'Roast chicken plate' : 'Chicken burrito bowl',
+      totalKcal: sum('kcal').toLocaleString(),
+      pTotal: sum('p'),
+      cTotal: sum('c'),
+      fTotal: sum('f'),
+      sourceDot: estimated ? '#D8B87C' : '#95A889',
+      sourceBg: estimated ? 'rgba(198,161,93,.08)' : 'rgba(149,168,137,.08)',
+      sourceNote: estimated
+        ? 'Estimated from a typical recipe. Bracken House publishes no figures — check anything that matters.'
+        : 'Published by Verde Cantina. Edit any line if your order was different.',
+      rowCount: estimated ? `${activeRows.length} estimated` : `${activeRows.length} items`,
+      rows: activeRows.map((r, i) => ({
+        name: r.name,
+        weight: r.weight,
+        kcal: r.kcal.toLocaleString(),
+        macros: `${r.p} g protein · ${r.c} g carbs · ${r.f} g fat`,
+        delay: `${i * 0.06}s`,
+        shift: '0px'
+      })),
+      hasPhoto: filled && !estimated,
+      noPhoto: filled && estimated,
+      ...this.dateVals(),
+      slots: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(label => ({
+        label,
+        onClick: () => this.setState({ slot: label, slotTouched: true }),
+        bg: label === this.state.slot ? '#C6A15D' : 'transparent',
+        fg: label === this.state.slot ? '#191A12' : '#B8AF9B',
+        line: label === this.state.slot ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      slotNote: this.slotNote(),
+      saveLabel: `Save to ${this.state.slot.toLowerCase()}`,
+      captionTitle: captions[0],
+      captionBody: captions[1],
+      navItems: ['home', 'journey', 'train', 'nutrition', 'together'].map(k => ({
+        icon: { __html: ICONS[k] },
+        color: k === 'nutrition' ? '#E4CB99' : '#8B8474',
+        rule: k === 'nutrition' ? '#C6A15D' : 'transparent'
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

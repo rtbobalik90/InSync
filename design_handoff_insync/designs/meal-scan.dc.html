@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin:0; background:#0B0C08; }
+  a { color:#D8B87C; text-decoration:none; }
+  a:hover { color:#EBD3A2; }
+  .om-scroll::-webkit-scrollbar { width:0; }
+  @keyframes omPinIn { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
+  @keyframes omLeaderIn { from { opacity:0; transform:scaleX(0); } to { opacity:1; transform:scaleX(1); } }
+  @keyframes omLabelIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes omRowIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes omPulse { 0%,100% { opacity:.35; transform:scale(1); } 50% { opacity:.9; transform:scale(1.6); } }
+</style>
+</helmet>
+<div style="padding:44px 40px 60px;background:#0B0C08;font-family:Archivo,system-ui,sans-serif;color:#F3EDE1">
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:9px">InSync · Meal scan</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:32px;font-weight:500;margin:0">Shoot the plate, correct the guess</h1>
+    <p style="font-size:13.5px;line-height:1.6;color:#A69C89;margin:9px 0 0;max-width:62ch">Five states of one flow. Pins drop as ingredients are found; the list is editable line by line. Numbers are shown plainly — they're estimates, and he fixes what looks wrong.</p>
+  </div>
+
+  <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:30px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button onClick="{{ t.onClick }}" style="min-height:40px;padding:0 16px;border:1px solid {{ t.line }};border-radius:2px;background:{{ t.bg }};color:{{ t.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ t.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;gap:30px;flex-wrap:wrap;align-items:flex-start">
+
+    <div>
+      <div style="width:390px;height:844px;background:#14150F;color:#F3EDE1;position:relative;overflow:hidden;border-radius:26px;box-shadow:0 26px 60px rgba(0,0,0,.55)">
+
+        <div class="om-photo" style="position:absolute;left:0;right:0;top:0;height:{{ photoH }};background-image:linear-gradient(180deg,rgba(10,12,8,.7) 0%,rgba(10,12,8,.34) 20%,rgba(10,12,8,.2) 48%,rgba(20,21,15,.7) 82%,#14150F 100%),url('assets/art/meal-example.jpg');background-size:cover;background-position:center 46%;transform-origin:center center;will-change:filter,transform"></div>
+
+        <svg class="om-fade" viewBox="0 0 390 470" width="390" height="470" style="position:absolute;left:0;top:0;z-index:5;pointer-events:none;will-change:opacity">
+          <sc-for list="{{ pins }}" as="p" hint-placeholder-count="0">
+            <g>
+              <line x1="{{ p.x1 }}" y1="{{ p.y1 }}" x2="{{ p.cx }}" y2="{{ p.cy }}" stroke="rgba(198,161,93,.9)" stroke-width="1" style="filter:drop-shadow(0 0 2.5px rgba(0,0,0,.95));animation:omLeaderIn .3s ease-out both;transform-origin:{{ p.origin }};animation-delay:{{ p.leaderDelay }}"></line>
+              <g style="animation:omPinIn .34s cubic-bezier(.2,.9,.3,1.4) both;transform-origin:{{ p.dotOrigin }};animation-delay:{{ p.delay }}">
+                <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="8" fill="rgba(11,12,8,.5)"></circle>
+                <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="4.5" fill="#C6A15D" stroke="#0B0C08" stroke-width="2"></circle>
+              </g>
+            </g>
+          </sc-for>
+        </svg>
+
+        <div class="om-fade" style="position:absolute;left:0;right:0;top:0;height:470px;z-index:6;pointer-events:none;will-change:opacity">
+          <sc-for list="{{ pins }}" as="p" hint-placeholder-count="0">
+            <span style="position:absolute;left:{{ p.left }};right:{{ p.right }};top:{{ p.top }};padding:5px 9px;background:#0D0E0A;border:1px solid rgba(198,161,93,.5);border-radius:2px;white-space:nowrap;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:#F6ECD6;animation:omLabelIn .3s ease-out both;animation-delay:{{ p.labelDelay }}">{{ p.label }}</span>
+          </sc-for>
+        </div>
+
+        <div style="position:absolute;left:0;right:0;top:0;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between;z-index:10">
+          <div style="width:79px;display:flex">
+            <button style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7" /></svg>
+            </button>
+          </div>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px;text-shadow:0 2px 10px rgba(0,0,0,.65)">{{ headerTitle }}</div>
+          <div style="width:79px;display:flex;justify-content:flex-end;gap:11px">
+            <button title="Scan a barcode" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8V5.5A2 2 0 0 1 5.5 3.5H8" /><path d="M16 3.5h2.5a2 2 0 0 1 2 2V8" /><path d="M20.5 16v2.5a2 2 0 0 1-2 2H16" /><path d="M8 20.5H5.5a2 2 0 0 1-2-2V16" /><path d="M7.5 8v8M10.5 8v8M13.5 8v8M16.5 8v8" /></svg>
+            </button>
+            <button title="Photograph the plate" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(20,21,15,.5);border:1px solid rgba(243,237,225,.28);backdrop-filter:blur(10px);color:#F3EDE1;cursor:pointer" style-hover="border-color:#C6A15D">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v10.5h-15z" /><path d="M9 8.5 10.5 5h3L15 8.5" /><circle cx="12" cy="13.5" r="3" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <sc-if value="{{ isAnalysing }}" hint-placeholder-val="{{ false }}">
+          <div class="om-fade" style="position:absolute;left:0;right:0;top:132px;z-index:6;display:flex;justify-content:center;will-change:opacity">
+            <span style="display:inline-flex;align-items:center;gap:9px;padding:6px 12px;background:#0D0E0A;border:1px solid rgba(198,161,93,.5);border-radius:2px">
+              <span style="width:7px;height:7px;border-radius:50%;background:#C6A15D;animation:omPulse 1.25s ease-in-out infinite"></span>
+              <span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#F2DFB4;font-weight:600">Reading the plate</span>
+            </span>
+          </div>
+        </sc-if>
+
+        <div class="om-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;z-index:8;scrollbar-width:none">
+          <div style="height:{{ restH }};pointer-events:none"></div>
+          <div style="padding:0 14px 118px;display:grid;gap:12px">
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;overflow:hidden">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 17px 15px;border-bottom:1px solid rgba(243,237,225,.13)">
+                <div style="min-width:0">
+                  <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#B8AF9B;margin-bottom:7px">{{ mealSlot }}</div>
+                  <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:500;margin:0;line-height:1.2">{{ mealName }}</h3>
+                </div>
+                <div style="text-align:right;flex:none">
+                  <div style="font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;color:{{ totalColor }}">{{ totalKcal }}</div>
+                  <div style="font-size:11px;color:#8B8474;margin-top:5px">kcal</div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                  <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Protein</div>
+                  <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;color:{{ totalColor }}">{{ pTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                </div>
+                <div style="padding:14px;border-right:1px solid rgba(243,237,225,.13)">
+                  <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Carbs</div>
+                  <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;color:{{ totalColor }}">{{ cTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                </div>
+                <div style="padding:14px">
+                  <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:8px">Fat</div>
+                  <div style="font-family:'Playfair Display',Georgia,serif;font-size:22px;line-height:1;font-variant-numeric:tabular-nums;color:{{ totalColor }}">{{ fTotal }}<span style="font-size:13px;color:#B8AF9B">g</span></div>
+                </div>
+              </div>
+            </article>
+
+            <div style="display:flex;align-items:center;gap:11px;margin:6px 2px 0">
+              <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">{{ listHeading }}</span>
+              <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+              <span style="font-size:12px;color:#A29A87">{{ listCount }}</span>
+            </div>
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:4px 0;overflow:hidden">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+                <div style="position:relative;overflow:hidden;border-bottom:1px solid rgba(243,237,225,.1)">
+                  <div style="position:absolute;right:0;top:0;bottom:0;width:96px;background:#5E2A22;display:flex;align-items:center;justify-content:center;gap:7px;color:#F6DED8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5.5 7h13M9.5 7V5h5v2M7 7l1 12h8l1-12" /></svg>
+                    Remove
+                  </div>
+                  <div style="position:relative;background:#0D0E0A;transform:translateX({{ r.shift }});transition:transform .22s ease;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:15px 17px;animation:omRowIn .34s ease-out both;animation-delay:{{ r.delay }}">
+                    <div style="min-width:0">
+                      <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                        <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0;line-height:1.25">{{ r.name }}</h4>
+                        <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8B8474">{{ r.weight }}</span>
+                      </div>
+                      <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">{{ r.macros }}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;flex:none">
+                      <div style="text-align:right">
+                        <div style="font-family:'Playfair Display',Georgia,serif;font-size:19px;line-height:1;font-variant-numeric:tabular-nums">{{ r.kcal }}</div>
+                        <div style="font-size:11px;color:#8B8474;margin-top:4px">kcal</div>
+                      </div>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6E6857" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5" /></svg>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ showGhosts }}" hint-placeholder-val="{{ false }}">
+                <div style="display:grid;gap:11px;padding:16px 17px">
+                  <span style="height:13px;width:62%;border-radius:2px;background:rgba(243,237,225,.09)"></span>
+                  <span style="height:13px;width:44%;border-radius:2px;background:rgba(243,237,225,.06)"></span>
+                </div>
+              </sc-if>
+
+              <div style="padding:14px 17px 15px">
+                <button style="width:100%;min-height:44px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px" style-hover="border-color:#C6A15D">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                  Something missing?
+                </button>
+              </div>
+            </article>
+
+            <sc-if value="{{ isSparse }}" hint-placeholder-val="{{ false }}">
+              <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:2px 4px 0;text-wrap:pretty">That's all it could read. Add the rest by hand, retake the photo, or search the database.</p>
+            </sc-if>
+
+            <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;padding:16px 17px;margin-top:2px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px">
+                <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Add to</span>
+                <span style="font-size:12px;color:#A29A87">Thursday · 19:05</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="4">
+                  <button onClick="{{ sl.onClick }}" style="min-height:44px;padding:0 4px;border:1px solid {{ sl.line }};border-radius:2px;background:{{ sl.bg }};color:{{ sl.fg }};font-family:Archivo,sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;cursor:pointer" style-hover="border-color:#C6A15D">{{ sl.label }}</button>
+                </sc-for>
+              </div>
+              <p style="font-size:12px;line-height:1.55;color:#A29A87;margin:12px 0 0;text-wrap:pretty">{{ slotNote }}</p>
+            </article>
+
+            <div style="display:flex;gap:10px;margin-top:12px">
+              <button style="flex:1;min-height:52px;border:0;border-radius:2px;background:#C6A15D;color:#191A12;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="background:#DCBE85">{{ primaryLabel }}</button>
+              <button style="min-height:52px;padding:0 20px;border:1px solid rgba(243,237,225,.26);border-radius:2px;background:transparent;color:#E8E0CF;font-family:Archivo,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer" style-hover="border-color:#C6A15D">Retake</button>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{ isSaved }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:12;background:#14150F">
+            <div style="position:absolute;left:0;right:0;top:0;height:250px;background-image:linear-gradient(180deg,rgba(10,12,8,.78) 0%,rgba(10,12,8,.62) 40%,rgba(20,21,15,.86) 84%,#14150F 100%),url('assets/art/meal-example.jpg');background-size:cover;background-position:center 46%"></div>
+            <div style="position:absolute;left:0;right:0;top:0;padding:52px 22px 0;display:flex;align-items:center;justify-content:space-between;z-index:3">
+              <div style="width:34px"></div>
+              <div style="font-family:'Playfair Display',Georgia,serif;font-size:17px;text-shadow:0 2px 10px rgba(0,0,0,.65)">Nutrition</div>
+              <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#4B4327,#26281C);border:1px solid rgba(198,161,93,.55);display:grid;place-items:center;font-size:12px;font-weight:600">RB</div>
+            </div>
+            <div style="position:absolute;left:22px;right:22px;top:112px;z-index:2">
+              <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#F2DFB4;font-weight:600;margin-bottom:9px;text-shadow:0 1px 8px rgba(0,0,0,.75)">Thursday · Day 11</div>
+              <p style="font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:1.25;margin:0;max-width:250px;text-shadow:0 2px 16px rgba(0,0,0,.8)">Four meals in. Protein closed.</p>
+            </div>
+
+            <div style="position:absolute;left:14px;right:14px;top:250px;display:grid;gap:12px">
+              <article style="background:#0D0E0A;border:1px solid rgba(243,237,225,.14);border-radius:16px;overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 17px;border-bottom:1px solid rgba(243,237,225,.13)">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="width:15px;height:1px;background:#D8B87C"></span>
+                    <span style="font-family:'Playfair Display',Georgia,serif;font-size:15px">Logged so far</span>
+                  </div>
+                  <span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#B8AF9B">4 meals</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+                  <div style="padding:16px 14px;border-right:1px solid rgba(243,237,225,.13)">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:9px">Calories</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">1,594</div>
+                    <div style="font-size:12px;color:#A29A87;margin-top:6px;padding-top:6px;border-top:1px solid rgba(243,237,225,.13)">406 to go</div>
+                  </div>
+                  <div style="padding:16px 14px;border-right:1px solid rgba(243,237,225,.13)">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:9px">Protein</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">150<span style="font-size:15px;color:#B8AF9B">g</span></div>
+                    <div style="font-size:12px;color:#95A889;margin-top:6px;padding-top:6px;border-top:1px solid rgba(243,237,225,.13)">5 g short</div>
+                  </div>
+                  <div style="padding:16px 14px">
+                    <div style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B;margin-bottom:9px">Carbs</div>
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:27px;line-height:1;font-variant-numeric:tabular-nums">147<span style="font-size:15px;color:#B8AF9B">g</span></div>
+                    <div style="font-size:12px;color:#95A889;margin-top:6px;padding-top:6px;border-top:1px solid rgba(243,237,225,.13)">on pace</div>
+                  </div>
+                </div>
+              </article>
+
+              <div style="display:flex;align-items:center;gap:11px;margin:6px 2px 0">
+                <span style="font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:#D8B87C;font-weight:600">Today</span>
+                <span style="flex:1;height:1px;background:rgba(243,237,225,.13)"></span>
+              </div>
+
+              <article style="background:#0D0E0A;border:1px solid rgba(198,161,93,.4);border-radius:16px;padding:4px 15px;box-shadow:0 0 0 1px rgba(198,161,93,.14)">
+                <div style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:15px 0;border-bottom:1px solid rgba(243,237,225,.1)">
+                  <div style="width:64px;height:64px;border-radius:12px;background-image:url('assets/art/meal-example.jpg');background-size:cover;background-position:center"></div>
+                  <div style="min-width:0">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">19:05</span>
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#D8B87C;font-weight:600">Just added</span>
+                    </div>
+                    <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0 0 6px;line-height:1.25">Chicken and quinoa bowl</h4>
+                    <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">71 g protein · 43 g carbs · 22 g fat</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;line-height:1;font-variant-numeric:tabular-nums">592</div>
+                    <div style="font-size:11px;color:#8B8474;margin-top:5px">kcal</div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:15px 0;opacity:.62">
+                  <div style="width:64px;height:64px;border-radius:12px;background:#1A1C16;display:grid;place-items:center;color:#8B8474;font-family:'Playfair Display',Georgia,serif;font-size:19px">G</div>
+                  <div style="min-width:0">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:5px">
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">15:30</span>
+                      <span style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#8B8474">Snack</span>
+                    </div>
+                    <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:17px;font-weight:500;margin:0 0 6px;line-height:1.25">Greek yoghurt</h4>
+                    <div style="font-size:12px;color:#A29A87;font-variant-numeric:tabular-nums">7 g protein · 19 g carbs · 2 g fat</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-family:'Playfair Display',Georgia,serif;font-size:20px;line-height:1;font-variant-numeric:tabular-nums">142</div>
+                    <div style="font-size:11px;color:#8B8474;margin-top:5px">kcal</div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <nav style="position:absolute;left:0;right:0;bottom:0;z-index:6;height:76px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;background:rgba(20,21,15,.94);border-top:1px solid rgba(243,237,225,.14);padding:0 6px 12px">
+              <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+                <button style="display:grid;place-items:center;height:48px;border:0;background:transparent;cursor:pointer;position:relative;color:{{ n.color }}">
+                  <span style="position:absolute;top:-2px;width:22px;height:2px;background:{{ n.rule }}"></span>
+                  <div style="width:26px;height:26px" dangerouslySetInnerHTML="{{ n.icon }}"></div>
+                </button>
+              </sc-for>
+            </nav>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="margin-top:16px;max-width:390px">
+        <div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B87C;font-weight:600;margin-bottom:7px">{{ captionTitle }}</div>
+        <p style="font-size:12.5px;line-height:1.6;color:#A29A87;margin:0;text-wrap:pretty">{{ captionBody }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:1180}}">
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
+  journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 21V3"/><path d="M10 6h8.5l2 2.8-2 2.8H10"/><path d="M6.5 21h9"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
+  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>'
+};
+
+// Coordinates map the 1200x900 photo into the 390x470 box at cover
+// (scale .5222, x offset -118). The bowl fills the frame edge to edge, so the
+// only true off-plate margin is the four dark corners — labels live there.
+const ALL_PINS = [
+  { label: 'Chicken', cx: 184, cy: 157, x1: 82,  y1: 109, left: '10px', right: 'auto', top: '96px' },
+  { label: 'Quinoa',  cx: 90,  cy: 175, x1: 76,  y1: 392, left: '10px', right: 'auto', top: '380px' },
+  { label: 'Greens',  cx: 289, cy: 131, x1: 308, y1: 109, left: 'auto', right: '10px', top: '96px' },
+  { label: 'Avocado', cx: 260, cy: 334, x1: 308, y1: 392, left: 'auto', right: '10px', top: '380px' }
+];
+
+const ALL_ROWS = [
+  { name: 'Grilled chicken', weight: '165 g', macros: '51 g protein · 0 g carbs · 7 g fat', kcal: '272' },
+  { name: 'Quinoa', weight: '140 g', macros: '6 g protein · 34 g carbs · 3 g fat', kcal: '183' },
+  { name: 'Mixed greens', weight: '45 g', macros: '1 g protein · 2 g carbs · 0 g fat', kcal: '14' },
+  { name: 'Avocado', weight: '60 g', macros: '1 g protein · 5 g carbs · 10 g fat', kcal: '106' }
+];
+
+const STATES = {
+  analysing: {
+    label: 'Analysing', headerTitle: 'Scanning', pinCount: 2, rowCount: 2, ghosts: true,
+    totals: { kcal: '455', p: '57', c: '34', f: '10' }, dim: true, swipeIndex: -1,
+    heading: 'Found so far', count: '2 of 4', primary: 'Save meal', restH: '470px', photoH: '470px',
+    capTitle: 'Analysing',
+    capBody: 'Pins drop onto the frozen photo one at a time as each ingredient resolves, and the matching row animates into the list below. Ghost lines hold the space for what is still coming, so the card does not jump as it fills.'
+  },
+  result: {
+    label: 'Result', headerTitle: 'Review meal', pinCount: 4, rowCount: 4, ghosts: false,
+    totals: { kcal: '575', p: '59', c: '41', f: '20' }, dim: false,
+    heading: 'Ingredients', count: '4 found', primary: 'Save meal', restH: '470px', photoH: '470px',
+    capTitle: 'Result',
+    capBody: 'All four pins placed and the list complete. Numbers are shown plainly with no confidence badge — they are estimates, and the row-level chevron is the invitation to correct them.'
+  },
+  edit: {
+    label: 'Mid-edit', headerTitle: 'Review meal', pinCount: 4, rowCount: 4, ghosts: false,
+    totals: { kcal: '575', p: '59', c: '41', f: '20' }, dim: false, swipeIndex: 2,
+    heading: 'Ingredients', count: '4 found', primary: 'Save meal', restH: '470px', photoH: '470px',
+    capTitle: 'Mid-edit',
+    capBody: 'Swiping a row left reveals Remove in a deep red that appears nowhere else in the system, so destruction reads as destruction. Tapping any row opens its weight for adjustment instead.'
+  },
+  sparse: {
+    label: 'Sparse', headerTitle: 'Review meal', pinCount: 1, rowCount: 1, ghosts: false,
+    totals: { kcal: '272', p: '51', c: '0', f: '7' }, dim: false, sparse: true,
+    heading: 'Ingredients', count: '1 found', primary: 'Save meal', restH: '470px', photoH: '470px',
+    capTitle: 'Sparse',
+    capBody: 'Bad light or an unfamiliar dish. It shows the one thing it is sure of rather than apologising, and the line below points at the three ways to finish the job by hand.'
+  },
+  saved: {
+    label: 'Saved', headerTitle: 'Nutrition', pinCount: 0, rowCount: 4, ghosts: false,
+    totals: { kcal: '592', p: '71', c: '43', f: '22' }, dim: false, saved: true,
+    heading: 'Ingredients', count: '4 found', primary: 'Save meal', restH: '470px', photoH: '470px',
+    capTitle: 'Saved',
+    capBody: 'Back in the log with the new entry marked and the day totals moved. Protein went from 76 g short to 5 g short, which is the whole point of the scan.'
+  }
+};
+
+class Component extends DCLogic {
+  state = { view: 'analysing', slot: 'Dinner', slotTouched: false };
+
+  constructor(props) {
+    super(props);
+    this._cleanups = [];
+  }
+
+  componentDidMount() {
+    document.querySelectorAll('.om-scroll').forEach(scroller => {
+      const frame = scroller.parentElement;
+      const photo = frame.querySelector('.om-photo');
+      const fades = frame.querySelectorAll('.om-fade');
+      const RANGE = 240;
+      const onScroll = () => {
+        const p = Math.min(1, Math.max(0, scroller.scrollTop / RANGE));
+        if (photo) {
+          photo.style.filter = `blur(${(p * 16).toFixed(2)}px)`;
+          photo.style.transform = `scale(${(1 + p * 0.12).toFixed(4)})`;
+        }
+        const o = Math.max(0, 1 - p * 1.9);
+        fades.forEach(el => { el.style.opacity = o.toFixed(3); });
+      };
+      onScroll();
+      scroller.addEventListener('scroll', onScroll, { passive: true });
+      this._cleanups.push(() => scroller.removeEventListener('scroll', onScroll));
+    });
+  }
+
+  componentWillUnmount() {
+    this._cleanups.forEach(fn => fn());
+    this._cleanups = [];
+  }
+
+  renderVals() {
+    const key = this.state.view;
+    const s = STATES[key];
+
+    const pins = ALL_PINS.slice(0, s.pinCount).map((p, i) => ({
+      ...p,
+      origin: `${p.x1}px ${p.y1}px`,
+      y1: p.y1,
+      dotOrigin: `${p.cx}px ${p.cy}px`,
+      delay: `${i * 0.55}s`,
+      leaderDelay: `${i * 0.55 + 0.2}s`,
+      labelDelay: `${i * 0.55 + 0.34}s`
+    }));
+
+    const rows = ALL_ROWS.slice(0, s.rowCount).map((r, i) => ({
+      ...r,
+      delay: `${i * 0.55 + 0.3}s`,
+      shift: s.swipeIndex === i ? '-96px' : '0px'
+    }));
+
+    return {
+      tabs: Object.keys(STATES).map(k => ({
+        label: STATES[k].label,
+        onClick: () => this.setState({ view: k }),
+        bg: k === key ? '#C6A15D' : 'transparent',
+        fg: k === key ? '#191A12' : '#B8AF9B',
+        line: k === key ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      pins, rows,
+      headerTitle: s.headerTitle,
+      isAnalysing: key === 'analysing',
+      isSparse: !!s.sparse,
+      isSaved: !!s.saved,
+      showGhosts: s.ghosts,
+      mealSlot: s.sparse ? 'Unidentified plate' : 'Dinner',
+      mealName: s.sparse ? 'Chicken, and something else' : 'Chicken and quinoa bowl',
+      totalKcal: s.totals.kcal,
+      pTotal: s.totals.p,
+      cTotal: s.totals.c,
+      fTotal: s.totals.f,
+      totalColor: s.dim ? '#8B8474' : '#F3EDE1',
+      listHeading: s.heading,
+      listCount: s.count,
+      primaryLabel: `Save to ${this.state.slot.toLowerCase()}`,
+      slots: ['Breakfast', 'Lunch', 'Dinner', 'Snack'].map(label => ({
+        label,
+        onClick: () => this.setState({ slot: label, slotTouched: true }),
+        bg: label === this.state.slot ? '#C6A15D' : 'transparent',
+        fg: label === this.state.slot ? '#191A12' : '#B8AF9B',
+        line: label === this.state.slot ? '#C6A15D' : 'rgba(243,237,225,.26)'
+      })),
+      slotNote: this.state.slotTouched
+        ? `Logging as ${this.state.slot.toLowerCase()}.`
+        : 'Dinner, because it is 19:05. Tap another if this belongs somewhere else.',
+      restH: s.restH,
+      photoH: s.photoH,
+      captionTitle: s.capTitle,
+      captionBody: s.capBody,
+      navItems: ['home', 'journey', 'train', 'nutrition', 'together'].map(k => ({
+        icon: { __html: ICONS[k] },
+        color: k === 'nutrition' ? '#E4CB99' : '#8B8474',
+        rule: k === 'nutrition' ? '#C6A15D' : 'transparent'
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

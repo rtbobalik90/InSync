@@ -1,0 +1,11 @@
+name = "insync-ai"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://YOUR-GITHUB-USERNAME.github.io"
+CLAUDE_MODEL = "claude-sonnet-4-20250514"
+
+# Add secrets with:
+# npx wrangler secret put ANTHROPIC_API_KEY
+# npx wrangler secret put INSYNC_CONNECTION_CODE
