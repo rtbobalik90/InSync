@@ -4,50 +4,68 @@
 (function () {
   'use strict';
 
-  /* Bumped whenever the shape of a clean install changes — the practice data cut
-     (v6), the preselected route cut (v7), and leg miles becoming derived rather
-     than counted (v8). Older keys are removed so a device used for testing
-     cannot merge yesterday's rehearsal back in. */
-  var KEY = 'insync.v8';
-  try {
-    localStorage.removeItem('insync.v5');
-    localStorage.removeItem('insync.v6');
-    localStorage.removeItem('insync.v7');
-  } catch (e) {}
+  /* Schema v10 migrates earlier installs and freezes each logged day’s scoring
+     basis so future target or plan changes cannot rewrite history. Connection
+     secrets live under a separate local key so backups and state exports cannot
+     accidentally include them. */
+  var KEY = 'insync.v10';
+  var PREVIOUS_KEYS = ['insync.v9', 'insync.v8', 'insync.v7', 'insync.v6', 'insync.v5'];
+  var SECRET_KEY = 'insync.secrets.v1';
+  var lastSaveError = '';
+  var loadError = '';
+  var loadWarning = '';
+  var corruptRaw = '';
+  var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var COUNTER_CAP = 2;
 
   var DEFAULT = {
     /* Empty until onboarding, on either phone. Nothing in the app may assume
        whose device this is. */
-    profile: { name: '', initials: '', heightIn: 0, age: 0, startDate: '' },
+    profile: { name: '', initials: '', heightIn: 0, age: 0, sex: '', startDate: '' },
     goal: 'lose-fat',
     targets: { calories: 2000, protein: 155, steps: 10000, weightGoal: 196 },
     units: { weight: 'lb', distance: 'mi', energy: 'kcal' },
     privacy: { weight: false, calories: true, workouts: true, steps: true },
-    /* The eight from the handshake spec, and only those. The daily logging
+    /* Notification-centre preferences. The daily logging
        reminder is deliberately absent: it fires hardest on the worst days. */
-    notifs: { invite: true, accept: true, note: true, highfive: true, challengeAccepted: true, challengeExpiring: true, leg: true, badge: false },
+    notifs: { invite: true, accept: true, note: true, challengeExpiring: true, leg: true, badge: false },
     days: {},
     /* No expedition is chosen on a fresh install. The two of them pick the
        first one together, so nothing here may name a route. legStart is the day
        the current leg opened — the miles walked on it are derived from it. */
-    expedition: { routeId: '', legIndex: 0, legStart: '', walked: [], next: '' },
+    expedition: { routeId: '', legIndex: 0, legStart: '', legStartSteps: 0, walked: [], next: '' },
     /* Empty until pairing. Nothing may assume a name, on either phone. */
     partner: { name: '', initials: '' },
     partnerLegMiles: 0,
     invite: null,
     partnerHistory: {},
+    partnerLoggedHistory: {},
     earned: [],
     photos: [],
     notesSent: 0,
     frequency: 4,
     partnerData: null,
     coachCache: null,
+    coachChat: null,
+    verseCache: null,
+    plan: [],
+    planMeta: {},
+    mealIdeas: [],
+    mealPlan: {},
+    shopTicked: {},
+    proposal: null,
+    lastArrival: null,
+    lastFinish: null,
+    partnerNoteSeen: '',
+    session: null,
     onboarded: false,
-    connections: { githubToken: '', githubRepo: 'rtbobalik90/InSync', githubBranch: 'main', claudeKey: '', lastSync: '' },
-    seeded: false
+    connections: { githubRepo: '', githubBranch: 'main', claudeModel: 'claude-sonnet-5', lastSync: '', lastSyncError: '', lastSyncErrorAt: '' }
   };
 
+  var SECRETS = loadSecrets();
   var S = load();
+  migrateSecretsFromState();
+  migrateState();
 
   /* Meals logged before ids existed would otherwise be unopenable. */
   (function backfillMealIds() {
@@ -57,25 +75,478 @@
         if (!m.id) { m.id = 'm' + k.replace(/-/g, '') + i; changed = true; }
       });
     });
-    if (changed) try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    if (changed) persistState();
   })();
 
-  function load() {
+  function loadSecrets() {
+    try { return JSON.parse(localStorage.getItem(SECRET_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+
+  function reportSaveError(err, what) {
+    lastSaveError = 'Could not save ' + (what || 'your data') + ' on this device. Storage may be full. ' +
+      'Nothing should be cleared until you make a backup.';
     try {
-      var raw = localStorage.getItem(KEY);
-      if (!raw) return clone(DEFAULT);
-      return merge(clone(DEFAULT), JSON.parse(raw));
-    } catch (e) { return clone(DEFAULT); }
+      window.dispatchEvent(new CustomEvent('insync-storage-error', {
+        detail: { message: lastSaveError, error: String(err || '') }
+      }));
+    } catch (e) {}
+  }
+
+  function saveSecrets() {
+    try {
+      localStorage.setItem(SECRET_KEY, JSON.stringify(SECRETS));
+      return true;
+    } catch (e) {
+      reportSaveError(e, 'connection keys');
+      return false;
+    }
+  }
+
+  function secret(name) { return String(SECRETS[name] || ''); }
+  function setSecret(name, value) {
+    SECRETS[name] = String(value || '').trim();
+    if (!SECRETS[name]) delete SECRETS[name];
+    saveSecrets();
+  }
+
+  function load() {
+    var keys = [KEY].concat(PREVIOUS_KEYS), sawUnreadable = false;
+    for (var i = 0; i < keys.length; i++) {
+      var raw = '';
+      try { raw = localStorage.getItem(keys[i]) || ''; }
+      catch (readErr) {
+        loadError = 'InSync could not read its local data store on this device.';
+        return clone(DEFAULT);
+      }
+      if (!raw) continue;
+      try {
+        var parsed = JSON.parse(raw);
+        if (!plainObject(parsed)) throw new Error('The saved state is not an object.');
+        var state = merge(clone(DEFAULT), parsed);
+        state.__loadedFrom = keys[i];
+        if (sawUnreadable) {
+          loadWarning = 'InSync recovered from an older readable local copy because the newest saved copy was damaged.';
+        }
+        return state;
+      } catch (e) {
+        sawUnreadable = true;
+        if (!corruptRaw) corruptRaw = raw;
+      }
+    }
+    if (sawUnreadable) {
+      loadError = 'InSync found local data that it cannot read safely. The damaged copy has been left untouched.';
+    }
+    return clone(DEFAULT);
+  }
+
+  function migrateSecretsFromState() {
+    var c = S.connections || {}, changed = false;
+    if (c.githubToken) { SECRETS.githubToken = c.githubToken; changed = true; }
+    if (c.claudeKey) { SECRETS.claudeKey = c.claudeKey; changed = true; }
+    if (!changed || !saveSecrets()) return;
+    delete c.githubToken;
+    delete c.claudeKey;
+    // Only remove the old plaintext copies after the separate secret write is safe.
+    persistState();
+  }
+
+
+  function plainObject(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function finiteOr(v, fallback, min, max) {
+    var n = +v;
+    if (!isFinite(n)) return fallback;
+    if (min != null && n < min) return fallback;
+    if (max != null && n > max) return fallback;
+    return n;
+  }
+  function shortText(v, max) { return typeof v === 'string' ? v.slice(0, max || 5000) : ''; }
+  function validDateKey(v) {
+    var x = String(v || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+    var y = +x.slice(0, 4), m = +x.slice(5, 7), d = +x.slice(8, 10);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+    var test = new Date(0);
+    test.setHours(12, 0, 0, 0);
+    test.setFullYear(y, m - 1, d);
+    return test.getFullYear() === y && test.getMonth() === m - 1 && test.getDate() === d;
+  }
+
+  /* A backup is user-editable JSON and local browser storage can also be
+     damaged by extensions or manual inspection. Normalize the shape before any
+     screen reads it so one malformed field cannot make the whole app unopenable. */
+  function normalizeStateShape() {
+    if (!plainObject(S.profile)) S.profile = clone(DEFAULT.profile);
+    S.profile.name = shortText(S.profile.name, 100);
+    S.profile.initials = shortText(S.profile.initials, 4);
+    S.profile.heightIn = Math.round(finiteOr(S.profile.heightIn, 0, 0, 120));
+    S.profile.age = Math.round(finiteOr(S.profile.age, 0, 0, 120));
+    S.profile.sex = shortText(S.profile.sex, 30);
+    S.profile.startDate = validDateKey(S.profile.startDate) ? String(S.profile.startDate) : '';
+
+    if (['lose-fat', 'build', 'hold'].indexOf(S.goal) < 0) S.goal = DEFAULT.goal;
+    if (!plainObject(S.targets)) S.targets = clone(DEFAULT.targets);
+    S.targets.calories = Math.round(finiteOr(S.targets.calories, DEFAULT.targets.calories, 500, 10000));
+    S.targets.protein = Math.round(finiteOr(S.targets.protein, DEFAULT.targets.protein, 1, 1000));
+    S.targets.steps = Math.round(finiteOr(S.targets.steps, DEFAULT.targets.steps, 1, 250000));
+    S.targets.weightGoal = finiteOr(S.targets.weightGoal, DEFAULT.targets.weightGoal, 20, 1500);
+
+    if (!plainObject(S.units)) S.units = clone(DEFAULT.units);
+    if (['lb', 'kg'].indexOf(S.units.weight) < 0) S.units.weight = DEFAULT.units.weight;
+    if (['mi', 'km'].indexOf(S.units.distance) < 0) S.units.distance = DEFAULT.units.distance;
+    if (['kcal', 'kJ'].indexOf(S.units.energy) < 0) S.units.energy = DEFAULT.units.energy;
+
+    if (!plainObject(S.privacy)) S.privacy = clone(DEFAULT.privacy);
+    Object.keys(DEFAULT.privacy).forEach(function (k) {
+      S.privacy[k] = typeof S.privacy[k] === 'boolean' ? S.privacy[k] : DEFAULT.privacy[k];
+    });
+    if (!plainObject(S.notifs)) S.notifs = clone(DEFAULT.notifs);
+    Object.keys(DEFAULT.notifs).forEach(function (k) {
+      S.notifs[k] = typeof S.notifs[k] === 'boolean' ? S.notifs[k] : DEFAULT.notifs[k];
+    });
+
+    if (!plainObject(S.days)) S.days = {};
+    Object.keys(S.days).forEach(function (key) {
+      if (!validDateKey(key) || !plainObject(S.days[key])) { delete S.days[key]; return; }
+      var d = S.days[key];
+      d.meals = Array.isArray(d.meals) ? d.meals.filter(plainObject).map(function (m) {
+        m.name = shortText(m.name, 200) || 'Meal';
+        m.slot = shortText(m.slot, 30) || 'Meal';
+        ['kcal', 'protein', 'carbs', 'fat'].forEach(function (f) { m[f] = Math.max(0, finiteOr(m[f], 0, 0, 100000)); });
+        if (m.items != null) {
+          m.items = Array.isArray(m.items) ? m.items.filter(plainObject).map(function (it) {
+            it.name = shortText(it.name, 200) || 'Ingredient';
+            it.weight = shortText(it.weight, 80);
+            ['kcal', 'protein', 'carbs', 'fat'].forEach(function (f) { it[f] = Math.max(0, finiteOr(it[f], 0, 0, 100000)); });
+            return it;
+          }) : null;
+        }
+        return m;
+      }) : [];
+      d.workouts = Array.isArray(d.workouts) ? d.workouts.filter(plainObject).map(function (w) {
+        w.name = shortText(w.name, 120) || 'Session';
+        w.minutes = Math.max(0, Math.round(finiteOr(w.minutes, 0, 0, 1440)));
+        w.exercises = Array.isArray(w.exercises) ? w.exercises.filter(plainObject).map(function (e) {
+          e.name = shortText(e.name, 160) || 'Exercise';
+          e.weight = Math.max(0, finiteOr(e.weight, 0, 0, 5000));
+          e.reps = Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000)));
+          e.sets = Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000)));
+          return e;
+        }) : [];
+        return w;
+      }) : [];
+      d.steps = Math.max(0, Math.round(finiteOr(d.steps, 0, 0, 500000)));
+      d.weight = d.weight == null ? null : finiteOr(d.weight, null, 20, 1500);
+      d.restingHr = d.restingHr == null ? null : Math.round(finiteOr(d.restingHr, null, 20, 300));
+      d.sleepHr = d.sleepHr == null ? null : finiteOr(d.sleepHr, null, 0, 24);
+      d.reflection = shortText(d.reflection, 50000);
+      d.noteToPartner = shortText(d.noteToPartner, 5000);
+      if (d.scoreBasis && !validScoreBasis(d.scoreBasis)) delete d.scoreBasis;
+    });
+
+    if (!Array.isArray(S.plan)) S.plan = [];
+    S.plan = S.plan.filter(plainObject).map(function (p) {
+      return {
+        day: WEEKDAYS.indexOf(p.day) >= 0 ? p.day : '',
+        name: shortText(p.name, 40) || 'Session',
+        ex: Array.isArray(p.ex) ? p.ex.filter(function (x) { return typeof x === 'string'; }).slice(0, 12) : undefined,
+        detail: shortText(p.detail, 200)
+      };
+    }).filter(function (p) { return !!p.day; });
+
+    if (!plainObject(S.expedition)) S.expedition = clone(DEFAULT.expedition);
+    S.expedition.routeId = shortText(S.expedition.routeId, 100);
+    S.expedition.legIndex = Math.max(0, Math.round(finiteOr(S.expedition.legIndex, 0, 0, 10000)));
+    S.expedition.legStart = validDateKey(S.expedition.legStart) ? String(S.expedition.legStart) : '';
+    S.expedition.legStartSteps = Math.max(0, Math.round(finiteOr(S.expedition.legStartSteps, 0, 0, 500000)));
+    S.expedition.walked = Array.isArray(S.expedition.walked) ? S.expedition.walked.filter(function (x) { return typeof x === 'string'; }).slice(0, 1000) : [];
+    S.expedition.next = shortText(S.expedition.next, 100);
+
+    if (!plainObject(S.partner)) S.partner = clone(DEFAULT.partner);
+    S.partner.name = shortText(S.partner.name, 100);
+    S.partner.initials = shortText(S.partner.initials, 4);
+    S.partnerLegMiles = Math.max(0, finiteOr(S.partnerLegMiles, 0, 0, 1000000));
+    if (!plainObject(S.partnerHistory)) S.partnerHistory = {};
+    Object.keys(S.partnerHistory).forEach(function (k) {
+      var n = +S.partnerHistory[k];
+      if (!validDateKey(k) || !isFinite(n) || n < 0 || n > 10) delete S.partnerHistory[k];
+      else S.partnerHistory[k] = n;
+    });
+    if (!plainObject(S.partnerLoggedHistory)) S.partnerLoggedHistory = {};
+    Object.keys(S.partnerLoggedHistory).forEach(function (k) {
+      if (!validDateKey(k)) delete S.partnerLoggedHistory[k];
+      else S.partnerLoggedHistory[k] = !!S.partnerLoggedHistory[k];
+    });
+    if (!Array.isArray(S.earned)) S.earned = [];
+    S.earned = S.earned.filter(function (x, i, a) { return typeof x === 'string' && a.indexOf(x) === i; }).slice(0, 500);
+    if (!Array.isArray(S.photos)) S.photos = [];
+    S.photos = S.photos.filter(plainObject).map(function (p) { return { id: shortText(p.id, 200), date: shortText(p.date, 10) }; }).filter(function (p) { return !!p.id; });
+    S.notesSent = Math.max(0, Math.round(finiteOr(S.notesSent, 0, 0, 1000000)));
+    S.frequency = Math.max(2, Math.min(6, Math.round(finiteOr(S.frequency, DEFAULT.frequency, 2, 6))));
+
+    if (S.partnerData != null && !plainObject(S.partnerData)) S.partnerData = null;
+    if (S.partnerData) {
+      S.partnerData.name = shortText(S.partnerData.name, 100);
+      S.partnerData.initials = shortText(S.partnerData.initials, 4);
+      S.partnerData.date = validDateKey(S.partnerData.date) ? String(S.partnerData.date) : '';
+      S.partnerData.note = shortText(S.partnerData.note, 2000);
+      S.partnerData.noteDate = validDateKey(S.partnerData.noteDate) ? String(S.partnerData.noteDate) : S.partnerData.date;
+      S.partnerData.points = finiteOr(S.partnerData.points, 0, 0, 10);
+      S.partnerData.streak = Math.max(0, Math.round(finiteOr(S.partnerData.streak, 0, 0, 10000)));
+      S.partnerData.earned = Array.isArray(S.partnerData.earned) ? S.partnerData.earned.filter(function (x) { return typeof x === 'string'; }).slice(0, 500) : [];
+      ['calories','protein','workouts','steps','legMiles'].forEach(function (f) {
+        if (S.partnerData[f] != null) {
+          var n = finiteOr(S.partnerData[f], null, 0, 500000);
+          if (n == null) delete S.partnerData[f]; else S.partnerData[f] = n;
+        }
+      });
+      if (plainObject(S.partnerData.weightTrend)) {
+        var wc = finiteOr(S.partnerData.weightTrend.change, null, -200, 200);
+        var wd = finiteOr(S.partnerData.weightTrend.days, null, 2, 100);
+        if (wc == null || wd == null) delete S.partnerData.weightTrend;
+        else S.partnerData.weightTrend = { change: wc, days: Math.round(wd) };
+      } else delete S.partnerData.weightTrend;
+      if (plainObject(S.partnerData.expedition)) {
+        S.partnerData.expedition = {
+          routeId: shortText(S.partnerData.expedition.routeId, 100),
+          legIndex: Math.max(0, Math.round(finiteOr(S.partnerData.expedition.legIndex, 0, 0, 1000))),
+          legStart: validDateKey(S.partnerData.expedition.legStart) ? String(S.partnerData.expedition.legStart) : '',
+          updatedAt: shortText(S.partnerData.expedition.updatedAt, 80),
+          previousLegMiles: Math.max(0, finiteOr(S.partnerData.expedition.previousLegMiles, 0, 0, 1000000))
+        };
+        if (!S.partnerData.expedition.routeId) delete S.partnerData.expedition;
+      } else delete S.partnerData.expedition;
+      if (!S.partnerData.date || !S.partnerData.name) S.partnerData = null;
+    }
+
+    if (S.invite != null && !plainObject(S.invite)) S.invite = null;
+    if (S.invite) {
+      S.invite.routeId = shortText(S.invite.routeId, 100);
+      S.invite.routeName = shortText(S.invite.routeName, 120) || S.invite.routeId;
+      S.invite.from = S.invite.from === 'partner' ? 'partner' : 'me';
+      S.invite.at = shortText(S.invite.at, 80); S.invite.updatedAt = shortText(S.invite.updatedAt, 80);
+      S.invite.rev = Math.max(1, Math.round(finiteOr(S.invite.rev, 1, 1, 1000000)));
+      S.invite.date = validDateKey(S.invite.date) ? String(S.invite.date) : todayKey();
+      S.invite.counters = Math.max(0, Math.min(COUNTER_CAP, Math.round(finiteOr(S.invite.counters, 0))));
+      S.invite.accepted = !!S.invite.accepted;
+      S.invite.decidedBy = shortText(S.invite.decidedBy, 20); S.invite.nudgedAt = shortText(S.invite.nudgedAt, 80); S.invite.reply = shortText(S.invite.reply, 500);
+      S.invite.trail = Array.isArray(S.invite.trail) ? S.invite.trail.filter(plainObject).map(function (t) {
+        var id = shortText(t.id, 100), name = shortText(t.name, 120); return { id: id, name: name || id };
+      }).filter(function (t) { return !!t.id; }).slice(0, 12) : [];
+      if (!S.invite.routeId) S.invite = null;
+    }
+
+    function cleanPlannedMeal(m) {
+      if (!plainObject(m)) return null;
+      m.name = shortText(m.name, 200) || 'Meal';
+      m.slot = shortText(m.slot, 30) || 'Meal';
+      ['kcal', 'protein', 'carbs', 'fat'].forEach(function (f) {
+        m[f] = Math.max(0, finiteOr(m[f], 0, 0, 100000));
+      });
+      m.items = Array.isArray(m.items) ? m.items.filter(plainObject).slice(0, 100).map(function (it) {
+        return {
+          name: shortText(it.name, 200) || 'Ingredient',
+          weight: shortText(it.weight, 80),
+          kcal: Math.max(0, finiteOr(it.kcal, 0, 0, 100000)),
+          protein: Math.max(0, finiteOr(it.protein, 0, 0, 100000)),
+          carbs: Math.max(0, finiteOr(it.carbs, 0, 0, 100000)),
+          fat: Math.max(0, finiteOr(it.fat, 0, 0, 100000))
+        };
+      }) : null;
+      return m;
+    }
+
+    S.mealIdeas = Array.isArray(S.mealIdeas)
+      ? S.mealIdeas.filter(plainObject).slice(0, 60).map(cleanPlannedMeal).filter(Boolean)
+      : [];
+    if (!plainObject(S.mealPlan)) S.mealPlan = {};
+    var allowedPlanSlot = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Breakfast|Lunch|Dinner)$/;
+    Object.keys(S.mealPlan).forEach(function (k) {
+      if (!safeKey(k) || !allowedPlanSlot.test(k)) { delete S.mealPlan[k]; return; }
+      var cleaned = cleanPlannedMeal(S.mealPlan[k]);
+      if (!cleaned) delete S.mealPlan[k]; else S.mealPlan[k] = cleaned;
+    });
+    if (!plainObject(S.shopTicked)) S.shopTicked = {};
+    Object.keys(S.shopTicked).slice(500).forEach(function (k) { delete S.shopTicked[k]; });
+    Object.keys(S.shopTicked).forEach(function (k) {
+      if (!safeKey(k) || k.length > 220 || !S.shopTicked[k]) delete S.shopTicked[k];
+      else S.shopTicked[k] = true;
+    });
+    if (!plainObject(S.planMeta)) S.planMeta = {};
+    S.planMeta.writtenBy = S.planMeta.writtenBy === 'coach' ? 'coach' : '';
+    S.planMeta.weekOf = validDateKey(S.planMeta.weekOf) ? String(S.planMeta.weekOf) : '';
+    S.planMeta.note = shortText(S.planMeta.note, 1000);
+    if (S.proposal != null && (!plainObject(S.proposal) || !plainObject(S.proposal.targets))) S.proposal = null;
+    if (S.proposal) {
+      var pt = S.proposal.targets, cleanTargets = {};
+      cleanTargets.calories = Math.round(finiteOr(pt.calories, S.targets.calories, 500, 10000));
+      cleanTargets.protein = Math.round(finiteOr(pt.protein, S.targets.protein, 1, 1000));
+      cleanTargets.steps = Math.round(finiteOr(pt.steps, S.targets.steps, 1, 250000));
+      cleanTargets.weightGoal = finiteOr(pt.weightGoal, S.targets.weightGoal, 20, 1500);
+      S.proposal.targets = cleanTargets;
+      S.proposal.date = validDateKey(S.proposal.date) ? String(S.proposal.date) : todayKey();
+      S.proposal.summary = shortText(S.proposal.summary, 1000);
+      S.proposal.why = shortText(S.proposal.why, 5000);
+      S.proposal.answered = !!S.proposal.answered;
+      S.proposal.accepted = !!S.proposal.accepted;
+    }
+    if (S.verseCache != null && !plainObject(S.verseCache)) S.verseCache = null;
+    if (S.verseCache) {
+      S.verseCache.date = validDateKey(S.verseCache.date) ? String(S.verseCache.date) : '';
+      S.verseCache.text = shortText(S.verseCache.text, 1000);
+      S.verseCache.ref = shortText(S.verseCache.ref, 200);
+      if (!S.verseCache.date || !S.verseCache.text || !S.verseCache.ref) S.verseCache = null;
+    }
+    if (S.coachCache != null && !plainObject(S.coachCache)) S.coachCache = null;
+    if (S.coachCache) {
+      S.coachCache.date = validDateKey(S.coachCache.date) ? String(S.coachCache.date) : '';
+      S.coachCache.line = shortText(S.coachCache.line, 2000);
+      if (!S.coachCache.date || !S.coachCache.line) S.coachCache = null;
+    }
+    if (S.coachChat != null && !plainObject(S.coachChat)) S.coachChat = null;
+    if (S.coachChat) {
+      S.coachChat.date = validDateKey(S.coachChat.date) ? String(S.coachChat.date) : '';
+      S.coachChat.messages = Array.isArray(S.coachChat.messages) ? S.coachChat.messages.filter(plainObject).slice(-100).map(function (m) {
+        return { role: m.role === 'coach' ? 'coach' : 'me', text: shortText(m.text, 5000) };
+      }).filter(function (m) { return !!m.text; }) : [];
+      if (!S.coachChat.date) S.coachChat = null;
+    }
+    if (S.lastArrival != null && !plainObject(S.lastArrival)) S.lastArrival = null;
+    if (S.lastArrival) {
+      S.lastArrival.routeId = shortText(S.lastArrival.routeId, 100);
+      S.lastArrival.legIndex = Math.max(0, Math.round(finiteOr(S.lastArrival.legIndex, 0, 0, 1000)));
+      S.lastArrival.milesMine = Math.max(0, finiteOr(S.lastArrival.milesMine, 0, 0, 1000000));
+      S.lastArrival.milesHers = Math.max(0, finiteOr(S.lastArrival.milesHers, 0, 0, 1000000));
+      S.lastArrival.at = shortText(S.lastArrival.at, 80);
+      if (!S.lastArrival.routeId) S.lastArrival = null;
+    }
+    if (S.lastFinish != null && !plainObject(S.lastFinish)) S.lastFinish = null;
+    if (S.lastFinish) {
+      S.lastFinish.name = shortText(S.lastFinish.name, 120) || 'Session';
+      S.lastFinish.minutes = Math.max(0, Math.round(finiteOr(S.lastFinish.minutes, 0, 0, 1440)));
+      S.lastFinish.volume = Math.max(0, finiteOr(S.lastFinish.volume, 0, 0, 100000000));
+      S.lastFinish.pointsGained = Math.max(0, Math.min(10, Math.round(finiteOr(S.lastFinish.pointsGained, 0, 0, 10))));
+      S.lastFinish.exercises = Array.isArray(S.lastFinish.exercises) ? S.lastFinish.exercises.filter(plainObject).slice(0, 100).map(function (x) {
+        return {
+          name: shortText(x.name, 160) || 'Exercise',
+          weight: Math.max(0, finiteOr(x.weight, 0, 0, 5000)),
+          reps: Math.max(0, Math.round(finiteOr(x.reps, 0, 0, 10000))),
+          sets: Math.max(0, Math.round(finiteOr(x.sets, 0, 0, 1000)))
+        };
+      }) : [];
+      if (plainObject(S.lastFinish.best)) {
+        S.lastFinish.best = { name: shortText(S.lastFinish.best.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(S.lastFinish.best.weight, 0, 0, 5000)) };
+      } else S.lastFinish.best = null;
+    }
+    S.partnerNoteSeen = shortText(S.partnerNoteSeen, 2300);
+    delete S.seeded;
+    if (S.session != null && (!plainObject(S.session) || !validDateKey(S.session.date) || !Array.isArray(S.session.items))) S.session = null;
+    if (S.session) {
+      S.session.name = shortText(S.session.name, 120) || 'Session';
+      S.session.startedAt = finiteOr(S.session.startedAt, Date.now(), 0, Number.MAX_SAFE_INTEGER);
+      S.session.items = S.session.items.filter(plainObject).map(function (it) {
+        it.id = shortText(it.id, 120); it.name = shortText(it.name, 160) || 'Exercise';
+        it.sets = Array.isArray(it.sets) ? it.sets.filter(plainObject).map(function (set) {
+          return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))) };
+        }) : [];
+        return it;
+      });
+    }
+
+    if (!plainObject(S.connections)) S.connections = clone(DEFAULT.connections);
+    S.connections.githubRepo = shortText(S.connections.githubRepo, 200).trim();
+    S.connections.githubBranch = shortText(S.connections.githubBranch, 200).trim() || 'main';
+    S.connections.claudeModel = shortText(S.connections.claudeModel, 200).trim() || DEFAULT.connections.claudeModel;
+    S.connections.lastSync = shortText(S.connections.lastSync, 80);
+    S.connections.lastSyncError = shortText(S.connections.lastSyncError, 500);
+    S.connections.lastSyncErrorAt = shortText(S.connections.lastSyncErrorAt, 80);
+    S.onboarded = !!S.onboarded;
+  }
+
+  function migrateState(skipPersist) {
+    var from = S.__loadedFrom;
+    delete S.__loadedFrom;
+    normalizeStateShape();
+    if (!S.expedition) S.expedition = clone(DEFAULT.expedition);
+    if (typeof S.expedition.legStartSteps !== 'number') S.expedition.legStartSteps = 0;
+    if (!S.partnerLoggedHistory) S.partnerLoggedHistory = {};
+    if (!S.notifs) S.notifs = clone(DEFAULT.notifs);
+    delete S.notifs.highfive;
+    delete S.notifs.challengeAccepted;
+    if (!S.connections) S.connections = clone(DEFAULT.connections);
+    if (!S.connections.githubBranch) S.connections.githubBranch = 'main';
+    if (!S.connections.claudeModel || S.connections.claudeModel === 'claude-sonnet-4-5-20250929') {
+      S.connections.claudeModel = DEFAULT.connections.claudeModel;
+    }
+    if (S.invite) {
+      if (!(+S.invite.rev > 0)) S.invite.rev = Math.max(1, (+S.invite.counters || 0) + 1);
+      if (!S.invite.updatedAt) S.invite.updatedAt = S.invite.nudgedAt || S.invite.at || '';
+    }
+
+    /* v10 freezes the scoring rules on every day that already contains real
+       activity. Before this, changing targets or rewriting the weekly plan could
+       retroactively change old 10/10 days and even a completed Together result. */
+    var basisChanged = false;
+    Object.keys(S.days || {}).forEach(function (k) {
+      if (!logged(k)) return;
+      if (!validScoreBasis(S.days[k].scoreBasis)) {
+        S.days[k].scoreBasis = makeScoreBasis(k);
+        basisChanged = true;
+      }
+    });
+
+    if (!skipPersist && from && from !== KEY) {
+      if (persistState()) {
+        try { localStorage.removeItem(from); } catch (e) {}
+      }
+    } else if (!skipPersist && basisChanged) {
+      persistState();
+    }
+  }
+
+  /* A day record is created the moment any screen looks at that date, so the
+     empty ones are swept before every write. Otherwise scrolling back through a
+     month would invent a month of history. Today is always kept: it is being
+     filled in. */
+  function prune() {
+    var today = todayKey();
+    Object.keys(S.days || {}).forEach(function (k) {
+      if (k === today) return;
+      var d = S.days[k];
+      if (!d) return;
+      var empty = !(d.meals || []).length && !(d.workouts || []).length && !d.steps &&
+        d.weight == null && d.restingHr == null && d.sleepHr == null &&
+        !(d.reflection || '').trim() && !(d.noteToPartner || '');
+      if (empty) delete S.days[k];
+    });
+  }
+
+  function persistState() {
+    if (loadError) {
+      lastSaveError = loadError;
+      return false;
+    }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(S));
+      lastSaveError = '';
+      return true;
+    } catch (e) {
+      reportSaveError(e, 'your InSync log');
+      return false;
+    }
   }
 
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    prune();
+    return persistState();
   }
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+  function safeKey(k) { return k !== '__proto__' && k !== 'prototype' && k !== 'constructor'; }
   function merge(base, over) {
     Object.keys(over || {}).forEach(function (k) {
+      if (!safeKey(k)) return;
       if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k]) merge(base[k], over[k]);
       else base[k] = over[k];
     });
@@ -83,7 +554,10 @@
   }
 
   // ---- dates ----
-  function iso(d) { return d.toISOString().slice(0, 10); }
+  function iso(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
   function todayKey() { return iso(new Date()); }
   function shift(key, n) {
     var d = new Date(key + 'T12:00:00');
@@ -113,7 +587,7 @@
   function logged(key) {
     var d = S.days[key];
     if (!d) return false;
-    return d.meals.length > 0 || d.workouts.length > 0 || d.steps > 0 || d.weight != null;
+    return (d.meals || []).length > 0 || (d.workouts || []).length > 0 || (d.steps || 0) > 0 || d.weight != null || !!(d.reflection || '').trim();
   }
 
   function streak() {
@@ -128,7 +602,10 @@
      the profile was set. The earliest logged day wins so "Day N" cannot
      disagree with itself from one screen to the next. */
   function startKey() {
-    var keys = Object.keys(S.days || {}).sort();
+    /* Only days with something in them. Reading a screen that looks back a month
+       used to create empty records for every day it touched, which then counted
+       as history and reported "Day 28" on the first morning. */
+    var keys = Object.keys(S.days || {}).sort().filter(function (k) { return logged(k); });
     var first = keys.length ? keys[0] : null;
     var declared = S.profile.startDate;
     if (!declared) return first || todayKey();
@@ -144,17 +621,84 @@
     return shift(k, -back);
   }
 
+  function dayOrdinal(key) {
+    var p = String(key || '').split('-').map(Number);
+    return p.length === 3 && p.every(isFinite) ? Math.floor(Date.UTC(p[0], p[1] - 1, p[2]) / 86400000) : 0;
+  }
   function daysIn() {
-    var start = new Date(startKey() + 'T12:00:00');
-    return Math.max(1, Math.round((Date.now() - start.getTime()) / 86400000) + 1);
+    return Math.max(1, dayOrdinal(todayKey()) - dayOrdinal(startKey()) + 1);
   }
 
-  // Weighted daily points — identical for both, which is what makes it a contest.
+  // Weighted daily points. A logged day's targets and training requirement are
+  // frozen the first time real activity is written, so later plan/target changes
+  // cannot rewrite history or completed Together challenges.
+  function planFor(key) {
+    var wd = WEEKDAYS[new Date((key || todayKey()) + 'T12:00:00').getDay()];
+    return (S.plan || []).filter(function (p) { return p.day === wd; })[0] || null;
+  }
+  function validScoreBasis(b) {
+    return !!b && b.version === 1 && b.targets &&
+      isFinite(+b.targets.calories) && +b.targets.calories > 0 &&
+      isFinite(+b.targets.protein) && +b.targets.protein > 0 &&
+      isFinite(+b.targets.steps) && +b.targets.steps > 0 &&
+      ['rest', 'walk', 'session'].indexOf(b.trainingKind) >= 0;
+  }
+  function makeScoreBasis(key) {
+    var p = planFor(key);
+    return {
+      version: 1,
+      targets: {
+        calories: Math.max(1, Math.round(+S.targets.calories || 1)),
+        protein: Math.max(1, Math.round(+S.targets.protein || 1)),
+        steps: Math.max(1, Math.round(+S.targets.steps || 1))
+      },
+      trainingKind: !p ? 'rest' : (/walk/i.test(p.name || '') ? 'walk' : 'session'),
+      planName: p ? String(p.name || '').slice(0, 40) : ''
+    };
+  }
+  function ensureScoreBasis(key) {
+    key = key || todayKey();
+    var d = day(key);
+    if (!validScoreBasis(d.scoreBasis)) d.scoreBasis = makeScoreBasis(key);
+    return d.scoreBasis;
+  }
+  function scoreTargets(key) {
+    key = key || todayKey();
+    var d = S.days[key], b = d && d.scoreBasis;
+    return validScoreBasis(b) ? b.targets : makeScoreBasis(key).targets;
+  }
+  function trainingStatus(key) {
+    key = key || todayKey();
+    var d = day(key), b = d.scoreBasis;
+    if (validScoreBasis(b)) {
+      if (b.trainingKind === 'rest') return { label: 'Recovery day', done: true, kind: 'rest' };
+      if (b.trainingKind === 'walk') return {
+        label: 'Walk day', done: d.steps >= b.targets.steps, kind: 'walk',
+        plan: { name: b.planName || 'Walk' }
+      };
+      return {
+        label: 'Session done', done: (d.workouts || []).length > 0, kind: 'session',
+        plan: { name: b.planName || 'Session' }
+      };
+    }
+    var p = planFor(key), target = scoreTargets(key);
+    if (!p) return { label: 'Recovery day', done: true, kind: 'rest' };
+    if (/walk/i.test(p.name || '')) return { label: 'Walk day', done: d.steps >= target.steps, kind: 'walk', plan: p };
+    return { label: 'Session done', done: (d.workouts || []).length > 0, kind: 'session', plan: p };
+  }
+  function calorieRange(key) {
+    var target = Math.max(1, +scoreTargets(key).calories || 1);
+    return { min: Math.round(target * 0.90), max: Math.round(target * 1.05) };
+  }
+  function caloriesInRange(key) {
+    var kcal = totals(key).kcal, r = calorieRange(key);
+    return kcal >= r.min && kcal <= r.max;
+  }
   var POINTS = [
-    { key: 'workout', value: 3, label: 'Session done', done: function (k) { return day(k).workouts.length > 0; } },
-    { key: 'protein', value: 2, label: 'Protein target', done: function (k) { return totals(k).protein >= S.targets.protein; } },
-    { key: 'calories', value: 2, label: 'Calories in range', done: function (k) { var t = totals(k).kcal; return t > 0 && t <= S.targets.calories; } },
-    { key: 'steps', value: 2, label: 'Step target', done: function (k) { return day(k).steps >= S.targets.steps; } },
+    { key: 'workout', value: 3, label: 'Session done', done: function (k) { return trainingStatus(k).done; } },
+    { key: 'protein', value: 2, label: 'Protein target', done: function (k) { return totals(k).protein >= scoreTargets(k).protein; } },
+    { key: 'calories', value: 2, label: 'Calories in range', done: caloriesInRange },
+    { key: 'steps', value: 2, label: 'Step target', done: function (k) { return day(k).steps >= scoreTargets(k).steps; } },
     { key: 'weighin', value: 1, label: 'Weighed in', done: function (k) { return day(k).weight != null; } }
   ];
 
@@ -165,8 +709,9 @@
 
   function pointRows(key) {
     key = key || todayKey();
+    var ts = trainingStatus(key);
     return POINTS.map(function (p) {
-      return { key: p.key, label: p.label, value: p.value, done: p.done(key) };
+      return { key: p.key, label: p.key === 'workout' ? ts.label : p.label, value: p.value, done: p.done(key) };
     });
   }
 
@@ -234,30 +779,32 @@
     return 'night';
   }
 
-  // The next useful thing today — biggest weighted gap still open.
+  // The next useful thing today. It can only claim 10/10 when the ledger does.
   function nextStep() {
-    var k = todayKey(), t = totals(k), d = day(k);
-    if (t.protein < S.targets.protein) {
-      var gap = S.targets.protein - t.protein;
-      return {
-        line: 'Protein is the gap. You are ' + gap + ' g short' + (d.meals.length ? ' with one meal left' : ' and nothing logged yet') + ' — a palm of chicken at dinner closes it.',
-        action: d.meals.length ? 'Log dinner' : 'Log breakfast',
-        route: 'nutrition'
-      };
+    var k = todayKey(), t = totals(k), d = day(k), ts = trainingStatus(k), r = calorieRange(k), tg = scoreTargets(k);
+    if (!ts.done && ts.kind === 'session') {
+      return { line: 'Today is a scheduled ' + ((ts.plan && ts.plan.name) || 'training') + ' day. The session is still open.', action: 'Start the session', route: 'train' };
     }
-    if (!d.workouts.length) {
-      var stepsShort = d.steps < S.targets.steps;
-      return {
-        line: stepsShort
-          ? 'The session is the bigger of two gaps. ' + (S.targets.steps - d.steps).toLocaleString() + ' steps are still open too, and a walk after covers them.'
-          : 'Everything else is in. Tonight\u2019s session is the last thing between you and a clean day.',
-        action: 'Start the session', route: 'train'
-      };
+    if (!ts.done && ts.kind === 'walk') {
+      return { line: (tg.steps - d.steps).toLocaleString() + ' steps remain on today’s walk day.', action: 'Log your steps', route: 'train' };
     }
-    if (d.steps < S.targets.steps) {
-      return { line: (S.targets.steps - d.steps).toLocaleString() + ' steps left. A walk after dinner covers it, and the miles count toward the leg.', action: 'Log a walk', route: 'train' };
+    if (t.protein < tg.protein) {
+      return { line: 'Protein is the biggest nutrition gap. You are ' + (tg.protein - t.protein) + ' g short.', action: 'Log the next meal', route: 'nutrition' };
     }
-    return { line: 'Nothing is outstanding. Ten of ten today.', action: 'Write the evening', route: 'reflection' };
+    if (d.steps < tg.steps) {
+      return { line: (tg.steps - d.steps).toLocaleString() + ' steps left. Those miles also move the expedition.', action: 'Log your steps', route: 'train' };
+    }
+    if (t.kcal < r.min) {
+      return { line: 'Calories are below today’s range by ' + (r.min - t.kcal).toLocaleString() + ' kcal. Finish the day with enough food to stay in range.', action: 'Log the next meal', route: 'nutrition' };
+    }
+    if (d.weight == null) {
+      return { line: 'The weigh-in point is still open. If you weighed this morning, add it now; otherwise leave it rather than guessing.', action: 'Log morning', route: 'body' };
+    }
+    if (t.kcal > r.max) {
+      return { line: 'Everything you can still close is done. Calories finished above today’s range, so the score is ' + points(k) + ' of 10.', action: 'Write the evening', route: 'reflection' };
+    }
+    if (points(k) === 10) return { line: 'Nothing is outstanding. Ten of ten today.', action: 'Write the evening', route: 'reflection' };
+    return { line: 'The day is at ' + points(k) + ' of 10. Open the ledger to see what remains.', action: 'Review today', route: 'together' };
   }
 
   // ---- mutations ----
@@ -277,8 +824,13 @@
 
   function updateMeal(id, patch) {
     var f = findMeal(id);
-    if (!f) return false;
-    Object.assign(S.days[f.key].meals[f.index], patch);
+    if (!f || !plainObject(patch)) return false;
+    ensureScoreBasis(f.key);
+    var meal = S.days[f.key].meals[f.index];
+    Object.assign(meal, patch);
+    meal.name = shortText(meal.name, 200) || 'Meal';
+    meal.slot = shortText(meal.slot, 30) || 'Meal';
+    ['kcal','protein','carbs','fat'].forEach(function (field) { meal[field] = Math.max(0, finiteOr(meal[field], 0, 0, 100000)); });
     save(); emit();
     return true;
   }
@@ -286,6 +838,7 @@
   function removeMeal(id) {
     var f = findMeal(id);
     if (!f) return false;
+    ensureScoreBasis(f.key);
     S.days[f.key].meals.splice(f.index, 1);
     save(); emit();
     return true;
@@ -297,18 +850,42 @@
   }
 
   function addMeal(meal, key) {
-    day(key).meals.push(Object.assign({ id: mealId(), at: new Date().toISOString() }, meal));
+    key = key || todayKey();
+    ensureScoreBasis(key);
+    meal = plainObject(meal) ? meal : {};
+    var entry = Object.assign({ id: mealId(), at: new Date().toISOString() }, meal);
+    entry.name = shortText(entry.name, 200) || 'Meal';
+    entry.slot = shortText(entry.slot, 30) || 'Meal';
+    ['kcal','protein','carbs','fat'].forEach(function (field) { entry[field] = Math.max(0, finiteOr(entry[field], 0, 0, 100000)); });
+    day(key).meals.push(entry);
+    save(); emit();
+    return entry;
+  }
+
+  function setSteps(n, key) {
+    key = key || todayKey(); ensureScoreBasis(key);
+    day(key).steps = Math.max(0, Math.round(finiteOr(n, 0, 0, 500000)));
     save(); emit();
   }
-  function setSteps(n, key) { day(key).steps = n; save(); emit(); }
   function setMorning(v, key) {
-    var d = day(key);
-    if (v.weight != null) d.weight = v.weight;
-    if (v.restingHr != null) d.restingHr = v.restingHr;
-    if (v.sleepHr != null) d.sleepHr = v.sleepHr;
+    key = key || todayKey(); ensureScoreBasis(key); v = plainObject(v) ? v : {};
+    var d = day(key), n;
+    if (v.weight != null) { n = finiteOr(v.weight, null, 20, 1500); if (n != null) d.weight = n; }
+    if (v.restingHr != null) { n = finiteOr(v.restingHr, null, 20, 300); if (n != null) d.restingHr = Math.round(n); }
+    if (v.sleepHr != null) { n = finiteOr(v.sleepHr, null, 0, 24); if (n != null) d.sleepHr = n; }
     save(); emit();
   }
-  function addWorkout(w, key) { day(key).workouts.push(w); save(); emit(); }
+  function addWorkout(w, key) {
+    key = key || todayKey(); ensureScoreBasis(key); w = plainObject(w) ? w : {};
+    var entry = {
+      name: shortText(w.name, 120) || 'Session',
+      minutes: Math.max(0, Math.round(finiteOr(w.minutes, 0, 0, 1440))),
+      exercises: Array.isArray(w.exercises) ? w.exercises.filter(plainObject).map(function (e) {
+        return { name: shortText(e.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(e.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000))), sets: Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000))) };
+      }) : []
+    };
+    day(key).workouts.push(entry); save(); emit(); return entry;
+  }
 
 
   /* An in-progress session. Held in the store rather than memory so locking
@@ -318,6 +895,7 @@
       date: todayKey(),
       name: planName || 'Session',
       startedAt: Date.now(),
+      scoreBasis: clone(makeScoreBasis(todayKey())),
       items: items.map(function (e) {
         return {
           id: e.id, name: e.name, gif: e.gif || null,
@@ -331,12 +909,18 @@
     save(); emit();
   }
   function session() {
-    if (S.session && S.session.date !== todayKey()) { S.session = null; save(); }
+    /* A session begun before midnight may legitimately finish just after it. Keep
+       yesterday's session, but discard anything older so a forgotten draft does
+       not survive indefinitely. */
+    if (S.session && S.session.date < shift(todayKey(), -1)) { S.session = null; save(); }
     return S.session || null;
   }
   function logSet(itemIndex, set) {
-    var s = S.session; if (!s || !s.items[itemIndex]) return;
-    s.items[itemIndex].sets.push(set);
+    var s = S.session; if (!s || !s.items[itemIndex] || !plainObject(set)) return;
+    s.items[itemIndex].sets.push({
+      weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)),
+      reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000)))
+    });
     save(); emit();
   }
   function dropSet(itemIndex, setIndex) {
@@ -368,7 +952,11 @@
     var logged = s.items.filter(function (i) { return i.sets.length; });
     if (!logged.length) return null;
 
-    var before = points();
+    var key = s.date || todayKey(), d = day(key);
+    if (!validScoreBasis(d.scoreBasis)) {
+      d.scoreBasis = validScoreBasis(s.scoreBasis) ? clone(s.scoreBasis) : makeScoreBasis(key);
+    }
+    var before = points(key);
     var minutes = Math.max(1, Math.round((Date.now() - s.startedAt) / 60000));
     var volume = 0, best = null;
     var exercises = logged.map(function (i) {
@@ -381,26 +969,34 @@
       return { name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length };
     });
 
-    addWorkout({ name: s.name, minutes: minutes, exercises: exercises });
+    d.workouts.push({ name: s.name, minutes: minutes, exercises: exercises });
     S.session = null;
     save(); emit();
 
     return {
       name: s.name, minutes: minutes, volume: Math.round(volume),
       exercises: exercises, best: best,
-      pointsGained: points() - before
+      pointsGained: points(key) - before
     };
   }
 
   /* The evening is saved with the time it was closed, so the screen can say so
      rather than implying it. */
   function saveReflection(text, key) {
+    key = key || todayKey();
     var d = day(key);
+    if ((text || '').trim()) ensureScoreBasis(key);
     d.reflection = text;
     d.reflectionAt = (text || '').trim()
       ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       : '';
     save(); emit();
+  }
+  function markVerseRead(key) {
+    var d = day(key || todayKey());
+    if (d.verseRead) return;
+    d.verseRead = true;
+    save();
   }
 
   /* The coach chooses the day's verse against the week he has had. Where it
@@ -520,12 +1116,17 @@
   function legMine() {
     var start = S.expedition.legStart;
     if (!start) return 0;
-    var total = 0;
+    var baseline = Math.max(0, +(S.expedition.legStartSteps || 0));
+    var totalSteps = 0;
     Object.keys(S.days).forEach(function (k) {
-      if (k >= start) total += miles(S.days[k].steps);
+      if (k < start) return;
+      var steps = Math.max(0, +(S.days[k].steps || 0));
+      if (k === start) steps = Math.max(0, steps - baseline);
+      totalSteps += steps;
     });
-    return +total.toFixed(1);
+    return +miles(totalSteps).toFixed(1);
   }
+
   function legHers() { return +(+(S.partnerLegMiles || 0)).toFixed(1); }
 
   /* Her name where one is set, and something true where none is. Both phones
@@ -538,12 +1139,51 @@
      next one starts from nothing, which is what makes it a leg. */
   function advanceLeg() {
     var e = S.expedition;
+    if (!e || !e.routeId) return false;
+    var total = window.Screens && Screens.legCount ? Screens.legCount() : 0;
+    if (total && e.legIndex >= total) return false;
+    var currentLeg = window.Screens && Screens.leg ? Screens.leg() : null;
+    if (currentLeg && currentLeg.miles > 0) {
+      var mine = legMine(), theirs = legHers(), required = +currentLeg.miles;
+      if (mine + theirs < required || Math.min(mine, theirs) < required * 0.2) return false;
+    }
     S.lastArrival = { routeId: e.routeId, legIndex: e.legIndex, at: new Date().toISOString(),
       milesMine: legMine(), milesHers: legHers() };
     e.legIndex = e.legIndex + 1;
     e.legStart = todayKey();
+    e.legStartSteps = Math.max(0, +(day(todayKey()).steps || 0));
     S.partnerLegMiles = 0;
     save(); emit();
+    return true;
+  }
+
+  /* Expedition progress is shared state. If the other phone has already opened
+     the next leg, this device follows the monotonic leg index instead of
+     treating their previous-leg miles as miles on the new leg. The local step
+     baseline is taken at the safest available boundary, so old steps are never
+     double-counted when a phone learns about an arrival late. */
+  function syncExpeditionProgress(remote) {
+    if (!plainObject(remote)) return false;
+    var e = S.expedition, routeId = shortText(remote.routeId, 100);
+    var incoming = Math.max(0, Math.round(finiteOr(remote.legIndex, 0, 0, 1000)));
+    if (!routeId || !e.routeId || routeId !== e.routeId || incoming <= e.legIndex) return false;
+    var oldIndex = e.legIndex, oldMine = legMine();
+    if (incoming === oldIndex + 1) {
+      S.lastArrival = {
+        routeId: routeId, legIndex: oldIndex, at: shortText(remote.updatedAt, 80) || new Date().toISOString(),
+        milesMine: oldMine,
+        milesHers: Math.max(0, finiteOr(remote.previousLegMiles, 0, 0, 1000000))
+      };
+    }
+    e.legIndex = incoming;
+    var start = validDateKey(remote.legStart) ? String(remote.legStart) : todayKey();
+    if (start > todayKey()) start = todayKey();
+    e.legStart = start;
+    var startDay = S.days[start];
+    e.legStartSteps = Math.max(0, +(startDay && startDay.steps || 0));
+    S.partnerLegMiles = 0;
+    save(); emit();
+    return true;
   }
 
   /* ---- the handshake ----------------------------------------------------
@@ -551,12 +1191,16 @@
      it is lives in `from`. There is no decline: countering replaces the route
      and hands the proposal back, which costs the counterer a choice of their
      own. Two counters and the app settles it. */
-  var COUNTER_CAP = 2;
+  function touchInvite(inv) {
+    inv.rev = Math.max(0, +inv.rev || 0) + 1;
+    inv.updatedAt = new Date().toISOString();
+  }
 
   function propose(routeId, name) {
+    var now = new Date().toISOString();
     S.invite = {
       routeId: routeId, routeName: name || routeId, from: 'me',
-      at: new Date().toISOString(), date: todayKey(),
+      at: now, updatedAt: now, rev: 1, date: todayKey(),
       counters: 0, accepted: false, decidedBy: '', nudgedAt: '', reply: '',
       trail: [{ id: routeId, name: name || routeId }]
     };
@@ -568,6 +1212,7 @@
   function nudgeInvite() {
     if (!S.invite) return;
     S.invite.nudgedAt = new Date().toISOString();
+    touchInvite(S.invite);
     save(); emit();
   }
 
@@ -575,6 +1220,7 @@
     if (!S.invite) return;
     S.invite.accepted = true;
     S.invite.decidedBy = 'me';
+    touchInvite(S.invite);
     save(); emit();
   }
 
@@ -594,6 +1240,7 @@
     inv.at = new Date().toISOString();
     inv.date = todayKey();
     inv.nudgedAt = '';
+    touchInvite(inv);
     if (inv.counters >= COUNTER_CAP) return settleInvite();
     save(); emit();
   }
@@ -626,6 +1273,7 @@
     e.routeId = routeId;
     e.legIndex = 0;
     e.legStart = todayKey();
+    e.legStartSteps = Math.max(0, +(day(todayKey()).steps || 0));
     e.next = '';
     S.partnerLegMiles = 0;
     S.invite = null;
@@ -684,12 +1332,50 @@
 
   /* His name and the initials on the avatar are one decision, so they are
      written together and cannot drift apart. */
+  function initialsFor(name) {
+    return String(name || '').trim().split(/\s+/).filter(Boolean)
+      .map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase();
+  }
   function setProfileName(name) {
     var clean = (name || '').trim();
     if (!clean) return;
     S.profile.name = clean;
-    S.profile.initials = clean.split(/\s+/).map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase();
+    S.profile.initials = initialsFor(clean);
     save(); emit();
+  }
+  function setPartnerName(name) {
+    var clean = (name || '').trim();
+    S.partner.name = clean;
+    S.partner.initials = initialsFor(clean);
+    save(); emit();
+  }
+
+
+  /* A note is delivered when the GitHub PUT succeeds, regardless of whether
+     that success came from the send button, an automatic retry, or reopening
+     the app later. One signature is counted once. */
+  function setPartnerNote(text, key) {
+    var k = key || todayKey(), d = day(k);
+    var next = shortText(String(text || '').trim(), 140);
+    var nextSig = k + '|' + next;
+    if (d.noteSentSignature !== nextSig) d.noteSentAt = '';
+    d.noteToPartner = next;
+    var saved = save(); emit();
+    return saved;
+  }
+
+  function markCurrentNoteSynced(key, sentText) {
+    var k = key || todayKey(), d = S.days[k];
+    var text = sentText != null ? String(sentText).trim()
+      : (d && typeof d.noteToPartner === 'string' ? d.noteToPartner.trim() : '');
+    if (!d || !text) return false;
+    var sig = k + '|' + text;
+    if (d.noteSentSignature !== sig) {
+      d.noteSentSignature = sig;
+      S.notesSent = (S.notesSent || 0) + 1;
+    }
+    d.noteSentAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return save();
   }
 
   /* The coach proposes; a tap accepts. Either way the proposal is answered and
@@ -697,7 +1383,9 @@
   function acceptProposal() {
     var p = S.proposal;
     if (!p || !p.targets) return;
-    Object.keys(p.targets).forEach(function (k) { S.targets[k] = p.targets[k]; });
+    ['calories', 'protein', 'steps', 'weightGoal'].forEach(function (k) {
+      if (p.targets[k] != null) S.targets[k] = p.targets[k];
+    });
     p.answered = true;
     p.accepted = true;
     save(); emit();
@@ -721,7 +1409,8 @@
   }
 
   function set(path, value) {
-    var parts = path.split('.'), o = S;
+    var parts = String(path || '').split('.'), o = S;
+    if (!parts.length || parts.some(function (part) { return !part || !safeKey(part); })) return false;
     /* A write into a day must not leave a half-formed day behind: anything
        reading it later expects meals and workouts to exist. */
     if (parts[0] === 'days' && parts[1]) day(parts[1]);
@@ -730,53 +1419,65 @@
       o = o[parts[i]];
     }
     o[parts[parts.length - 1]] = value;
-    save(); emit();
+    var saved = save(); emit();
+    return saved;
   }
 
-  // ---- seed: a realistic day, for testing and first-run demos ----
-  function seed() {
-    var k = todayKey();
-    for (var i = 10; i >= 0; i--) {
-      var key = shift(k, -i), d = day(key);
-      d.meals = [
-        { name: 'Eggs, oats and berries', slot: 'Breakfast', time: '06:40', kcal: 512, protein: 38, carbs: 44, fat: 14 },
-        { name: 'Chicken and quinoa bowl', slot: 'Lunch', time: '12:15', kcal: 448, protein: 34, carbs: 41, fat: 16, photo: 'assets/art/meal-example.jpg' },
-        { name: 'Greek yoghurt', slot: 'Snack', time: '15:30', kcal: 142, protein: 7, carbs: 19, fat: 2 }
-      ];
-      if (i > 0) d.meals.push({ name: 'Salmon, rice and greens', slot: 'Dinner', time: '19:20', kcal: 664, protein: 46, carbs: 58, fat: 21 });
-      // Seeded meals need identity too, or they cannot be opened or edited.
-      d.meals.forEach(function (m) { if (!m.id) m.id = 'm' + Math.random().toString(36).slice(2, 9); });
-      d.steps = i === 0 ? 8432 : 9000 + ((i * 613) % 3200);
-      d.weight = +(210.4 - (10 - i) * 0.28).toFixed(1);
-      d.restingHr = 54 + (i % 4);
-      d.sleepHr = +(6.8 + ((i * 7) % 13) / 10).toFixed(1);
-      if (i > 0 && i % 2 === 1) d.workouts = [{ name: 'Push day', minutes: 46 }];
+  function exportState() {
+    var out = clone(S);
+    if (out.connections) {
+      delete out.connections.githubToken;
+      delete out.connections.claudeKey;
     }
-    /* Invented like the rest of this: a proposal from her sitting unanswered,
-       so the handshake can be walked end to end on one device. */
-    S.invite = {
-      routeId: 'milford', routeName: 'Milford Track', from: 'partner',
-      at: new Date().toISOString(), date: k,
-      counters: 0, accepted: false, decidedBy: '', nudgedAt: '',
-      reply: 'Fewer hills. I mean it.',
-      trail: [{ id: 'milford', name: 'Milford Track' }]
-    };
-    S.seeded = true;
-    save(); emit();
+    return out;
   }
 
-  function reset() { S = clone(DEFAULT); save(); emit(); }
+  function importState(incoming) {
+    if (!plainObject(incoming) || !plainObject(incoming.profile) || !plainObject(incoming.days)) {
+      throw new Error('That backup does not contain a valid InSync log.');
+    }
+    var next;
+    try { next = merge(clone(DEFAULT), clone(incoming)); }
+    catch (e) { throw new Error('That backup could not be read safely.'); }
+    if (next.connections) {
+      delete next.connections.githubToken;
+      delete next.connections.claudeKey;
+    }
+    var previous = S;
+    S = next;
+    /* Normalize and migrate entirely in memory first. Restore is committed to
+       localStorage only once, so a failed final write cannot leave half of the
+       incoming backup persisted over the previous log. */
+    migrateState(true);
+    if (!save()) {
+      S = previous;
+      throw new Error(lastSaveError || 'The restored data could not be saved.');
+    }
+    emit();
+    return true;
+  }
 
   /* Everything this device holds, including the photographs, which live in
      their own database and would otherwise survive a reset. */
   function wipe(cb) {
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    var done = function () { if (cb) cb(); };
-    if (!window.indexedDB) return done();
-    try {
-      var req = indexedDB.deleteDatabase('insync-photos');
-      req.onsuccess = done; req.onerror = done; req.onblocked = done;
-    } catch (e2) { done(); }
+    function clearLocal() {
+      try {
+        localStorage.removeItem(KEY);
+        localStorage.removeItem(SECRET_KEY);
+        PREVIOUS_KEYS.forEach(function (k) { localStorage.removeItem(k); });
+      } catch (e) { return cb && cb(new Error('This device would not clear the local InSync store.')); }
+      SECRETS = {};
+      S = clone(DEFAULT);
+      loadError = ''; loadWarning = ''; corruptRaw = ''; lastSaveError = '';
+      if (cb) cb(null);
+    }
+    if (window.Media && Media.wipe) {
+      return Media.wipe(function (err) {
+        if (err) return cb && cb(err);
+        clearLocal();
+      });
+    }
+    clearLocal();
   }
 
   // ---- subscribe ----
@@ -788,29 +1489,33 @@
     day: day, dayAt: function (n) { return day(shift(todayKey(), n || 0)); },
     weekStart: weekStart,
     todayKey: todayKey, shift: shift, iso: iso,
+    planFor: planFor, trainingStatus: trainingStatus, scoreTargets: scoreTargets, calorieRange: calorieRange, caloriesInRange: caloriesInRange,
     totals: totals, streak: streak, daysIn: daysIn, logged: logged,
     points: points, pointRows: pointRows, timeOfDay: timeOfDay, nextStep: nextStep,
     addMeal: addMeal, findMeal: findMeal, updateMeal: updateMeal, removeMeal: removeMeal, addWorkout: addWorkout, setSteps: setSteps, setMorning: setMorning,
     startSession: startSession, session: session, logSet: logSet, dropSet: dropSet,
     addSessionItem: addSessionItem, dropSessionItem: dropSessionItem,
     abandonSession: abandonSession, finishSession: finishSession,
-    saveReflection: saveReflection, verse: verse, verseList: verseList, records: records,
+    saveReflection: saveReflection, markVerseRead: markVerseRead, verse: verse, verseList: verseList, records: records,
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
     legMine: legMine, legHers: legHers,
     partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef,
-    advanceLeg: advanceLeg,
+    advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,
     propose: propose, nudgeInvite: nudgeInvite, acceptInvite: acceptInvite,
     counterInvite: counterInvite, settleInvite: settleInvite,
     beginExpedition: beginExpedition, holdExpedition: holdExpedition,
     counterCap: COUNTER_CAP,
-    set: set, seed: seed, reset: reset, save: save,
+    set: set, save: save,
+    secret: secret, setSecret: setSecret, lastSaveError: function () { return lastSaveError; },
+    loadError: function () { return loadError; }, loadWarning: function () { return loadWarning; }, corruptRaw: function () { return corruptRaw; },
+    exportState: exportState, importState: importState,
     fmtWeight: fmtWeight, fmtDistance: fmtDistance, fmtEnergy: fmtEnergy,
     fmtLift: fmtLift, liftNum: liftNum, fmtClimb: fmtClimb,
     weightNum: weightNum, weightToLb: weightToLb,
     recentWeights: recentWeights,
-    setProfileName: setProfileName,
+    setProfileName: setProfileName, setPartnerName: setPartnerName, setPartnerNote: setPartnerNote, markCurrentNoteSynced: markCurrentNoteSynced,
     acceptProposal: acceptProposal, dismissProposal: dismissProposal,
-    wipe: wipe, KEY: KEY,
+    wipe: wipe, KEY: KEY, SECRET_KEY: SECRET_KEY,
     on: function (f) { subs.push(f); }
   };
 })();

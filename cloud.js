@@ -5,36 +5,66 @@
   'use strict';
 
   var CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
-  var MODEL = 'claude-sonnet-4-5-20250929';
+  var DEFAULT_MODEL = 'claude-sonnet-5';
 
-  function conn() { return Store.state().connections; }
-  function hasClaude() { return !!(conn().claudeKey || '').trim(); }
-  function hasGit() { return !!(conn().githubToken || '').trim(); }
+  function conn() { return Store.state().connections || {}; }
+  function claudeKey() { return Store.secret ? Store.secret('claudeKey') : ''; }
+  function githubToken() { return Store.secret ? Store.secret('githubToken') : ''; }
+  function model() { return (conn().claudeModel || DEFAULT_MODEL).trim(); }
+  function hasClaude() { return !!claudeKey(); }
+  function hasGit() { return !!githubToken() && !!(conn().githubRepo || '').trim(); }
 
-  function slug(name) { return (name || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '-'); }
+  function slug(name) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
   function meSlug() { return slug(Store.state().profile.name); }
   function partnerSlug() { return slug(Store.state().partner.name); }
+
+  function fetchWithTimeout(url, opts, ms, label) {
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var request = Object.assign({}, opts || {});
+    if (controller) request.signal = controller.signal;
+    var timer;
+    var timeout = new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        if (controller) controller.abort();
+        reject(new Error((label || 'Request') + ' timed out. Check the connection and try again.'));
+      }, ms);
+    });
+    return Promise.race([fetch(url, request), timeout]).then(function (value) {
+      clearTimeout(timer); return value;
+    }, function (err) {
+      clearTimeout(timer);
+      if (err && err.name === 'AbortError') throw new Error((label || 'Request') + ' timed out. Check the connection and try again.');
+      throw err;
+    });
+  }
 
   // ---------- Claude ----------
   function claude(messages, opts, cb) {
     if (!hasClaude()) return cb(new Error('No Claude key set'));
+    var chosenModel = model();
     var body = {
-      model: MODEL,
+      model: chosenModel,
       max_tokens: (opts && opts.maxTokens) || 400,
       messages: messages
     };
+    /* Sonnet 5 thinks adaptively by default, and thinking counts against
+       max_tokens. InSync asks for short UI copy and compact JSON, so disabling
+       thinking preserves those deliberately small output budgets. */
+    if (chosenModel === 'claude-sonnet-5') body.thinking = { type: 'disabled' };
     if (opts && opts.system) body.system = opts.system;
 
-    fetch(CLAUDE_URL, {
+    fetchWithTimeout(CLAUDE_URL, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': conn().claudeKey.trim(),
+        'x-api-key': claudeKey(),
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify(body)
-    })
+    }, 45000, 'Claude')
       .then(function (r) {
         return r.json().then(function (j) {
           if (!r.ok) throw new Error((j.error && j.error.message) || ('Claude ' + r.status));
@@ -53,7 +83,7 @@
      the source — on her device the coach writes to her about him. */
   function me() { return Store.state().profile.name || 'you'; }
 
-  var VOICE = 'You write for InSync, a fitness app used by one married couple. ' +
+  var VOICE = 'You write for InSync, a fitness app used by one couple. ' +
     'The app is built around an expedition metaphor: camps, chapters, trailheads, legs of a route. ' +
     'Voice: field journal crossed with quiet scriptural reflection. Plain, matter-of-fact, warm but never chirpy. ' +
     'No emoji. No exclamation marks. No motivational-poster phrasing. No "here is why this matters". ' +
@@ -155,7 +185,8 @@
         (lifted.length ? '\n\nBest lift on each machine so far:\n' + lifted.join('\n') : '')
       : 'No session has been logged yet. This is the first plan.';
 
-    var body = s.profile.height ? s.profile.height + ', ' + s.profile.age + ', ' + s.profile.sex : 'not given';
+    var h = +(s.profile.heightIn || 0);
+    var body = h ? Math.floor(h / 12) + ' ft ' + (h % 12) + ' in, age ' + (s.profile.age || 'not given') + ', ' + (s.profile.sex || 'sex not given') : 'not given';
 
     claude([{
       role: 'user',
@@ -168,7 +199,7 @@
         history + '\n\n' +
         'Available movements (use these ids exactly, nothing else):\n' + menu + '\n\n' +
         'Rules:\n' +
-        '- Exactly ' + freq + ' days. Use real weekday abbreviations: Mon Tue Wed Thu Fri Sat Sun.\n' +
+        '- Exactly ' + freq + ' days. Use real weekday abbreviations: Mon Tue Wed Thu Fri Sat. Keep Sunday as the weekly recovery/rest day.\n' +
         '- 3 to 5 movements a lifting day. Do not repeat a movement within a day.\n' +
         '- Give every muscle group at least 48 hours before it is trained again.\n' +
         '- If they train four or more days, one of them may be a walk instead of lifting. ' +
@@ -177,7 +208,7 @@
         '- Build on what they have been lifting. Do not drop a machine they are progressing on ' +
         'without replacing it with something that trains the same thing.\n\n' +
         'Return only JSON: {"days":[{"day":"Mon","name":"Upper","ex":["id","id"]},' +
-        '{"day":"Sun","name":"Walk","detail":"Treadmill, 45 minutes, incline 5"}],' +
+        '{"day":"Sat","name":"Walk","detail":"Treadmill, 45 minutes, incline 5"}],' +
         '"note":"<one sentence to them about why this week looks like this>"}'
     }], { system: VOICE, maxTokens: 900 }, function (err, text) {
       if (err) return cb(err);
@@ -201,13 +232,13 @@
   /* Nothing reaches the store until it is a real plan: real weekdays, no
      duplicate days, and every movement present in the library. */
   function validatePlan(days, freq) {
-    if (!Array.isArray(days) || !days.length) return null;
+    if (!Array.isArray(days) || days.length !== +freq) return null;
     var seen = {}, out = [];
     for (var i = 0; i < days.length; i++) {
       var d = days[i] || {};
       var day = String(d.day || '').slice(0, 3);
       day = day.charAt(0).toUpperCase() + day.slice(1).toLowerCase();
-      if (DAYS.indexOf(day) < 0 || seen[day]) continue;
+      if (DAYS.indexOf(day) < 0 || day === 'Sun' || seen[day]) return null;
       seen[day] = true;
       var name = String(d.name || '').trim().slice(0, 20) || 'Session';
       if (/walk/i.test(name)) {
@@ -217,10 +248,36 @@
       var ids = (Array.isArray(d.ex) ? d.ex : []).filter(function (id, n, arr) {
         return Exercises.get(id) && arr.indexOf(id) === n;
       });
-      if (ids.length < 2) continue;
-      out.push({ day: day, name: name, ex: ids.slice(0, 5) });
+      if (ids.length < 3 || ids.length > 5) return null;
+      out.push({ day: day, name: name, ex: ids });
     }
-    if (out.length < Math.max(2, freq - 1)) return null;
+    if (out.length !== +freq) return null;
+    if (out.filter(function (d) { return d.name === 'Walk'; }).length > 1) return null;
+
+    /* Enforce the prompt's 48-hour recovery rule, including the Sunday-to-Monday
+       boundary when this weekly plan repeats. Warm-up movements do not count. */
+    var groupDays = {};
+    out.forEach(function (d) {
+      if (!d.ex) return;
+      var di = DAYS.indexOf(d.day);
+      var groups = {};
+      d.ex.forEach(function (id) {
+        var ex = Exercises.get(id);
+        if (ex && ex.group !== 'Warm-up') groups[ex.group] = true;
+      });
+      Object.keys(groups).forEach(function (g) {
+        if (!groupDays[g]) groupDays[g] = [];
+        groupDays[g].push(di);
+      });
+    });
+    var valid = Object.keys(groupDays).every(function (g) {
+      var a = groupDays[g].slice().sort(function (x, y) { return x - y; });
+      for (var j = 1; j < a.length; j++) if (a[j] - a[j - 1] < 2) return false;
+      if (a.length > 1 && (7 - a[a.length - 1] + a[0]) < 2) return false;
+      return true;
+    });
+    if (!valid) return null;
+
     out.sort(function (a, b) { return DAYS.indexOf(a.day) - DAYS.indexOf(b.day); });
     return Onboarding.withDetail(out);
   }
@@ -340,24 +397,95 @@
   }
 
   // ---------- GitHub ----------
+  var verifiedRepo = '', verifiedAt = 0;
+
+  function pagesSourceRepo() {
+    var host = (location.hostname || '').toLowerCase();
+    var m = /^([^.]+)\.github\.io$/.exec(host);
+    if (!m) return '';
+    var owner = m[1], first = (location.pathname || '/').split('/').filter(Boolean)[0];
+    return (owner + '/' + (first || owner + '.github.io')).toLowerCase();
+  }
+
+  function ensureSyncRepo(cb) {
+    var c = conn(), repo = String(c.githubRepo || '').trim(), branch = String(c.githubBranch || 'main').trim() || 'main';
+    var verificationKey = repo + '@' + branch;
+    var headers = { 'authorization': 'Bearer ' + githubToken(), 'accept': 'application/vnd.github+json', 'x-github-api-version': '2026-03-10' };
+    if (!githubToken()) return cb(new Error('No GitHub token set'));
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return cb(new Error('Use the GitHub repository format owner/repository.'));
+    if (!String(Store.state().profile.name || '').trim() || !meSlug()) return cb(new Error('Set your name in Settings before syncing.'));
+    if (!String(Store.state().partner.name || '').trim() || !partnerSlug()) return cb(new Error('Set your partner’s name in Settings before syncing.'));
+    if (meSlug() === partnerSlug()) return cb(new Error('You and ' + Store.partnerName() + ' need different names in Settings so each phone has its own sync file.'));
+    if (repo.toLowerCase() === pagesSourceRepo()) {
+      return cb(new Error('For privacy, the sync repository cannot be the repository publishing this GitHub Pages app. Use a separate private repository for sync data.'));
+    }
+    if (verifiedRepo === verificationKey && Date.now() - verifiedAt < 10 * 60 * 1000) return cb(null, true);
+
+    function apiJson(url, allowMissing) {
+      return fetchWithTimeout(url, { headers: headers }, 15000, 'GitHub').then(function (r) {
+        if (allowMissing && r.status === 404) return null;
+        return r.text().then(function (text) {
+          var j = {};
+          if (text) {
+            try { j = JSON.parse(text); } catch (e) { throw new Error('GitHub returned an unreadable response.'); }
+          }
+          if (!r.ok) throw new Error(j.message || ('GitHub ' + r.status));
+          return j;
+        });
+      });
+    }
+    function looksLikeApp(list) {
+      if (!Array.isArray(list)) return false;
+      var names = list.map(function (x) { return String(x.name || '').toLowerCase(); });
+      var signatures = ['index.html', 'app.js', 'sw.js', 'manifest.webmanifest'];
+      return signatures.filter(function (n) { return names.indexOf(n) >= 0; }).length >= 2;
+    }
+
+    apiJson('https://api.github.com/repos/' + repo, false).then(function (j) {
+      if (!j.private) throw new Error('That repository is public. InSync sync data must use a dedicated private repository.');
+      return apiJson('https://api.github.com/repos/' + repo + '/contents?ref=' + encodeURIComponent(branch), true);
+    }).then(function (root) {
+      if (root === null) throw new Error('That branch does not exist yet. Initialize the private sync repository with a README, then use that branch here.');
+      if (looksLikeApp(root)) throw new Error('That repository contains the InSync app. Use a different private repository only for sync data.');
+      var hasDocs = Array.isArray(root) && root.some(function (x) { return x.type === 'dir' && String(x.name).toLowerCase() === 'docs'; });
+      if (!hasDocs) return null;
+      return apiJson('https://api.github.com/repos/' + repo + '/contents/docs?ref=' + encodeURIComponent(branch), true);
+    }).then(function (docs) {
+      if (looksLikeApp(docs)) throw new Error('That repository contains the InSync app in /docs. Use a different private repository only for sync data.');
+      verifiedRepo = verificationKey; verifiedAt = Date.now();
+      cb(null, true);
+    }).catch(function (e) { cb(e); });
+  }
+
   function gh(path, opts, cb) {
     var c = conn();
     if (!hasGit()) return cb(new Error('No GitHub token set'));
     var url = 'https://api.github.com/repos/' + c.githubRepo + '/contents/' + path;
-    if (opts.method === 'GET') url += '?ref=' + encodeURIComponent(c.githubBranch);
-    fetch(url, {
+    if (opts.method === 'GET') url += '?ref=' + encodeURIComponent(c.githubBranch || 'main');
+    fetchWithTimeout(url, {
       method: opts.method,
       headers: {
-        'authorization': 'Bearer ' + c.githubToken.trim(),
+        'authorization': 'Bearer ' + githubToken(),
         'accept': 'application/vnd.github+json',
+        'x-github-api-version': '2026-03-10',
         'content-type': 'application/json'
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined
-    })
+    }, 15000, 'GitHub sync')
       .then(function (r) {
         if (r.status === 404) return { __missing: true };
-        return r.json().then(function (j) {
-          if (!r.ok) throw new Error(j.message || ('GitHub ' + r.status));
+        return r.text().then(function (text) {
+          var j = {};
+          if (text) {
+            try { j = JSON.parse(text); } catch (e) {
+              var malformed = new Error('GitHub returned an unreadable response.');
+              malformed.status = r.status; throw malformed;
+            }
+          }
+          if (!r.ok) {
+            var err = new Error(j.message || ('GitHub ' + r.status));
+            err.status = r.status; throw err;
+          }
           return j;
         });
       })
@@ -368,27 +496,160 @@
   function b64encode(str) { return btoa(unescape(encodeURIComponent(str))); }
   function b64decode(str) { return decodeURIComponent(escape(atob((str || '').replace(/\n/g, '')))); }
 
-  // What crosses over — governed entirely by the privacy toggles.
-  function sharePayload() {
-    var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k);
+  function cleanText(value, max) { return String(value == null ? '' : value).trim().slice(0, max || 500); }
+  function validDateKey(value) {
+    var x = String(value || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+    var y = +x.slice(0, 4), m = +x.slice(5, 7), d = +x.slice(8, 10);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+    var test = new Date(0);
+    test.setHours(12, 0, 0, 0); test.setFullYear(y, m - 1, d);
+    return test.getFullYear() === y && test.getMonth() === m - 1 && test.getDate() === d;
+  }
+  function boundedNumber(value, min, max, fallback) {
+    var n = +value;
+    return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
+  }
+
+  function latestSharedNote() {
+    var s = Store.state(), keys = Object.keys(s.days || {}).filter(validDateKey).sort().reverse();
+    for (var i = 0; i < keys.length && i < 35; i++) {
+      var d = s.days[keys[i]], note = d && cleanText(d.noteToPartner, 2000);
+      if (note) return { date: keys[i], text: note };
+    }
+    return { date: '', text: '' };
+  }
+
+  /* A private repository is still external input. Only the small schema InSync
+     understands is allowed into local state, so a damaged or hand-edited sync
+     file cannot poison screens, scoring, or the next upload. */
+  function sanitizePartnerPayload(raw) {
+    if (!raw || Object.prototype.toString.call(raw) !== '[object Object]') throw new Error('The partner sync file is not a valid InSync record.');
+    var expected = partnerSlug(), incomingName = cleanText(raw.name, 80);
+    if (!expected || slug(incomingName) !== expected) throw new Error('The partner sync file belongs to a different profile. Check the partner name on both phones.');
+    var date = cleanText(raw.date, 10);
+    if (!validDateKey(date)) throw new Error('The partner sync file has an invalid date.');
     var out = {
+      schema: boundedNumber(raw.schema, 1, 20, 1),
+      name: incomingName,
+      initials: cleanText(raw.initials, 4),
+      date: date,
+      updated: cleanText(raw.updated, 40),
+      points: boundedNumber(raw.points, 0, 10, 0),
+      streak: Math.round(boundedNumber(raw.streak, 0, 10000, 0)),
+      earned: [],
+      note: cleanText(raw.note, 2000),
+      noteDate: validDateKey(raw.noteDate) ? raw.noteDate : date,
+      history: { points: {}, logged: {} }
+    };
+    if (Array.isArray(raw.earned)) {
+      raw.earned.slice(0, 200).forEach(function (id) {
+        if (typeof id !== 'string') return;
+        id = cleanText(id, 100);
+        if (id && out.earned.indexOf(id) < 0) out.earned.push(id);
+      });
+    }
+    var hp = raw.history && raw.history.points, hl = raw.history && raw.history.logged;
+    if (hp && Object.prototype.toString.call(hp) === '[object Object]') {
+      Object.keys(hp).forEach(function (k) {
+        if (!validDateKey(k)) return;
+        var value = boundedNumber(hp[k], 0, 10, null);
+        if (value != null) out.history.points[k] = value;
+      });
+    }
+    if (hl && Object.prototype.toString.call(hl) === '[object Object]') {
+      Object.keys(hl).forEach(function (k) { if (validDateKey(k)) out.history.logged[k] = !!hl[k]; });
+    }
+    var optional = [
+      ['calories', 0, 10000], ['protein', 0, 1000], ['workouts', 0, 50],
+      ['steps', 0, 200000], ['legMiles', 0, 5000]
+    ];
+    optional.forEach(function (spec) {
+      if (raw[spec[0]] == null) return;
+      var n = boundedNumber(raw[spec[0]], spec[1], spec[2], null);
+      if (n != null) out[spec[0]] = n;
+    });
+    if (raw.weightTrend && Object.prototype.toString.call(raw.weightTrend) === '[object Object]') {
+      var change = boundedNumber(raw.weightTrend.change, -200, 200, null);
+      var days = boundedNumber(raw.weightTrend.days, 2, 100, null);
+      if (change != null && days != null) out.weightTrend = { change: change, days: Math.round(days) };
+    }
+    if (raw.expedition && Object.prototype.toString.call(raw.expedition) === '[object Object]') {
+      var expRoute = cleanText(raw.expedition.routeId, 100);
+      var expIndex = Math.max(0, Math.round(boundedNumber(raw.expedition.legIndex, 0, 1000, 0)));
+      var knownLegs = window.Screens && Screens.legCountFor ? Screens.legCountFor(expRoute) : 0;
+      if (knownLegs && expIndex > knownLegs) expIndex = knownLegs;
+      if (expRoute) {
+        out.expedition = {
+          routeId: expRoute, legIndex: expIndex,
+          legStart: validDateKey(raw.expedition.legStart) ? raw.expedition.legStart : date,
+          updatedAt: cleanText(raw.expedition.updatedAt, 40)
+        };
+        if (raw.expedition.previousLegMiles != null) {
+          var prevMiles = boundedNumber(raw.expedition.previousLegMiles, 0, 5000, null);
+          if (prevMiles != null) out.expedition.previousLegMiles = prevMiles;
+        }
+      }
+    }
+    if (raw.invite && Object.prototype.toString.call(raw.invite) === '[object Object]') {
+      var routeId = cleanText(raw.invite.routeId, 100), routeName = cleanText(raw.invite.routeName, 120);
+      if (routeId) {
+        var trail = [];
+        if (Array.isArray(raw.invite.trail)) {
+          raw.invite.trail.slice(0, 12).forEach(function (t) {
+            if (!t || Object.prototype.toString.call(t) !== '[object Object]') return;
+            var id = cleanText(t.id, 100), name = cleanText(t.name, 120);
+            if (id) trail.push({ id: id, name: name || id });
+          });
+        }
+        out.invite = {
+          routeId: routeId, routeName: routeName || routeId, proposedByMe: !!raw.invite.proposedByMe,
+          at: cleanText(raw.invite.at, 40), updatedAt: cleanText(raw.invite.updatedAt, 40),
+          rev: Math.max(0, Math.round(boundedNumber(raw.invite.rev, 0, 1000000, 0))),
+          date: validDateKey(raw.invite.date) ? raw.invite.date : date,
+          counters: Math.max(0, Math.min(2, Math.round(boundedNumber(raw.invite.counters, 0, 2, 0)))),
+          accepted: !!raw.invite.accepted, decidedBy: cleanText(raw.invite.decidedBy, 20),
+          nudgedAt: cleanText(raw.invite.nudgedAt, 40), reply: cleanText(raw.invite.reply, 500), trail: trail
+        };
+      }
+    }
+    return out;
+  }
+
+  // Core Together status always crosses; the sensitive health fields below obey the privacy toggles.
+  function sharePayload() {
+    var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
+    var out = {
+      schema: 3,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
       updated: new Date().toISOString(),
       points: Store.points(k),
       streak: Store.streak(),
-      earned: s.earned.slice(),
-      legMiles: Store.legMine(),
-      note: d.noteToPartner || ''
+      earned: (s.earned || []).slice(),
+      note: sharedNote.text,
+      noteDate: sharedNote.date,
+      history: { points: {}, logged: {} },
+      expedition: {
+        routeId: s.expedition.routeId || '', legIndex: Math.max(0, +(s.expedition.legIndex || 0)),
+        legStart: s.expedition.legStart || '',
+        updatedAt: (s.lastArrival && s.lastArrival.routeId === s.expedition.routeId &&
+          +s.lastArrival.legIndex === Math.max(0, +(s.expedition.legIndex || 0)) - 1 && s.lastArrival.at) || ''
+      }
     };
+    for (var h = 34; h >= 0; h--) {
+      var hk = Store.shift(k, -h);
+      out.history.points[hk] = Store.points(hk);
+      out.history.logged[hk] = !!Store.logged(hk);
+    }
     /* The proposal crosses over so the handshake works between two devices.
        Whose turn it is cannot travel as "me" — the reader flips it. */
     if (s.invite) {
       out.invite = {
         routeId: s.invite.routeId, routeName: s.invite.routeName,
         proposedByMe: s.invite.from === 'me',
-        at: s.invite.at, date: s.invite.date,
+        at: s.invite.at, updatedAt: s.invite.updatedAt || s.invite.at || '', rev: +s.invite.rev || 1, date: s.invite.date,
         counters: s.invite.counters || 0,
         accepted: !!s.invite.accepted,
         decidedBy: s.invite.decidedBy || '',
@@ -398,85 +659,172 @@
       };
     }
     if (s.privacy.calories) { out.calories = t.kcal; out.protein = t.protein; }
-    if (s.privacy.workouts) out.workouts = d.workouts.length;
-    if (s.privacy.steps) out.steps = d.steps;
-    if (s.privacy.weight && d.weight != null) out.weight = d.weight;
-    // Photos never cross. There is no toggle for them.
+    if (s.privacy.workouts) out.workouts = (d.workouts || []).length;
+    if (s.privacy.steps) {
+      out.steps = d.steps;
+      out.legMiles = Store.legMine();
+      if (s.lastArrival && s.lastArrival.routeId === s.expedition.routeId &&
+          s.lastArrival.legIndex === s.expedition.legIndex - 1) {
+        out.expedition.previousLegMiles = Math.max(0, +(s.lastArrival.milesMine || 0));
+      }
+    }
+    if (s.privacy.weight) {
+      var w = Store.recentWeights(14);
+      if (w.length > 1) {
+        out.weightTrend = { change: +(w[w.length - 1].weight - w[0].weight).toFixed(1), days: w.length };
+      }
+    }
+    // Photos and exact bodyweight never cross.
     return out;
   }
 
-  function push(cb) {
+  function pushUnsafe(cb, retries) {
+    retries = retries == null ? 1 : retries;
+    if (!meSlug() || !partnerSlug()) return cb(new Error('Set both names in Settings before syncing.'));
     if (meSlug() === partnerSlug()) {
       return cb(new Error('You and ' + Store.partnerName() + ' have the same name set. Change one in Settings, or you would both write to the same file.'));
     }
     var path = 'sync/' + meSlug() + '.json';
-    var payload = JSON.stringify(sharePayload(), null, 2);
     gh(path, { method: 'GET' }, function (err, existing) {
       if (err) return cb(err);
+      /* Build after the GET so state changed while the request was in flight is
+         included in the write instead of waiting for another sync cycle. */
+      var shared = sharePayload(), payload = JSON.stringify(shared, null, 2);
       var body = {
         message: 'InSync: ' + Store.state().profile.name + ' ' + Store.todayKey(),
         content: b64encode(payload),
-        branch: conn().githubBranch
+        branch: conn().githubBranch || 'main'
       };
       if (existing && existing.sha) body.sha = existing.sha;
       gh(path, { method: 'PUT', body: body }, function (e2) {
+        if (e2 && retries > 0 && (e2.status === 409 || e2.status === 422)) return pushUnsafe(cb, retries - 1);
         if (e2) return cb(e2);
+        if (shared.note && shared.noteDate && Store.markCurrentNoteSynced) Store.markCurrentNoteSynced(shared.noteDate, shared.note);
         cb(null, true);
       });
     });
   }
 
+  var pushBusy = false, pushQueued = false, pushWaiters = [];
+  function push(cb) {
+    pushWaiters.push(typeof cb === 'function' ? cb : function () {});
+    if (pushBusy) { pushQueued = true; return; }
+    pushBusy = true;
+
+    function finish(err, value) {
+      if (!err && pushQueued) {
+        pushQueued = false;
+        return pushUnsafe(function (e2, v2) { finish(e2, v2); }, 1);
+      }
+      pushBusy = false; pushQueued = false;
+      var waiters = pushWaiters.splice(0);
+      waiters.forEach(function (fn) { try { fn(err || null, value); } catch (e) {} });
+    }
+
+    ensureSyncRepo(function (err) {
+      if (err) return finish(err);
+      pushUnsafe(function (e2, value) { finish(e2, value); }, 1);
+    });
+  }
+
   function pull(cb) {
+    if (!partnerSlug()) return cb(new Error('Set your partner’s name in Settings before syncing.'));
     gh('sync/' + partnerSlug() + '.json', { method: 'GET' }, function (err, j) {
       if (err) return cb(err);
       if (!j || j.__missing) return cb(null, null);
-      var data;
-      try { data = JSON.parse(b64decode(j.content)); } catch (e) { return cb(new Error('Her file could not be read')); }
+      var raw, data;
+      try { raw = JSON.parse(b64decode(j.content)); data = sanitizePartnerPayload(raw); }
+      catch (e) { return cb(e && e.message ? e : new Error('The partner sync file could not be read')); }
       Store.set('partnerData', data);
-      /* Her miles on the current leg come from her own device, which derived them
-         the same way from her own steps. */
-      if (data && typeof data.legMiles === 'number') Store.set('partnerLegMiles', data.legMiles);
-      /* Her proposal is only news if it is newer than the one on this device;
-         otherwise a stale file would undo an answer already given. */
-      if (data && data.invite) {
-        var here = Store.state().invite;
-        if (!here || !here.at || (data.invite.at || '') > here.at) {
+      var localExp = Store.state().expedition || {};
+      if (data.expedition && data.expedition.routeId === localExp.routeId &&
+          data.expedition.legIndex > (+localExp.legIndex || 0) && Store.syncExpeditionProgress) {
+        Store.syncExpeditionProgress(data.expedition);
+        localExp = Store.state().expedition || {};
+      }
+      var sameLeg = !!data.expedition && data.expedition.routeId === localExp.routeId &&
+        data.expedition.legIndex === (+localExp.legIndex || 0);
+      Store.set('partnerLegMiles', sameLeg && typeof data.legMiles === 'number' ? data.legMiles : 0);
+      if (data.invite) {
+        var here = Store.state().invite, incoming = data.invite;
+        var inRev = +incoming.rev || 0, hereRev = +(here && here.rev) || 0;
+        var applyInvite = !here;
+        if (!applyInvite && inRev !== hereRev) applyInvite = inRev > hereRev;
+        if (!applyInvite && (incoming.at || '') > (here.at || '')) applyInvite = true;
+        if (!applyInvite && (+incoming.counters || 0) > (+here.counters || 0)) applyInvite = true;
+        if (!applyInvite && incoming.accepted && !here.accepted) applyInvite = true;
+        if (!applyInvite && (incoming.nudgedAt || '') > (here.nudgedAt || '')) applyInvite = true;
+        if (!applyInvite && (incoming.updatedAt || '') > (here.updatedAt || '')) applyInvite = true;
+        if (applyInvite) {
           Store.set('invite', {
-            routeId: data.invite.routeId, routeName: data.invite.routeName,
-            from: data.invite.proposedByMe ? 'partner' : 'me',
-            at: data.invite.at, date: data.invite.date,
-            counters: data.invite.counters || 0,
-            accepted: !!data.invite.accepted,
-            decidedBy: data.invite.decidedBy === 'me' ? 'partner'
-              : data.invite.decidedBy === 'partner' ? 'me' : (data.invite.decidedBy || ''),
-            nudgedAt: data.invite.nudgedAt || '',
-            reply: data.invite.reply || '',
-            trail: data.invite.trail || []
+            routeId: incoming.routeId, routeName: incoming.routeName,
+            from: incoming.proposedByMe ? 'partner' : 'me',
+            at: incoming.at, updatedAt: incoming.updatedAt || incoming.at || '', rev: inRev || Math.max(1, (+incoming.counters || 0) + 1), date: incoming.date,
+            counters: incoming.counters || 0, accepted: !!incoming.accepted,
+            decidedBy: incoming.decidedBy === 'me' ? 'partner'
+              : incoming.decidedBy === 'partner' ? 'me' : (incoming.decidedBy || ''),
+            nudgedAt: incoming.nudgedAt || '', reply: incoming.reply || '', trail: incoming.trail || []
           });
         }
       }
-      /* Her file is a snapshot, not a log. Keep each day's points as it
-         arrives so the week can be drawn from something real. */
-      if (data && data.date && typeof data.points === 'number') {
-        var hist = Store.state().partnerHistory || {};
-        hist[data.date] = data.points;
-        var cutoff = Store.shift(Store.todayKey(), -30);
-        Object.keys(hist).forEach(function (k) { if (k < cutoff) delete hist[k]; });
-        Store.set('partnerHistory', hist);
+      var hist = Store.state().partnerHistory || {};
+      var loggedHist = Store.state().partnerLoggedHistory || {};
+      if (data.history && data.history.points) {
+        Object.keys(data.history.points).forEach(function (k) { hist[k] = data.history.points[k]; });
+        Object.keys(data.history.logged || {}).forEach(function (k) { loggedHist[k] = !!data.history.logged[k]; });
+      } else if (typeof data.points === 'number') {
+        hist[data.date] = data.points; loggedHist[data.date] = true;
       }
+      var cutoff = Store.shift(Store.todayKey(), -45);
+      Object.keys(hist).forEach(function (k) { if (!validDateKey(k) || k < cutoff) delete hist[k]; });
+      Object.keys(loggedHist).forEach(function (k) { if (!validDateKey(k) || k < cutoff) delete loggedHist[k]; });
+      Store.set('partnerHistory', hist);
+      Store.set('partnerLoggedHistory', loggedHist);
       return cb(null, data);
     });
   }
 
+  var syncBusy = false, syncQueued = false, syncWaiters = [];
   function sync(cb) {
-    push(function (err) {
-      if (err) return cb(err);
-      pull(function (e2, data) {
-        if (e2) return cb(e2);
-        Store.set('connections.lastSync', new Date().toISOString());
-        cb(null, data);
+    syncWaiters.push(typeof cb === 'function' ? cb : function () {});
+    if (syncBusy) { syncQueued = true; return; }
+    syncBusy = true;
+
+    function finishAll(err, data) {
+      if (!err && syncQueued) { syncQueued = false; return runRound(); }
+      syncBusy = false; syncQueued = false;
+      var waiters = syncWaiters.splice(0);
+      waiters.forEach(function (fn) { try { fn(err || null, data); } catch (e) {} });
+    }
+    function fail(err) {
+      Store.set('connections.lastSyncError', err && err.message ? err.message : 'Sync failed');
+      Store.set('connections.lastSyncErrorAt', new Date().toISOString());
+      finishAll(err);
+    }
+    function runRound() {
+      push(function (err) {
+        if (err) return fail(err);
+        pull(function (e2, data) {
+          if (e2) return fail(e2);
+          Store.set('connections.lastSync', new Date().toISOString());
+          Store.set('connections.lastSyncError', '');
+          Store.set('connections.lastSyncErrorAt', '');
+          finishAll(null, data);
+        });
       });
-    });
+    }
+    runRound();
+  }
+
+  var autoTimer = null, lastAutoAttempt = 0;
+  function autoSync(force) {
+    if (!hasGit() || !Store.state().partner.name) return;
+    var wait = force ? 0 : Math.max(0, 60000 - (Date.now() - lastAutoAttempt));
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(function () {
+      lastAutoAttempt = Date.now();
+      sync(function () {});
+    }, wait + (force ? 0 : 2500));
   }
 
 
@@ -495,11 +843,13 @@
         'Return ONLY JSON: {"meals":[{"name":"","slot":"Breakfast","kcal":0,"protein":0,"carbs":0,"fat":0,' +
         '"items":[{"name":"","weight":"","kcal":0,"protein":0,"carbs":0,"fat":0}]}]}. ' +
         'Ingredients matter - the shopping list is built from them.'
-    }], { max_tokens: 1600 }, function (err, text) {
+    }], { system: VOICE, maxTokens: 1600 }, function (err, text) {
       if (err) return cb(err);
       var out;
-      try { out = extractJson(text); } catch (e) { return cb(new Error('The coach replied with something unreadable. Try again.')); }
-      if (!out || !out.meals) return cb(new Error('The coach replied with something unreadable. Try again.'));
+      try { out = extractJson(text); } catch (e) { out = null; }
+      if (!out || !out.meals || !out.meals.length) {
+        return cb(new Error('The coach\'s list came back incomplete. Try again.'));
+      }
       cb(null, out.meals);
     });
   }
@@ -599,7 +949,7 @@
     parseMeal: parseMeal, parseMealPhoto: parseMealPhoto,
     readBarcodePhoto: readBarcodePhoto,
     restaurantMenu: restaurantMenu, menuItem: menuItem,
-    push: push, pull: pull, sync: sync,
-    sharePayload: sharePayload
+    push: push, pull: pull, sync: sync, autoSync: autoSync, ensureSyncRepo: ensureSyncRepo,
+    sharePayload: sharePayload, validatePlan: validatePlan, sanitizePartnerPayload: sanitizePartnerPayload
   };
 })();

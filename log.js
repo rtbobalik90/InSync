@@ -481,43 +481,77 @@
   function close() { open = null; paint(); }
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function nonneg(v) { return Math.max(0, num(v)); }
+  function anyNegative(values) { return values.some(function (v) { return v !== '' && num(v) < 0; }); }
 
   function commit() {
     var d = open.draft;
     if (open.kind === 'meal' || open.kind === 'barcode' || open.kind === 'restaurant' || open.kind === 'scan') {
+      if (anyNegative([d.kcal, d.protein, d.carbs, d.fat])) {
+        d.note = 'Calories and macros cannot be negative. Correct the figures before saving.';
+        paint(); return;
+      }
       if (!d.name.trim() && !num(d.kcal)) {
         d.note = 'Give it a name or a calorie figure, otherwise there is nothing to log.';
         paint(); return;
       }
-      Store.addMeal({
+      var mealData = {
         name: d.name.trim() || 'Meal', slot: d.slot, time: nowTime(),
-        kcal: Math.round(num(d.kcal)), protein: Math.round(num(d.protein)),
-        carbs: Math.round(num(d.carbs)), fat: Math.round(num(d.fat)),
+        kcal: Math.round(nonneg(d.kcal)), protein: Math.round(nonneg(d.protein)),
+        carbs: Math.round(nonneg(d.carbs)), fat: Math.round(nonneg(d.fat)),
         items: mealItems(d)
-      });
+      };
+      if (d.photo) {
+        var mealPhotoId = 'meal-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+        Media.put(mealPhotoId, d.photo, function (photoErr) {
+          if (photoErr) {
+            d.note = 'The meal is ready, but its photograph could not be saved. Try the photograph again before saving.';
+            paint(); return;
+          }
+          mealData.photoId = mealPhotoId;
+          Store.addMeal(mealData);
+          close();
+        });
+        return;
+      }
+      Store.addMeal(mealData);
     } else if (open.kind === 'workout') {
-      var did = d.exercises.filter(function (e) { return num(e.weight) > 0 || num(e.reps) > 0; });
-      if (!num(d.minutes) && !did.length) {
+      var hasNegativeLift = anyNegative([d.minutes].concat(d.exercises.reduce(function (a, e) {
+        return a.concat([e.weight, e.reps, e.sets]);
+      }, [])));
+      if (hasNegativeLift) {
+        d.note = 'Workout minutes, weight, reps, and sets cannot be negative.';
+        paint(); return;
+      }
+      var did = d.exercises.filter(function (e) { return nonneg(e.weight) > 0 || nonneg(e.reps) > 0; });
+      if (!nonneg(d.minutes) && !did.length) {
         d.note = 'Log the minutes, or what you lifted on at least one machine.';
         paint(); return;
       }
       Store.addWorkout({
         name: d.name.trim() || 'Session',
-        minutes: Math.round(num(d.minutes)),
-        exercises: did.map(function (e) { return { name: e.name, weight: num(e.weight), reps: num(e.reps), sets: num(e.sets) || 3 }; })
+        minutes: Math.round(nonneg(d.minutes)),
+        exercises: did.map(function (e) { return { name: e.name, weight: nonneg(e.weight), reps: nonneg(e.reps), sets: nonneg(e.sets) || 3 }; })
       });
     } else if (open.kind === 'morning') {
       if (d.weight === '' && d.restingHr === '' && d.sleepHr === '') {
         d.note = 'Fill in at least one of the three.';
         paint(); return;
       }
+      var weight = d.weight === '' ? null : num(d.weight);
+      var restingHr = d.restingHr === '' ? null : num(d.restingHr);
+      var sleepHr = d.sleepHr === '' ? null : num(d.sleepHr);
+      if (weight != null && (weight <= 0 || weight > 700)) { d.note = 'Enter a weight between 1 and 700 lb.'; paint(); return; }
+      if (restingHr != null && (restingHr < 20 || restingHr > 300)) { d.note = 'Enter a resting heart rate between 20 and 300 bpm.'; paint(); return; }
+      if (sleepHr != null && (sleepHr < 0 || sleepHr > 24)) { d.note = 'Sleep must be between 0 and 24 hours.'; paint(); return; }
       Store.setMorning({
-        weight: d.weight === '' ? null : num(d.weight),
-        restingHr: d.restingHr === '' ? null : Math.round(num(d.restingHr)),
-        sleepHr: d.sleepHr === '' ? null : num(d.sleepHr)
+        weight: weight,
+        restingHr: restingHr == null ? null : Math.round(restingHr),
+        sleepHr: sleepHr
       });
     } else {
-      Store.setSteps(Math.round(num(d.steps)));
+      if (d.steps !== '' && num(d.steps) < 0) { d.note = 'Steps cannot be negative.'; paint(); return; }
+      Store.setSteps(Math.round(nonneg(d.steps)));
     }
     close();
   }
@@ -682,7 +716,7 @@
       var d = open.draft;
       d.state = 'result';
       if (err) {
-        d.note = err.message + ' Fill the fields in yourself \u2014 the photograph is still saved.';
+        d.note = err.message + ' Fill the fields in yourself \u2014 the photograph is still attached and will be saved with the meal.';
         d.name = d.name || 'Meal';
         paint();
         return;
@@ -691,15 +725,15 @@
       d.items = (data.items || []).map(function (i) {
         return {
           name: i.name, weight: i.weight || '',
-          kcal: +i.kcal || 0, protein: +i.protein || 0, carbs: +i.carbs || 0, fat: +i.fat || 0,
+          kcal: nonneg(i.kcal), protein: nonneg(i.protein), carbs: nonneg(i.carbs), fat: nonneg(i.fat),
           x: typeof i.x === 'number' ? Math.max(7, Math.min(93, i.x)) : null,
           y: typeof i.y === 'number' ? Math.max(9, Math.min(91, i.y)) : null
         };
       });
       if (d.items.length) retotal();
       else {
-        d.kcal = Math.round(data.kcal || 0); d.protein = Math.round(data.protein || 0);
-        d.carbs = Math.round(data.carbs || 0); d.fat = Math.round(data.fat || 0);
+        d.kcal = Math.round(nonneg(data.kcal)); d.protein = Math.round(nonneg(data.protein));
+        d.carbs = Math.round(nonneg(data.carbs)); d.fat = Math.round(nonneg(data.fat));
         d.note = 'It could not name anything on the plate. The totals are its best estimate \u2014 correct them below.';
       }
       if (d.items.length === 1) d.note = 'That is all it could read. Add the rest by hand, or retake the photograph.';
@@ -940,8 +974,8 @@
       return d.items.map(function (it) {
         return {
           name: it.name, weight: it.weight || '',
-          kcal: Math.round(it.kcal || 0), protein: Math.round(it.protein || 0),
-          carbs: Math.round(it.carbs || 0), fat: Math.round(it.fat || 0)
+          kcal: Math.round(nonneg(it.kcal)), protein: Math.round(nonneg(it.protein)),
+          carbs: Math.round(nonneg(it.carbs)), fat: Math.round(nonneg(it.fat))
         };
       });
     }

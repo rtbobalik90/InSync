@@ -37,10 +37,10 @@
   ];
 
   var CAMP = {
-    dawn: 'assets/art/camp-dawn.jpg',
-    day: 'assets/art/camp-day.jpg',
-    sunset: 'assets/art/camp-sunset.jpg',
-    night: 'assets/art/camp-night.jpg'
+    dawn: 'assets/art/camp-dawn.webp',
+    day: 'assets/art/camp-day.webp',
+    sunset: 'assets/art/camp-sunset.webp',
+    night: 'assets/art/camp-night.webp'
   };
 
   /* Dark where the text sits, clear where the camp does. */
@@ -70,8 +70,9 @@
 
   function header(opts) {
     opts = opts || {};
+    var backTarget = typeof opts.back === 'string' ? opts.back : '';
     var left = opts.back
-      ? '<button class="iconbtn" data-back aria-label="Back">' + icon('back') + '</button>'
+      ? '<button class="iconbtn" data-back="' + esc(backTarget) + '" aria-label="Back">' + icon('back') + '</button>'
       : '<div class="wordmark">InSync</div>';
     var here = (location.hash || '').replace('#', '').split('/')[0];
     var right = opts.right != null ? opts.right :
@@ -104,7 +105,7 @@
     if (opts.photoPosition) photoStyle += ';background-position:' + opts.photoPosition;
 
     return '<section class="screen">' +
-      '<div class="photo' + (opts.blur ? ' blurred' : '') + '" style="' + photoStyle + '"></div>' +
+      '<div class="photo' + (opts.blur ? ' blurred' : '') + '"' + (opts.photoId ? ' data-photo="' + esc(opts.photoId) + '"' : '') + ' style="' + photoStyle + '"></div>' +
       header(opts.header || {}) +
       (opts.overlay ? '<div class="overlay">' + opts.overlay + '</div>' : '') +
       '<div class="sheet"' + (opts.restMeasure ? ' data-measure="1"' : '') + '><div class="spacer" style="height:' + (opts.rest || 470) + 'px"></div>' +

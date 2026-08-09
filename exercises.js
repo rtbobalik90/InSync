@@ -1,4 +1,4 @@
-/* The exercise library. Every entry is backed by a GIF that exists in
+/* The exercise library. Every entry is backed by an animated WebP that exists in
    assets/exercises, so a plan can never name a movement with no picture. */
 (function () {
   'use strict';
@@ -54,20 +54,22 @@
     ['windmills', 'Windmills', 'Warm-up', 'Bodyweight', 1, '10 each']
   ];
 
-  var BY_ID = {};
+  var BY_ID = {}, BY_NAME = {};
   var ALL = LIST.map(function (e) {
     var o = {
       id: e[0], name: e[1], group: e[2], equipment: e[3],
       sets: e[4], reps: e[5],
-      gif: 'assets/exercises/' + e[0] + '.gif'
+      gif: 'assets/exercises/' + e[0] + '.webp'
     };
     BY_ID[o.id] = o;
+    BY_NAME[o.name.toLowerCase()] = o;
     return o;
   });
 
   var GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Warm-up'];
 
   function get(id) { return BY_ID[id] || null; }
+  function byName(name) { return BY_NAME[String(name || '').trim().toLowerCase()] || null; }
   function expand(ids) {
     return (ids || []).map(get).filter(Boolean);
   }
@@ -85,7 +87,7 @@
   }
 
   window.Exercises = {
-    all: ALL, get: get, expand: expand, alternatives: alternatives,
+    all: ALL, get: get, byName: byName, expand: expand, alternatives: alternatives,
     byGroup: byGroup, groups: GROUPS
   };
 })();

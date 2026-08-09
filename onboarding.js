@@ -39,29 +39,25 @@
   var PLANS = {
     2: [
       { day: 'Mon', name: 'Full body', ex: ['dumbbell-chest-press', 'horizontal-leg-press', 'pulldown-machine', 'shoulder-press-machine'] },
-      { day: 'Thu', name: 'Full body', ex: ['dumbbell-chest-press', 'linear-leg-press', 'cable-row', 'triceps-pushdown'] },
-      { day: 'Sat', name: 'Walk', detail: 'Treadmill, 40 minutes, incline 4' }
+      { day: 'Thu', name: 'Full body', ex: ['dumbbell-chest-press', 'linear-leg-press', 'cable-row', 'triceps-pushdown'] }
     ],
     3: [
       { day: 'Mon', name: 'Push', ex: ['dumbbell-chest-press', 'shoulder-press-machine', 'triceps-pushdown'] },
       { day: 'Wed', name: 'Pull', ex: ['pulldown-machine', 'cable-row', 'biceps-curl-machine'] },
-      { day: 'Fri', name: 'Legs', ex: ['horizontal-leg-press', 'leg-extension', 'calf-extension'] },
-      { day: 'Sun', name: 'Walk', detail: 'Treadmill, 45 minutes, incline 5' }
+      { day: 'Fri', name: 'Legs', ex: ['horizontal-leg-press', 'leg-extension', 'calf-extension'] }
     ],
     4: [
       { day: 'Mon', name: 'Upper', ex: ['dumbbell-chest-press', 'pulldown-machine', 'shoulder-press-machine'] },
       { day: 'Tue', name: 'Lower', ex: ['horizontal-leg-press', 'leg-extension', 'glute-machine'] },
       { day: 'Thu', name: 'Upper', ex: ['cable-row', 'dumbbell-chest-press', 'triceps-pushdown'] },
-      { day: 'Fri', name: 'Lower', ex: ['linear-leg-press', 'calf-extension', 'cable-hip-extension'] },
-      { day: 'Sun', name: 'Walk', detail: 'Treadmill, 45 minutes, incline 5' }
+      { day: 'Fri', name: 'Lower', ex: ['linear-leg-press', 'calf-extension', 'cable-hip-extension'] }
     ],
     5: [
       { day: 'Mon', name: 'Push', ex: ['dumbbell-chest-press', 'shoulder-press-machine', 'triceps-pushdown'] },
       { day: 'Tue', name: 'Pull', ex: ['pulldown-machine', 'cable-row', 'biceps-curl-machine'] },
       { day: 'Wed', name: 'Legs', ex: ['horizontal-leg-press', 'leg-extension', 'calf-extension'] },
       { day: 'Fri', name: 'Upper', ex: ['dumbbell-chest-press', 'cable-row', 'lateral-raise'] },
-      { day: 'Sat', name: 'Lower', ex: ['linear-leg-press', 'glute-machine', 'cable-hip-extension'] },
-      { day: 'Sun', name: 'Walk', detail: 'Treadmill, 50 minutes, incline 5' }
+      { day: 'Sat', name: 'Walk', detail: 'Treadmill, 50 minutes, incline 5' }
     ],
     6: [
       { day: 'Mon', name: 'Push', ex: ['dumbbell-chest-press', 'shoulder-press-machine', 'triceps-pushdown'] },
@@ -100,14 +96,25 @@
 
   function clamp(v, lo, hi) { v = Number(v); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : null; }
 
-  function targetsFor(goal, weight) {
-    var t = {
-      'lose-fat': { calories: 1950, protein: 165, steps: 11000, weightGoal: Math.round(weight - 8) },
-      'build':    { calories: 2750, protein: 175, steps: 8000,  weightGoal: Math.round(weight + 11) },
-      'hold':     { calories: 2300, protein: 155, steps: 10000, weightGoal: Math.round(weight) },
-      'strong':   { calories: 2500, protein: 180, steps: 7000,  weightGoal: Math.round(weight + 4) }
-    };
-    return t[goal] || t['lose-fat'];
+  function targetsFor(goal, weight, heightIn, age, sex, freq) {
+    var lb = Math.max(60, +weight || 180);
+    var kg = lb * 0.45359237;
+    var cm = Math.max(48, +heightIn || 68) * 2.54;
+    var years = Math.max(13, +age || 35);
+    var female = String(sex || '').toLowerCase() === 'female';
+    /* Mifflin-St Jeor gives the baseline; training frequency supplies a modest
+       activity estimate. These are starting targets, not a diagnosis. */
+    var bmr = (10 * kg) + (6.25 * cm) - (5 * years) + (female ? -161 : 5);
+    var activity = { 2: 1.35, 3: 1.45, 4: 1.55, 5: 1.62, 6: 1.70 }[+freq || 4] || 1.55;
+    var delta = { 'lose-fat': -400, 'build': 250, 'hold': 0, 'strong': 100 }[goal] || -400;
+    var calories = Math.round((bmr * activity + delta) / 50) * 50;
+    calories = Math.max(female ? 1400 : 1600, Math.min(4200, calories));
+    var proteinFactor = goal === 'hold' ? 0.8 : (goal === 'lose-fat' ? 0.9 : 0.9);
+    var protein = Math.round(Math.max(90, Math.min(220, lb * proteinFactor)) / 5) * 5;
+    var steps = { 'lose-fat': 11000, 'build': 8000, 'hold': 10000, 'strong': 8000 }[goal] || 10000;
+    var weightGoal = goal === 'lose-fat' ? Math.round(lb - 8)
+      : goal === 'build' ? Math.round(lb + 5) : Math.round(lb);
+    return { calories: calories, protein: protein, steps: steps, weightGoal: weightGoal };
   }
 
   function progress() {
@@ -219,16 +226,16 @@
   }
 
   function screenTargets() {
-    var t = targetsFor(draft.goal, draft.weight);
+    var t = targetsFor(draft.goal, draft.weight, draft.heightFt * 12 + (+draft.heightIn || 0), draft.age, draft.sex, draft.freq);
     var rows = [
-      { name: 'Daily calories', value: t.calories.toLocaleString(), basis: 'From your height, age and goal' },
+      { name: 'Daily calories', value: t.calories.toLocaleString(), basis: 'Estimated from your body data, goal and training frequency' },
       { name: 'Daily protein', value: t.protein + ' g', basis: 'Set to hold muscle while the weight moves' },
       { name: 'Daily steps', value: t.steps.toLocaleString(), basis: 'A little above where most people start' },
       { name: 'Weight goal', value: t.weightGoal + ' lb', basis: 'About a pound a week from today' }
     ];
     return '<div class="ob-body">' +
       '<h2 class="ob-h">Numbers to start with.</h2>' +
-      '<p class="ob-sub">Worked out from your height, age and goal. The coach will replace them once it has watched you for a fortnight.</p>' +
+      '<p class="ob-sub">Worked out from your height, weight, age, sex, goal and training frequency. The coach will replace them once it has watched you for a fortnight.</p>' +
       '<article class="card">' +
         rows.map(function (r) {
           return '<div class="ob-target">' +
@@ -237,7 +244,7 @@
           '</div>';
         }).join('') +
         '<div class="ob-target note"><span class="ob-prov"></span>' +
-          '<p class="small" style="margin:0">A starting guess, refined after two weeks. The dot disappears when the coach confirms each one.</p>' +
+          '<p class="small" style="margin:0">A starting estimate, refined after two weeks. The dot disappears when the coach confirms each one.</p>' +
         '</div>' +
       '</article>' +
       '<button class="btn block" data-ob="next">Continue</button>' +
@@ -265,7 +272,6 @@
   }
 
   function screenPair() {
-    var her = draft.partner || 'her';
     return '<div class="ob-body">' +
       '<h2 class="ob-h">Who are you walking with?</h2>' +
       '<p class="ob-sub">Together compares the two of you day by day. It needs their name to know whose file to read.</p>' +
@@ -273,7 +279,7 @@
       (draft.note ? '<p class="ob-warn">' + esc(draft.note) + '</p>' : '') +
       '<article class="card pad" style="margin-top:4px">' +
         '<div class="rulehead tight"><span class="kicker">How pairing works</span><span></span></div>' +
-        '<p class="small" style="margin:0 0 10px">You each connect the same private repository in Settings. Your phone writes only your own totals; theirs writes only theirs. Nothing passes through a server.</p>' +
+        '<p class="small" style="margin:0 0 10px">You each connect the same dedicated private sync repository in Settings. Your phone writes only the shared summary you allow; theirs writes only theirs. GitHub carries those files between the two phones.</p>' +
         '<p class="small" style="margin:0">Spell it the way they will spell it on their own phone. Capitals and spacing do not matter — the same name in any case finds the same file.</p>' +
       '</article>' +
       '<button class="btn block" data-ob="next">Continue</button>' +
@@ -385,7 +391,7 @@
   }
 
   function finish() {
-    var t = targetsFor(draft.goal, draft.weight);
+    var t = targetsFor(draft.goal, draft.weight, draft.heightFt * 12 + (+draft.heightIn || 0), draft.age, draft.sex, draft.freq);
     var name = draft.name || 'Friend';
     var initials = initialsFor(name);
 
@@ -401,12 +407,11 @@
     Store.set('frequency', draft.freq);
     Store.set('plan', withDetail(PLANS[draft.freq] || []));
     if (draft.partner) {
-      Store.set('partner.name', draft.partner);
-      Store.set('partner.initials', initialsFor(draft.partner));
+      Store.setPartnerName(draft.partner);
     }
     /* A key typed but never tested is still his key — saving it is not the same
        as claiming it works. */
-    if (draft.claudeKey) Store.set('connections.claudeKey', draft.claudeKey);
+    if (draft.claudeKey) Store.setSecret('claudeKey', draft.claudeKey);
     Store.set('onboarded', true);
     Store.setMorning({ weight: draft.weight });
     /* Signing up earns the first-day stamps. They belong on the shelf, but the
@@ -422,7 +427,7 @@
     root.className = 'ob' + (hero ? ' hero' : '');
     root.innerHTML =
       '<div class="ob-photo' + (hero ? '' : ' blur') + '"></div>' +
-      (hero ? '<img class="ob-icon" src="assets/insync-icon.png" alt="InSync" />' : '') +
+      (hero ? '<img class="ob-icon" src="assets/insync-icon.webp" alt="InSync" />' : '') +
       (hero || key === 'coach' ? '' : progress()) +
       '<div class="ob-scroll">' + SCREENS[key]() + '</div>';
     var scroller = root.querySelector('.ob-scroll');
@@ -457,13 +462,13 @@
         if (!draft.claudeKey) { draft.keyOk = false; draft.keyNote = 'Nothing pasted yet.'; render(); return; }
         el.disabled = true;
         el.textContent = 'Testing…';
-        Store.set('connections.claudeKey', draft.claudeKey);
+        Store.setSecret('claudeKey', draft.claudeKey);
         Cloud.testClaude(function (err) {
           draft.keyOk = !err;
           draft.keyNote = err
             ? err.message
             : 'The key works. The coach writes from today.';
-          if (err) Store.set('connections.claudeKey', '');
+          if (err) Store.setSecret('claudeKey', '');
           render();
         });
       }
@@ -489,5 +494,5 @@
     render();
   }
 
-  window.Onboarding = { start: start, plans: PLANS, goals: GOALS, withDetail: withDetail };
+  window.Onboarding = { start: start, plans: PLANS, goals: GOALS, withDetail: withDetail, targetsFor: targetsFor };
 })();

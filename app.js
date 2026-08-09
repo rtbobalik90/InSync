@@ -5,7 +5,6 @@
   var app = document.getElementById('app');
   var TABS = ['home', 'coach', 'train', 'nutrition', 'together'];
 
-  var STUBS = {};
 
   function current() {
     var h = (location.hash || '#home').slice(1);
@@ -13,25 +12,16 @@
   }
   function base(key) { return key.split('/')[0]; }
 
-  function stub(key) {
-    var s = STUBS[key];
-    return UI.screen({
-      tab: null, rest: 260, blur: true,
-      header: { back: true, title: s.title, right: '<div style="width:34px"></div>' },
-      body:
-        '<article class="card pad">' +
-          '<div class="kicker" style="margin-bottom:11px">Not ported yet</div>' +
-          '<p class="lede">' + UI.esc(s.title) + ' is designed but still lives in the design file.</p>' +
-          '<p class="small" style="margin-top:12px">Port from <code>' + UI.esc(s.file) + '</code>. Strip the state-switcher buttons and the duplicated header and nav; keep everything inside the phone frame.</p>' +
-        '</article>'
-    });
-  }
+
 
   function render() {
     var key = current(), root = base(key);
     var html;
 
     if (!Store.state().onboarded) { app.innerHTML = ''; return; }
+
+    // Opening a verse surface is the evidence for the verse-reading badge.
+    if ((root === 'home' || root === 'reflection') && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
 
     if (TABS.indexOf(root) >= 0) html = Screens[root]();
     else if (root === 'settings') html = Screens.settings();
@@ -58,7 +48,6 @@
     else if (root === 'exercise') html = Screens.exercise();
     else if (root === 'notifications') html = Screens.notifications();
     else if (root === 'meal') html = Screens.meal();
-    else if (STUBS[root]) html = stub(root);
     else { location.hash = '#home'; return; }
 
     app.innerHTML = html;
@@ -132,8 +121,14 @@
     }
 
     if (e.target.closest('[data-meal-photo-clear]')) {
-      Store.updateMeal(currentMealId(), { photo: '' });
-      render();
+      var clearMeal = Store.findMeal(currentMealId());
+      if (!clearMeal) return;
+      var clearId = clearMeal.meal.photoId || '';
+      function finishClear() {
+        Store.updateMeal(currentMealId(), { photoId: '', photo: '' });
+        render();
+      }
+      if (clearId) Media.del(clearId, finishClear); else finishClear();
       return;
     }
 
@@ -141,8 +136,17 @@
       Media.capture(function (err, dataUrl) {
         if (err) return;
         Media.shrink(dataUrl, 1100, 0.8, function (e2, small) {
-          Store.updateMeal(currentMealId(), { photo: e2 ? dataUrl : small });
-          render();
+          if (e2) { alert('That photograph could not be prepared. Try it again.'); return; }
+          var found = Store.findMeal(currentMealId());
+          if (!found) return;
+          var oldId = found.meal.photoId || '';
+          var photoId = 'meal-' + currentMealId();
+          Media.put(photoId, small, function (e3) {
+            if (e3) { alert('The meal was kept, but its photograph could not be saved.'); return; }
+            Store.updateMeal(currentMealId(), { photoId: photoId, photo: '' });
+            if (oldId && oldId !== photoId) Media.del(oldId, function () {});
+            render();
+          });
         });
       });
       return;
@@ -151,25 +155,36 @@
     if (e.target.closest('[data-meal-delete]')) {
       var m = Store.findMeal(currentMealId());
       if (!m) return;
-      if (!confirm('Delete \u201c' + m.meal.name + '\u201d? This takes it off the day.')) return;
+      if (!confirm('Delete “' + m.meal.name + '”? This takes it off the day.')) return;
+      var mealPhotoId = m.meal.photoId || '';
       Store.removeMeal(currentMealId());
-      history.back();
+      if (mealPhotoId) Media.del(mealPhotoId, function () {});
+      location.hash = '#nutrition';
       return;
     }
   });
 
   app.addEventListener('click', function (e) {
-    var el = e.target.closest('[data-route],[data-back],[data-action]');
+    /* Toggles and the coach's suggested questions carry no data-action, and were
+       being dropped by this selector — every notification and privacy switch, and
+       every "ask it something" button, did nothing at all. */
+    var el = e.target.closest('[data-route],[data-back],[data-action],[data-toggle],[data-ask]');
     if (!el) return;
 
-    if (el.hasAttribute('data-back')) { history.back(); return; }
+    if (el.hasAttribute('data-back')) {
+      var backTo = el.getAttribute('data-back');
+      if (backTo) location.hash = '#' + backTo;
+      else if (history.length > 1) history.back();
+      else location.hash = '#home';
+      return;
+    }
 
     var route = el.getAttribute('data-route');
     if (route) {
       // Opening Together is how her note stops being news.
       if (route === 'together') {
         var pd = Store.state().partnerData;
-        if (pd && pd.note) Store.set('partnerNoteSeen', pd.date + '|' + pd.note);
+        if (pd && pd.note) Store.set('partnerNoteSeen', (pd.noteDate || pd.date) + '|' + pd.note);
       }
       location.hash = '#' + route;
       return;
@@ -191,9 +206,7 @@
       var input = app.querySelector('[data-note-input]');
       var text = input ? input.value.trim() : '';
       if (!text) { if (input) input.focus(); return; }
-      var day = Store.day();
-      day.noteToPartner = text;
-      Store.save();
+      Store.setPartnerNote(text);
       el.disabled = true;
       el.textContent = 'Sending\u2026';
       if (!Cloud.hasGit()) {
@@ -202,10 +215,8 @@
         return;
       }
       Cloud.push(function (err) {
-        if (!err) {
-          var d2 = Store.day();
-          d2.noteSentAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          Store.save();
+        if (err) {
+          alert('The note is saved on this phone, but it did not sync yet. InSync will retry when the connection is available.\n\n' + err.message);
         }
         render();
       });
@@ -215,12 +226,12 @@
     // ---- progress photos -------------------------------------------------
     if (action === 'take-photo') {
       Media.capture(function (err, dataUrl) {
-        if (err) return;
+        if (err) { alert(err.message); return; }
         Media.shrink(dataUrl, 1100, 0.8, function (e2, small) {
-          if (e2) return;
+          if (e2) { alert(e2.message); return; }
           var id = 'p' + Date.now();
           Media.put(id, small, function (e3) {
-            if (e3) return;
+            if (e3) { alert(e3.message); return; }
             Store.addPhoto(id, Store.todayKey());
             location.hash = '#photos/' + ((Store.state().photos || []).length - 1);
             render();
@@ -236,7 +247,8 @@
         el.textContent = 'Tap again to delete it';
         return;
       }
-      Media.del(pid, function () {
+      Media.del(pid, function (photoErr) {
+        if (photoErr) { alert(photoErr.message); return; }
         Store.removePhoto(pid);
         location.hash = '#photos';
         render();
@@ -294,7 +306,8 @@
 
     if (action === 'reset') {
       if (confirm('Clear everything on this device and start over? This removes the log, the badges, the expedition and every photograph.')) {
-        Store.wipe(function () {
+        Store.wipe(function (err) {
+          if (err) { alert(err.message); return; }
           location.hash = '#home';
           location.reload();
         });
@@ -326,8 +339,10 @@
       var host = document.querySelector('.app');
       var wEl = host.querySelector('[data-set="w"][data-i="' + i1 + '"]');
       var rEl = host.querySelector('[data-set="r"][data-i="' + i1 + '"]');
-      var w = Store.weightToLb(parseFloat(wEl && wEl.value) || 0);
-      var r = parseInt(rEl && rEl.value, 10) || 0;
+      var rawW = parseFloat(wEl && wEl.value), rawR = parseInt(rEl && rEl.value, 10);
+      if ((isFinite(rawW) && rawW < 0) || (isFinite(rawR) && rawR < 0)) { alert('Weight and reps cannot be negative.'); return; }
+      var w = Store.weightToLb(isFinite(rawW) ? rawW : 0);
+      var r = isFinite(rawR) ? rawR : 0;
       if (!w && !r) return;
       Store.logSet(i1, { weight: w, reps: r });
       return;
@@ -356,19 +371,65 @@
       return;
     }
 
-    if (action === 'seed') {
-      if (confirm('This overwrites the last eleven days with invented data, including anything you logged. Continue?')) {
-        Store.seed();
-        location.hash = '#home';
-      }
+    if (action === 'export') {
+      Media.all(function (err, media) {
+        if (err) { alert('The backup could not read every photograph. Nothing was exported.'); return; }
+        var bundle = {
+          format: 'insync-backup', version: 1, exportedAt: new Date().toISOString(),
+          state: Store.exportState(), media: media || {}
+        };
+        var blob = new Blob([JSON.stringify(bundle)], { type: 'application/json' });
+        var a = document.createElement('a');
+        var url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = 'insync-backup-' + Store.todayKey() + '.json';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+          if (a.parentNode) a.parentNode.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 1000);
+      });
       return;
     }
-    if (action === 'export') {
-      var blob = new Blob([JSON.stringify(Store.state(), null, 2)], { type: 'application/json' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'insync-' + Store.todayKey() + '.json';
-      a.click();
+    if (action === 'import') {
+      var picker = document.createElement('input');
+      picker.type = 'file'; picker.accept = 'application/json,.json';
+      picker.onchange = function () {
+        var file = picker.files && picker.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          var bundle;
+          try { bundle = JSON.parse(reader.result); } catch (ex) { alert('That file is not a valid InSync backup.'); return; }
+          var state = bundle && bundle.format === 'insync-backup' ? bundle.state : bundle;
+          if (!state || typeof state !== 'object' || !state.profile || !state.days) {
+            alert('That file does not contain a valid InSync log.'); return;
+          }
+          if (!confirm('Restore this backup? It will replace the current log and photographs on this device. Connection keys stay unchanged.')) return;
+          Media.all(function (oldErr, oldMedia) {
+            if (oldErr) { alert('InSync could not protect the current photographs before restoring. Nothing was changed.'); return; }
+            Media.importAll((bundle && bundle.media) || {}, function (mediaErr) {
+              if (mediaErr) { alert('The backup data was readable, but its photographs could not be restored. Nothing was changed.'); return; }
+              try {
+                Store.importState(state);
+              } catch (restoreErr) {
+                Media.importAll(oldMedia || {}, function (rollbackErr) {
+                  var message = restoreErr.message || 'The restored log could not be saved on this device.';
+                  if (rollbackErr) message += '\n\nThe previous photographs also could not be restored. Do not clear the app; use your last backup to recover them.';
+                  alert(message);
+                });
+                return;
+              }
+              location.hash = '#home';
+              location.reload();
+            });
+          });
+        };
+        reader.readAsText(file);
+      };
+      picker.click();
       return;
     }
     if (action === 'sync-now') {
@@ -442,7 +503,7 @@
       location.hash = el.getAttribute('data-to') ? '#' + el.getAttribute('data-to') : badgeReturn;
       return;
     }
-    if (action === 'advance-leg') { Store.advanceLeg(); location.hash = '#arrival'; return; }
+    if (action === 'advance-leg') { if (Store.advanceLeg()) location.hash = '#arrival'; return; }
 
     /* ---- the handshake: propose, nudge, accept, counter ---- */
     if (action === 'propose-route') {
@@ -498,8 +559,17 @@
     if (e.target.id === 'reflect') { Store.saveReflection(e.target.value); return; }
     var el = e.target.closest('[data-set]');
     if (!el) return;
-    /* His name carries the avatar's initials with it. */
+    if (el.hasAttribute('data-secret')) {
+      Store.setSecret(el.getAttribute('data-secret'), el.value.trim());
+      return;
+    }
+    /* Names carry their avatar initials with them. */
     if (el.hasAttribute('data-name')) { Store.setProfileName(el.value); return; }
+    if (el.hasAttribute('data-partner-name')) { Store.setPartnerName(el.value); return; }
+    var setPath = el.getAttribute('data-set');
+    if (setPath === 'connections.githubRepo' || setPath === 'connections.githubBranch') {
+      Store.state().connections.lastSync = '';
+    }
     /* A target typed as text would poison every comparison that reads it. */
     if (el.hasAttribute('data-num')) {
       var n = Math.round(parseFloat(String(el.value).replace(/[^0-9.\-]/g, '')));
@@ -513,7 +583,7 @@
       Store.set(el.getAttribute('data-set'), n);
       return;
     }
-    Store.set(el.getAttribute('data-set'), el.value);
+    Store.set(setPath, el.value);
   });
 
   // Live word count while writing the evening.
@@ -545,12 +615,71 @@
 
   window.addEventListener('hashchange', render);
   Store.on(safeRender);
+  Store.on(function () {
+    if (Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(false);
+  });
+
+  var storageAlerted = false;
+  window.addEventListener('insync-storage-error', function (ev) {
+    if (storageAlerted) return;
+    storageAlerted = true;
+    var msg = ev && ev.detail && ev.detail.message ? ev.detail.message : 'The device refused the save.';
+    alert('InSync could not save your latest change. Do not clear this app. Create a backup if possible, then free some browser storage.\n\n' + msg);
+    setTimeout(function () { storageAlerted = false; }, 30000);
+  });
 
   window.App = { render: render };
 
+  /* Never treat unreadable local data as a fresh install. Doing that would let
+     onboarding overwrite the only copy of a damaged-but-potentially-recoverable
+     log. Keep the bytes untouched, offer them for recovery, and require an
+     explicit reset before this device may write a new store. */
+  function showLoadRecovery() {
+    app.innerHTML = '<main style="min-height:100vh;padding:32px 22px;display:flex;align-items:center;justify-content:center">' +
+      '<article class="card pad" style="width:min(520px,100%)">' +
+        '<div class="kicker" style="margin-bottom:10px">Local data needs attention</div>' +
+        '<h2 style="margin:0 0 12px">InSync stopped before overwriting anything.</h2>' +
+        '<p class="note">' + (Store.loadError ? Store.loadError() : 'The local log could not be read safely.') + '</p>' +
+        '<p class="note">Save the damaged copy if you may want it recovered later. It can contain old connection settings, so keep that file private.</p>' +
+        '<div class="btnrow" style="margin-top:18px">' +
+          '<button class="btn ghost auto" id="save-damaged-data">Save damaged copy</button>' +
+          '<button class="btn auto" id="reset-damaged-data">Start over on this device</button>' +
+        '</div>' +
+      '</article></main>';
+    var saveBad = document.getElementById('save-damaged-data');
+    if (saveBad) saveBad.addEventListener('click', function () {
+      var raw = Store.corruptRaw ? Store.corruptRaw() : '';
+      if (!raw) { alert('There is no damaged local copy available to save.'); return; }
+      var blob = new Blob([raw], { type: 'text/plain;charset=utf-8' });
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = 'insync-damaged-local-data.txt';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    });
+    var resetBad = document.getElementById('reset-damaged-data');
+    if (resetBad) resetBad.addEventListener('click', function () {
+      if (!confirm('Start over on this device? Save the damaged copy first if you may want it recovered.')) return;
+      Store.wipe(function (err) {
+        if (err) { alert(err.message || String(err)); return; }
+        location.reload();
+      });
+    });
+  }
+
+  if (Store.loadError && Store.loadError()) { showLoadRecovery(); return; }
+
+  if (window.Media && Media.migrateMealPhotos) Media.migrateMealPhotos();
   if (!Store.state().onboarded) Onboarding.start();
 
   render();
+  if (Store.loadWarning && Store.loadWarning()) {
+    setTimeout(function () { alert(Store.loadWarning()); }, 0);
+  }
+  if (Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
+  window.addEventListener('online', function () { if (window.Cloud && Cloud.autoSync) Cloud.autoSync(true); });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
+  });
 
   /* The coach chooses the day's verse once a day. Silent: if there is no key,
      or the call fails, the rotation has already rendered and stays. */
@@ -578,7 +707,7 @@
   })();
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(function () {});
+    navigator.serviceWorker.register('sw.js').then(function (reg) { reg.update().catch(function () {}); }).catch(function () {});
   }
 
   /* Chat lives for the day. A question from Tuesday is not context on Friday. */

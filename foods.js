@@ -90,33 +90,49 @@
     }).filter(Boolean);
   }
 
-  /* Open Food Facts. Returns a meal-shaped object, or an error. */
+  /* Open Food Facts. Returns a meal-shaped object, or an error saying what to do
+     next. Two endpoints, because v2 answers 404 for products v0 still holds, and
+     a timeout, because a phone on a weak signal must not hang on a lookup. */
   function lookupBarcode(code, cb) {
     code = String(code || '').replace(/\D/g, '');
-    if (code.length < 8) return cb(new Error('That does not look like a barcode.'));
-    var url = 'https://world.openfoodfacts.org/api/v2/product/' + code +
+    if (code.length < 8) return cb(new Error('That does not look like a barcode. It is 8 to 13 digits.'));
+
+    function get(url) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 8000);
+      return fetch(url, ctl ? { signal: ctl.signal } : undefined)
+        .then(function (r) { clearTimeout(timer); return r.ok ? r.json() : null; })
+        .catch(function () { clearTimeout(timer); return null; });
+    }
+
+    var v2 = 'https://world.openfoodfacts.org/api/v2/product/' + code +
       '.json?fields=product_name,brands,serving_size,nutriments';
-    fetch(url)
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (!j || j.status === 0 || !j.product) {
-          return cb(new Error('Not in the database. Enter it by hand below.'));
-        }
-        var p = j.product, n = p.nutriments || {};
-        // Prefer per-serving where the product declares one.
-        var per = n['energy-kcal_serving'] != null ? '_serving' : '_100g';
-        var name = [p.brands ? String(p.brands).split(',')[0].trim() : '', p.product_name || '']
-          .filter(Boolean).join(' ');
-        cb(null, {
-          name: name || 'Unnamed product',
-          serving: per === '_serving' ? (p.serving_size || 'per serving') : 'per 100 g',
-          kcal: Math.round(n['energy-kcal' + per] || 0),
-          protein: Math.round(n['proteins' + per] || 0),
-          carbs: Math.round(n['carbohydrates' + per] || 0),
-          fat: Math.round(n['fat' + per] || 0)
-        });
-      })
-      .catch(function () { cb(new Error('Could not reach the food database. Enter it by hand.')); });
+    var v0 = 'https://world.openfoodfacts.org/api/v0/product/' + code + '.json';
+
+    get(v2).then(function (a) {
+      if (a && a.product) return a;
+      return get(v0);
+    }).then(function (j) {
+      if (!j) {
+        return cb(new Error('Could not reach Open Food Facts. Type the figures from the label below — it still counts.'));
+      }
+      if (j.status === 0 || !j.product) {
+        return cb(new Error('Not in Open Food Facts. Type the figures from the label below — it still counts.'));
+      }
+      var p = j.product, n = p.nutriments || {};
+      // Prefer per-serving where the product declares one.
+      var per = n['energy-kcal_serving'] != null ? '_serving' : '_100g';
+      var name = [p.brands ? String(p.brands).split(',')[0].trim() : '', p.product_name || '']
+        .filter(Boolean).join(' ');
+      cb(null, {
+        name: name || 'Unnamed product',
+        serving: per === '_serving' ? (p.serving_size || 'per serving') : 'per 100 g',
+        kcal: Math.round(n['energy-kcal' + per] || 0),
+        protein: Math.round(n['proteins' + per] || 0),
+        carbs: Math.round(n['carbohydrates' + per] || 0),
+        fat: Math.round(n['fat' + per] || 0)
+      });
+    });
   }
 
   window.Foods = {

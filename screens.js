@@ -12,34 +12,34 @@
   var ROUTES = {
     camino: {
       name: 'Camino de Santiago', where: 'Navarre, Spain', grade: 'Moderate',
-      banner: 'assets/art/camino/banner.png',
+      banner: 'assets/art/camino/banner.webp',
       legs: [
-        { from: 'Saint-Jean-Pied-de-Port', to: 'Roncesvalles', miles: 15.5, ft: 4100, art: 'assets/art/camino/saint-jean.png' },
-        { from: 'Roncesvalles', to: 'Zubiri', miles: 13.7, ft: 1300, art: 'assets/art/camino/roncesvalles.png' },
-        { from: 'Zubiri', to: 'Pamplona', miles: 13.0, ft: 1180, art: 'assets/art/camino/zubiri.png' },
-        { from: 'Pamplona', to: 'Puente la Reina', miles: 14.9, ft: 1700, art: 'assets/art/camino/pamplona.png' },
-        { from: 'Puente la Reina', to: 'Estella', miles: 13.7, ft: 1150, art: 'assets/art/camino/puente-la-reina.png' },
-        { from: 'Estella', to: 'Los Arcos', miles: 12.4, ft: 900, art: 'assets/art/camino/estella.png' }
+        { from: 'Saint-Jean-Pied-de-Port', to: 'Roncesvalles', miles: 15.5, ft: 4100, art: 'assets/art/camino/saint-jean.webp' },
+        { from: 'Roncesvalles', to: 'Zubiri', miles: 13.7, ft: 1300, art: 'assets/art/camino/roncesvalles.webp' },
+        { from: 'Zubiri', to: 'Pamplona', miles: 13.0, ft: 1180, art: 'assets/art/camino/zubiri.webp' },
+        { from: 'Pamplona', to: 'Puente la Reina', miles: 14.9, ft: 1700, art: 'assets/art/camino/pamplona.webp' },
+        { from: 'Puente la Reina', to: 'Estella', miles: 13.7, ft: 1150, art: 'assets/art/camino/puente-la-reina.webp' },
+        { from: 'Estella', to: 'Los Arcos', miles: 12.4, ft: 900, art: 'assets/art/camino/estella.webp' }
       ]
     },
     milford: {
       name: 'Milford Track', where: 'Fiordland, New Zealand', grade: 'Gentle',
-      banner: 'assets/art/milford/banner.png', climb: 3900,
+      banner: 'assets/art/milford/banner.webp', climb: 3900,
       legs: [
-        { from: 'Glade Wharf', to: 'Clinton Hut', miles: 3.1, art: 'assets/art/milford/glade-wharf.png' },
-        { from: 'Clinton Hut', to: 'Mintaro Hut', miles: 10.5, art: 'assets/art/milford/clinton-hut.png' },
-        { from: 'Mintaro Hut', to: 'Dumpling Hut', miles: 8.6, art: 'assets/art/milford/mintaro-hut.png' },
-        { from: 'Dumpling Hut', to: 'Sandfly Point', miles: 11.0, art: 'assets/art/milford/dumpling-hut.png' }
+        { from: 'Glade Wharf', to: 'Clinton Hut', miles: 3.1, art: 'assets/art/milford/glade-wharf.webp' },
+        { from: 'Clinton Hut', to: 'Mintaro Hut', miles: 10.5, art: 'assets/art/milford/clinton-hut.webp' },
+        { from: 'Mintaro Hut', to: 'Dumpling Hut', miles: 8.6, art: 'assets/art/milford/mintaro-hut.webp' },
+        { from: 'Dumpling Hut', to: 'Sandfly Point', miles: 11.0, art: 'assets/art/milford/dumpling-hut.webp' }
       ]
     },
     grand: {
       name: 'Grand Canyon rim to rim', where: 'Arizona, United States', grade: 'Moderate',
-      banner: 'assets/art/grand/banner.png', climb: 10600,
+      banner: 'assets/art/grand/banner.webp', climb: 10600,
       legs: [
-        { from: 'North Rim', to: 'Cottonwood Camp', miles: 6.8, art: 'assets/art/grand/north-rim.png' },
-        { from: 'Cottonwood Camp', to: 'Phantom Ranch', miles: 7.2, art: 'assets/art/grand/cottonwood-camp.png' },
-        { from: 'Phantom Ranch', to: 'Indian Garden', miles: 4.7, art: 'assets/art/grand/phantom-ranch.png' },
-        { from: 'Indian Garden', to: 'South Rim', miles: 4.6, art: 'assets/art/grand/indian-garden.png' }
+        { from: 'North Rim', to: 'Cottonwood Camp', miles: 6.8, art: 'assets/art/grand/north-rim.webp' },
+        { from: 'Cottonwood Camp', to: 'Phantom Ranch', miles: 7.2, art: 'assets/art/grand/cottonwood-camp.webp' },
+        { from: 'Phantom Ranch', to: 'Indian Garden', miles: 4.7, art: 'assets/art/grand/phantom-ranch.webp' },
+        { from: 'Indian Garden', to: 'South Rim', miles: 4.6, art: 'assets/art/grand/indian-garden.webp' }
       ]
     },
     inca: {
@@ -149,8 +149,8 @@
   function hasExpedition() { return !!route(); }
   function leg() {
     var e = Store.state().expedition, r = route();
-    if (!r) return null;
-    return r.legs[Math.min(e.legIndex, r.legs.length - 1)];
+    if (!r || e.legIndex >= r.legs.length) return null;
+    return r.legs[e.legIndex];
   }
 
   function timeWord() {
@@ -205,6 +205,13 @@
     var r = route();
     if (!r) return noExpeditionCard();
     var l = leg(), e = Store.state().expedition;
+    if (!l) {
+      return '<article class="card pad accent">' +
+        '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
+        '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 7px">' + esc(r.name) + '</h3>' +
+        '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition together when you are ready.</p>' +
+      '</article>';
+    }
     var walked = Store.legMine() + Store.legHers();
     var pct = Math.min(100, Math.round((walked / l.miles) * 100));
     return '<article class="card pad">' +
@@ -228,7 +235,7 @@
      asks for the one decision that unlocks the rest. */
   function noExpeditionCard() {
     var S = Store.state(), st = handshakeState();
-    var line = st === 'waiting' ? 'Sent to ' + esc(Store.partnerName()) + '. Nothing starts until she answers.'
+    var line = st === 'waiting' ? 'Sent to ' + esc(Store.partnerName()) + '. Nothing starts until they answer.'
       : st === 'invited' ? esc(Store.partnerName()) + ' has proposed the ' + esc(S.invite.routeName) + '.'
       : st === 'accepted' ? esc(S.invite.routeName) + ' is agreed and ready to begin.'
       : 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.';
@@ -248,7 +255,7 @@
     if (!pd) return '';
 
     var fresh = pd.date === Store.todayKey();
-    var unreadNote = !!pd.note && S.partnerNoteSeen !== (pd.date + '|' + pd.note);
+    var unreadNote = !!pd.note && S.partnerNoteSeen !== ((pd.noteDate || pd.date) + '|' + pd.note);
     if (!fresh && !unreadNote) return '';
 
     var bits = [];
@@ -258,11 +265,11 @@
     var line = bits.length ? bits.join(' \u00b7 ') : 'synced, nothing shared today';
 
     return '<article class="card pad accent">' +
-      '<div style="display:flex;align-items:center;gap:11px;margin-bottom:' + (pd.note ? '12px' : '0') + '">' +
+      '<div style="display:flex;align-items:center;gap:11px;margin-bottom:' + (unreadNote ? '12px' : '0') + '">' +
         '<div class="avatar her" style="width:32px;height:32px;flex:none">' + esc(pd.initials || p.initials) + '</div>' +
         '<div style="font-size:12.5px;color:var(--muted)">' + esc(pd.name || p.name) + ' &middot; ' + esc(line) + '</div>' +
       '</div>' +
-      (pd.note ? '<p style="font-family:var(--serif);font-style:italic;font-size:16.5px;line-height:1.5;margin:0;color:#EDE5D4;text-wrap:pretty">&ldquo;' + esc(pd.note) + '&rdquo;</p>' : '') +
+      (unreadNote ? '<p style="font-family:var(--serif);font-style:italic;font-size:16.5px;line-height:1.5;margin:0;color:#EDE5D4;text-wrap:pretty">&ldquo;' + esc(pd.note) + '&rdquo;</p>' : '') +
       '<div class="btnrow" style="margin-top:15px">' +
         '<button class="btn ghost sm" data-route="together">Open Together</button>' +
       '</div>' +
@@ -395,7 +402,7 @@
       : '';
 
     return UI.screen({
-      tab: 'coach', restMeasure: true, art: 'assets/art/coach-desk.jpg', photoPos: 'center 34%',
+      tab: 'coach', restMeasure: true, art: 'assets/art/coach-desk.webp', photoPos: 'center 34%',
       overlay: overlay, blur: false,
       body:
         '<article class="card pad">' +
@@ -509,8 +516,8 @@
   function mealRow(m, opts) {
     opts = opts || {};
     var thumb = opts.noThumb ? '' :
-      '<div class="thumb"' + (m.photo ? ' style="background-image:url(\'' + UI.asset(m.photo) + '\')"' : '') + '>' +
-        (m.photo ? '' : esc((m.name || '?').slice(0, 1))) + '</div>';
+      '<div class="thumb"' + (m.photoId ? ' data-photo="' + esc(m.photoId) + '"' : (m.photo ? ' style="background-image:url(\'' + UI.asset(m.photo) + '\')"' : '')) + '>' +
+        ((m.photoId || m.photo) ? '' : esc((m.name || '?').slice(0, 1))) + '</div>';
     return '<button class="row tap' + (opts.noThumb ? ' nothumb' : '') +
       '" data-route="meal/' + UI.esc(m.id || '') + '">' + thumb +
       '<div style="min-width:0">' +
@@ -534,14 +541,6 @@
     return null;
   }
 
-
-  /* Both notes describe what is actually there, so neither row promises
-     something the screen behind it cannot show. */
-  function cookbookNote() {
-    var n = knownMeals().length;
-    return n ? n + (n === 1 ? ' meal worth repeating' : ' meals worth repeating')
-             : 'Nothing saved yet';
-  }
 
   /* Trends needs weeks behind it before it can say anything. */
   function trendsNote() {
@@ -624,7 +623,7 @@
 
     return UI.screen({
       tab: 'nutrition', restMeasure: true, photoHeight: '600px',
-      art: 'assets/art/provisions.png', photoPos: 'center 22%',
+      art: 'assets/art/provisions.webp', photoPos: 'center 22%',
       overlay:
         '<span class="daytag">' + UI.dayLabel() + '</span>' +
         '<div class="bignum">' + (gap > 0 ? gap : t.protein) +
@@ -727,7 +726,7 @@
 
     return UI.screen({
       tab: 'train', rest: 340, restMeasure: true, photoHeight: '340px',
-      art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
         '<article class="card">' +
@@ -857,15 +856,20 @@
   }
 
   function notifItems() {
-    var S = Store.state(), pd = S.partnerData, out = [];
+    var S = Store.state(), pd = S.partnerData, out = [], n = S.notifs || {};
     var p = Store.partnerName();
+    function add(key, item) { if (n[key] !== false) out.push(item); }
 
     if (S.invite && S.invite.from === 'partner' && !S.invite.accepted) {
-      out.push({ g: 0, name: p + ' proposed an expedition',
-        note: S.invite.routeName || 'She picked the route', route: 'handshake', when: S.invite.date });
+      add('invite', { g: 0, name: p + ' proposed an expedition',
+        note: S.invite.routeName || 'They picked the route', route: 'handshake', when: S.invite.date });
     }
-    if (pd && pd.note && S.partnerNoteSeen !== (pd.date + '|' + pd.note)) {
-      out.push({ g: 0, name: p + ' left you a note', note: '\u201c' + pd.note + '\u201d', route: 'together', when: pd.date });
+    if (S.invite && S.invite.accepted && S.invite.decidedBy === 'partner') {
+      add('accept', { g: 1, name: p + ' accepted the expedition',
+        note: S.invite.routeName || 'The route is agreed', route: 'handshake', when: S.invite.date });
+    }
+    if (pd && pd.note && S.partnerNoteSeen !== ((pd.noteDate || pd.date) + '|' + pd.note)) {
+      add('note', { g: 0, name: p + ' left you a note', note: '“' + pd.note + '”', route: 'together', when: pd.date });
     }
     if (S.proposal && !S.proposal.answered) {
       out.push({ g: 0, name: 'The coach has a proposal',
@@ -874,23 +878,30 @@
 
     if (pd && pd.date === Store.todayKey()) {
       var bits = [];
-      if (pd.steps) bits.push(pd.steps.toLocaleString() + ' steps');
+      if (pd.steps != null) bits.push(pd.steps.toLocaleString() + ' steps');
       if (pd.workouts) bits.push(pd.workouts + (pd.workouts === 1 ? ' workout' : ' workouts'));
-      out.push({ g: 1, name: p + ' synced today', note: bits.join(' \u00b7 ') || 'Her totals are current',
+      out.push({ g: 1, name: p + ' synced today', note: bits.join(' · ') || 'Their shared totals are current',
         route: 'together', when: pd.date });
     }
     var lp = legProgress();
     if (lp && lp.complete) {
-      out.push({ g: 1, name: 'A leg is complete', note: lp.label,
+      add('leg', { g: 1, name: 'A leg is complete', note: lp.label,
         route: 'together', when: Store.todayKey() });
     }
 
-    var earned = (S.earned || []).slice(-3).reverse();
-    earned.forEach(function (name) {
-      out.push({ g: 2, name: 'Badge earned', note: name, route: 'badges', when: '' });
-    });
-    if (new Date().getDay() === 0) {
-      out.push({ g: 2, name: 'The week is summarised', note: 'Sunday evening', route: 'trends', when: Store.todayKey() });
+    var now = new Date(), sunday = now.getDay() === 0;
+    if (sunday) {
+      add('challengeExpiring', { g: 1, name: 'The weekly challenge ends tonight',
+        note: 'Open Together for the current score.', route: 'together', when: Store.todayKey() });
+    }
+
+    if (n.badge !== false) {
+      var earned = (S.earned || []).slice(-3).reverse();
+      earned.forEach(function (id) {
+        var b = Badges.find(id);
+        if (!b) return;
+        out.push({ g: 2, name: b.name + ' earned', note: b.condition, route: 'badges/' + b.cat, when: '' });
+      });
     }
     return out;
   }
@@ -928,7 +939,7 @@
 
     return UI.screen({
       tab: '', rest: 210, photoHeight: '300px', blur: true,
-      art: 'assets/art/dispatch-day.png', photoPos: 'center 40%',
+      art: 'assets/art/dispatch-day.webp', photoPos: 'center 40%',
       header: { back: true, title: 'Notifications' },
       overlay: '<span class="daytag">' + UI.dayLabel() + '</span>' +
         '<p class="bigsub" style="margin-top:6px">' +
@@ -955,7 +966,7 @@
     if (!f) {
       return UI.screen({
         tab: '', rest: 210, photoHeight: '300px', blur: true,
-        art: 'assets/art/provisions.png', photoPos: 'center 30%',
+        art: 'assets/art/provisions.webp', photoPos: 'center 30%',
         header: { back: true, title: 'Meal' },
         overlay: '<p class="bigsub">That meal is no longer here.</p>',
         body: '<article class="card"><div class="empty">' +
@@ -1010,8 +1021,9 @@
 
     return UI.screen({
       tab: '', rest: 300, photoHeight: '390px',
-      art: m.photo ? UI.asset(m.photo) : 'assets/art/provisions.png',
-      photoPos: 'center 42%', blur: !m.photo,
+      art: m.photo ? UI.asset(m.photo) : 'assets/art/provisions.webp',
+      photoId: m.photoId || '',
+      photoPos: 'center 42%', blur: !(m.photo || m.photoId),
       header: { back: true, title: when },
       overlay:
         '<span class="daytag">' + UI.esc(m.slot || 'Meal') + (m.time ? ' \u00b7 ' + UI.esc(m.time) : '') + '</span>' +
@@ -1030,8 +1042,8 @@
 
         '<div class="rulehead"><span class="kicker">The photograph</span><span></span></div>' +
         '<article class="card"><div class="pad">' +
-          (m.photo
-            ? '<div class="mealphoto" style="background-image:url(\'' + UI.asset(m.photo) + '\')"></div>' +
+          ((m.photoId || m.photo)
+            ? '<div class="mealphoto"' + (m.photoId ? ' data-photo="' + esc(m.photoId) + '"' : ' style="background-image:url(\'' + UI.asset(m.photo) + '\')"') + '></div>' +
               '<div class="btnrow" style="margin-top:12px">' +
                 '<button class="btn ghost sm" data-meal-photo>Replace it</button>' +
                 '<button class="btn ghost sm danger" data-meal-photo-clear>Remove it</button>' +
@@ -1196,7 +1208,7 @@
       var open = openRoutes(countering ? inv.routeId : null).filter(function (id) {
         return spent.indexOf(id) < 0;
       });
-      art = 'assets/art/expedition-overlook.png';
+      art = 'assets/art/expedition-overlook.webp';
       pos = 'center 30%';
       overlay =
         '<div class="eyebrow">' + (countering ? 'Your turn to choose' : 'The next expedition') + '</div>' +
@@ -1221,11 +1233,11 @@
           ? '<article class="card pad accent">' +
               '<p class="note">' + counterLine(inv) + '</p>' +
             '</article>' +
-            '<button class="btn ghost block" data-route="handshake">Back to her proposal</button>'
+            '<button class="btn ghost block" data-route="handshake">Back to their proposal</button>'
           : lockedRoutesCard() +
             '<article class="card pad">' +
               '<div class="kicker" style="margin-bottom:11px">How it goes</div>' +
-              '<p class="note">' + esc(p.name) + ' sees the route, its distance and its climb, and answers with one of two things: she walks it, or she names somewhere else. There is no decline — the only way to say no is to propose.</p>' +
+              '<p class="note">' + esc(p.name) + ' sees the route, its distance and its climb, and answers with one of two things: they walk it, or they name somewhere else. There is no decline — the only way to say no is to propose.</p>' +
               '<p class="small" style="margin-top:12px">Two counters and the app settles it, and it takes the route neither of you has walked.</p>' +
             '</article>');
     }
@@ -1237,7 +1249,7 @@
       overlay =
         '<div class="eyebrow">Waiting on ' + esc(p.name) + '</div>' +
         '<p class="verse">Proposed, not yet begun.</p>' +
-        sub(esc(r.name) + ' is sent. Nothing starts until she says yes.');
+        sub(esc(r.name) + ' is sent. Nothing starts until they say yes.');
       body =
         '<article class="card pad accent">' +
           '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px">' +
@@ -1252,8 +1264,8 @@
           '</div>' +
           (canNudge
             ? '<button class="btn ghost block"' + (nudged ? ' disabled' : '') + ' data-action="nudge">' +
-                (nudged ? 'Nudged today' : 'Give her a nudge') + '</button>' +
-              '<p class="small" style="margin-top:13px">She gets one quiet line — ' + esc(S.profile.name) +
+                (nudged ? 'Nudged today' : 'Give them a nudge') + '</button>' +
+              '<p class="small" style="margin-top:13px">They get one quiet line — ' + esc(S.profile.name) +
                 ' is waiting on the ' + esc(r.name) + '. Nothing about how long it has been.</p>'
             : '<p class="small">A nudge opens tomorrow. Today it would only be impatience.</p>') +
         '</article>' +
@@ -1268,17 +1280,17 @@
       pos = 'center 34%';
       overlay =
         '<div class="eyebrow">' + esc(p.name) + ' proposed a route</div>' +
-        '<p class="verse">She wants to walk this with you.</p>' +
+        '<p class="verse">They want to walk this with you.</p>' +
         sub(routeFacts(inv.routeId) + '.');
       body =
         routeTile(inv.routeId, '') +
         (inv.reply ? '<article class="card pad"><p class="quote">“' + esc(inv.reply) + '”</p></article>' : '') +
         '<div class="btnrow">' +
-          '<button class="btn" data-action="accept-invite">Walk it with her</button>' +
+          '<button class="btn" data-action="accept-invite">Walk it together</button>' +
           '<button class="btn ghost auto" data-route="handshake/counter">Somewhere else</button>' +
         '</div>' +
         '<article class="card pad">' +
-          '<p class="note">There is no way to say no here, only somewhere else. Pick another route and it goes back to her as your proposal.</p>' +
+          '<p class="note">There is no way to say no here, only somewhere else. Pick another route and it goes back to them as your proposal.</p>' +
           '<p class="small" style="margin-top:12px">' + counterLine(inv) + '</p>' +
         '</article>';
     }
@@ -1292,7 +1304,7 @@
       var ftc = routeClimb(r);
       var who = inv.decidedBy === 'app' ? 'The app settled it'
         : inv.decidedBy === 'partner' ? esc(p.name) + ' accepted'
-        : 'You accepted her route';
+        : 'You accepted their route';
       var stats = [
         { label: 'Legs', value: r.legs.length },
         { label: 'Distance', value: Store.fmtDistance(routeMiles(r)) },
@@ -1379,11 +1391,11 @@
 
     return UI.screen({
       tab: 'together', rest: 470, restMeasure: true,
-      art: evening ? 'assets/art/campfire.png'
-        : hasExpedition() ? (leg().art || UI.CAMP[Store.timeOfDay()])
+      art: evening ? 'assets/art/campfire.webp'
+        : hasExpedition() ? ((leg() && leg().art) || routeHero(Store.state().expedition.routeId) || 'assets/art/expedition-overlook.webp')
         /* Nothing agreed yet: the desk the route gets chosen at, not a trail
            neither of them has committed to. */
-        : 'assets/art/expedition-none.png',
+        : 'assets/art/expedition-none.webp',
       photoPosition: evening ? 'center 62%' : hasExpedition() ? 'center 46%' : 'center 42%',
       overlay: '<div class="eyebrow">' + (evening ? 'This evening' : 'Today') + '</div>' +
         '<p class="verse" style="font-size:26px">' + headline + '</p>' +
@@ -1426,18 +1438,18 @@
   /* Seven paired days. Hers is drawn only where a synced file exists for that
      day, so a blank column means she has not synced — not that she did nothing. */
   function weekCard(S, p) {
-    var hist = S.partnerHistory || {};
+    var hist = S.partnerHistory || {}, today = Store.todayKey(), start = Store.weekStart(today);
     var days = [];
-    for (var i = 6; i >= 0; i--) {
-      var k = Store.shift(Store.todayKey(), -i);
+    for (var i = 0; i < 7; i++) {
+      var k = Store.shift(start, i), future = k > today;
       days.push({
         key: k,
         letter: new Date(k + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }),
-        mine: Store.points(k),
-        hers: typeof hist[k] === 'number' ? hist[k] : null
+        mine: future ? null : Store.points(k),
+        hers: future ? null : (typeof hist[k] === 'number' ? hist[k] : null)
       });
     }
-    var myWeek = days.reduce(function (a, d) { return a + d.mine; }, 0);
+    var myWeek = days.reduce(function (a, d) { return a + (d.mine == null ? 0 : d.mine); }, 0);
     var known = days.filter(function (d) { return d.hers !== null; });
     var herWeek = known.reduce(function (a, d) { return a + d.hers; }, 0);
 
@@ -1449,7 +1461,7 @@
       '<div class="pairbars">' + days.map(function (d) {
         return '<div class="pairday">' +
           '<div class="pairtrack">' +
-            '<span class="mine" style="height:' + Math.round((d.mine / 10) * 100) + '%"></span>' +
+            '<span class="mine' + (d.mine === null ? ' none' : '') + '" style="height:' + (d.mine === null ? 0 : Math.round((d.mine / 10) * 100)) + '%"></span>' +
             '<span class="hers' + (d.hers === null ? ' none' : '') + '" style="height:' +
               (d.hers === null ? 0 : Math.round((d.hers / 10) * 100)) + '%"></span>' +
           '</div>' +
@@ -1460,10 +1472,8 @@
         '<span><i class="dot gold"></i>You</span>' +
         '<span><i class="dot sage"></i>' + esc(p.name) + '</span>' +
       '</div>' +
-      (known.length < 7
-        ? '<p class="small" style="margin:12px 0 0">' +
-            (known.length ? 'Her side is drawn for the ' + known.length + ' day' + (known.length === 1 ? '' : 's') + ' she has synced.' :
-             'Her side fills in once she syncs.') + '</p>'
+      (known.length < Math.min(7, Math.round((new Date(today + 'T12:00:00') - new Date(start + 'T12:00:00')) / 86400000) + 1)
+        ? '<p class="small" style="margin:12px 0 0">Their side fills in from the rolling history on their next sync.</p>'
         : '') +
     '</article>';
   }
@@ -1506,29 +1516,26 @@
 
   /* The week's contest, settled by the same points as everything else. */
   function challengeCard(S, p, mine, herToday) {
-    /* Only days both sides have a figure for. Counting my whole week against
-       the two days she synced would report a lead that does not exist. */
-    var hist = S.partnerHistory || {};
+    var hist = S.partnerHistory || {}, today = Store.todayKey(), start = Store.weekStart(today);
     var myWeek = 0, herWeek = 0, known = 0;
     for (var i = 0; i < 7; i++) {
-      var k = Store.shift(Store.todayKey(), -i);
-      if (typeof hist[k] !== 'number') continue;
+      var k = Store.shift(start, i);
+      if (k > today) break;
       myWeek += Store.points(k);
-      herWeek += hist[k];
-      known++;
+      if (typeof hist[k] === 'number') { herWeek += hist[k]; known++; }
     }
     var lead = myWeek - herWeek;
     var line = !known
-      ? 'Nothing to settle until she syncs.'
+      ? 'Nothing to settle until their history syncs.'
       : lead > 0 ? 'You are ' + lead + ' ahead this week.'
       : lead < 0 ? esc(p.name) + ' is ' + Math.abs(lead) + ' ahead this week.'
       : 'Dead level this week.';
 
     return '<article class="card pad">' +
-      '<div class="kicker gold" style="margin-bottom:11px">This week\u2019s challenge</div>' +
+      '<div class="kicker gold" style="margin-bottom:11px">This week’s challenge</div>' +
       '<p class="lede" style="margin:0 0 4px">Most points by Sunday night.</p>' +
       '<p class="small" style="margin:8px 0 0">' + line +
-        (known && known < 7 ? ' Across the ' + known + ' day' + (known === 1 ? '' : 's') + ' you have both logged.' : '') + '</p>' +
+        (known ? ' Based on ' + known + ' synced day' + (known === 1 ? '' : 's') + ' so far.' : '') + '</p>' +
     '</article>';
   }
 
@@ -1537,7 +1544,7 @@
      it reached her — only a completed push can say that. */
   function noteStatus(d, mineNote) {
     if (!mineNote) return 'Notes cross over whatever your privacy settings say. They are words, not numbers.';
-    if (d.noteSentAt) return 'Sent ' + d.noteSentAt + '. She sees it when her app next syncs.';
+    if (d.noteSentAt) return 'Sent ' + d.noteSentAt + '. They see it when their app next syncs.';
     return 'Saved but not sent. It goes across on your next sync.';
   }
 
@@ -1550,15 +1557,15 @@
 
     return '<article class="card">' +
       '<div class="cardhead"><div class="title"><i></i>Notes</div>' +
-        '<div class="meta">' + (herNote ? 'one from ' + esc(p.name) : 'none today') + '</div></div>' +
+        '<div class="meta">' + (herNote ? 'latest from ' + esc(p.name) : 'no note yet') + '</div></div>' +
       (herNote
         ? '<div class="pad-x" style="padding-top:14px">' +
             '<p class="quote">\u201C' + esc(herNote) + '\u201D</p>' +
-            '<div class="small" style="margin-top:8px">' + esc(p.name) + ' &middot; ' + dateLabel(pd.date) + '</div>' +
+            '<div class="small" style="margin-top:8px">' + esc(p.name) + ' &middot; ' + dateLabel(pd.noteDate || pd.date) + '</div>' +
           '</div>'
         : '') +
       '<div class="pad-x" style="padding-top:14px;padding-bottom:15px">' +
-        '<div class="kicker" style="margin-bottom:9px">' + (mineNote ? 'What she will see' : 'Send her something') + '</div>' +
+        '<div class="kicker" style="margin-bottom:9px">' + (mineNote ? 'What they will see' : 'Send them something') + '</div>' +
         '<input type="text" class="keyinput plain" data-note-input value="' + esc(mineNote) + '" placeholder="One line, then send it." maxlength="140" />' +
         '<div class="btnrow" style="margin-top:11px">' +
           '<button class="btn gold auto" data-action="note-send">' + (mineNote ? 'Send it again' : 'Send it') + '</button>' +
@@ -1632,22 +1639,22 @@
 
   // ---------------- Settings ----------------
   function syncLine(c, S) {
-    if (!c.githubToken) return 'Not connected. Without this, ' + Store.partnerName() + ' cannot see any of it.';
+    if (!Store.secret('githubToken') || !c.githubRepo) return 'Not connected. Set a GitHub token and a dedicated private sync repository.';
+    var successAt = Date.parse(c.lastSync || '') || 0, errorAt = Date.parse(c.lastSyncErrorAt || '') || 0;
+    if (c.lastSyncError && errorAt >= successAt) return 'Last sync attempt failed: ' + c.lastSyncError + ' InSync will retry automatically.';
     if (!c.lastSync) return 'Never synced. Tap once and your shared totals go up; theirs come down once they have synced too.';
-    var mins = Math.round((Date.now() - new Date(c.lastSync).getTime()) / 60000);
+    var mins = Math.max(0, Math.round((Date.now() - successAt) / 60000));
     var when = mins < 1 ? 'just now' : mins < 60 ? mins + ' minutes ago' :
       mins < 1440 ? Math.round(mins / 60) + ' hours ago' : Math.round(mins / 1440) + ' days ago';
     var pd = S.partnerData;
-    return 'Last synced ' + when + '. ' + (pd ? 'Holding ' + pd.name + '\u2019s ' + pd.date + '.' : 'Nothing from ' + Store.partnerName() + ' yet.');
+    return 'Last synced ' + when + '. ' + (pd ? 'Holding ' + pd.name + '’s ' + pd.date + '.' : 'Nothing from ' + Store.partnerName() + ' yet.');
   }
 
   var NOTIF_ROWS = [
-    ['invite', 'She proposes an expedition', 'Nothing starts until you answer'],
-    ['accept', 'She accepts yours', ''],
-    ['note', 'She leaves you a note', ''],
-    ['highfive', 'She high-fives a session', ''],
-    ['challengeAccepted', 'A challenge is accepted', ''],
-    ['challengeExpiring', 'A challenge is running out', ''],
+    ['invite', 'They propose an expedition', 'Nothing starts until you answer'],
+    ['accept', 'They accept yours', ''],
+    ['note', 'They leave you a note', ''],
+    ['challengeExpiring', 'The weekly challenge is ending', 'Sunday only'],
     ['leg', 'A leg opens', ''],
     ['badge', 'A badge is earned', '']
   ];
@@ -1655,8 +1662,10 @@
   function settings() {
     var S = Store.state();
     var c = S.connections || {};
+    var githubToken = Store.secret('githubToken');
+    var claudeKey = Store.secret('claudeKey');
     var shared = ['weight', 'calories', 'workouts', 'steps'].filter(function (k) { return S.privacy[k]; }).length;
-    /* Counted from the eight rows on screen, never from the keys in storage —
+    /* Counted from the rows on screen, never from the keys in storage —
        a retired key would otherwise be counted as one you can still see. */
     var notifOn = NOTIF_ROWS.filter(function (r) { return S.notifs[r[0]]; }).length;
     var prop = S.proposal && !S.proposal.answered ? S.proposal : null;
@@ -1686,10 +1695,10 @@
           }).join('') +
         '</div></div>';
     }
-    function keyField(label, path, value, placeholder, note) {
+    function keyField(label, secretName, value, placeholder, note) {
       return '<div class="keyfield">' +
         '<label class="kicker">' + esc(label) + '</label>' +
-        '<input type="password" class="keyinput" data-set="' + path + '" value="' + esc(value || '') + '" placeholder="' + esc(placeholder) + '" autocomplete="off" spellcheck="false" />' +
+        '<input type="password" class="keyinput" data-secret="' + secretName + '" data-set="secret.' + secretName + '" value="' + esc(value || '') + '" placeholder="' + esc(placeholder) + '" autocomplete="off" spellcheck="false" />' +
         (note ? '<div class="small">' + esc(note) + '</div>' : '') +
       '</div>';
     }
@@ -1735,27 +1744,33 @@
                   .filter(Boolean).join(' &middot; ') + '</div>' +
             '</div>' +
           '</div>' +
-          '<p class="small" style="margin-top:14px">No account and no sign-in. This device is yours, hers is hers.</p>' +
+          '<p class="small" style="margin-top:14px">No account and no sign-in. This device is yours; your partner’s device is theirs.</p>' +
         '</article>' +
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Connections</div>' +
-            '<div class="meta">' + ((c.githubToken ? 1 : 0) + (c.claudeKey ? 1 : 0)) + ' of 2 set</div></div>' +
+            '<div class="meta">' + ((githubToken ? 1 : 0) + (claudeKey ? 1 : 0)) + ' of 2 keys set</div></div>' +
           '<div class="pad-x" style="padding-top:14px;padding-bottom:4px">' +
-            '<p class="small" style="margin:0 0 14px">Keys are stored on this device only. They are never sent anywhere except the service they belong to.</p>' +
-            keyField('Claude API key', 'connections.claudeKey', c.claudeKey, 'sk-ant-...', 'Powers the coach, the meal reader and the plan writer.') +
-            keyField('GitHub token', 'connections.githubToken', c.githubToken, 'ghp_...', 'Used to back up and sync your log between the two of you.') +
+            '<p class="small" style="margin:0 0 14px">Connection keys are stored separately on this device and are excluded from backups. They are sent only to the service they belong to.</p>' +
+            keyField('Claude API key', 'claudeKey', claudeKey, 'sk-ant-...', 'Powers the coach, meal reader and plan writer. Browser-based API keys can be exposed by a compromised app, so keep this app private and trusted.') +
+            keyField('GitHub token', 'githubToken', githubToken, 'ghp_...', 'Used only for the shared sync files in your dedicated private repository.') +
             '<div class="keyfield">' +
-              '<label class="kicker">Repository</label>' +
-              '<input type="text" class="keyinput plain" data-set="connections.githubRepo" value="' + esc(c.githubRepo || '') + '" placeholder="owner/name" autocomplete="off" spellcheck="false" />' +
+              '<label class="kicker">Dedicated private sync repository</label>' +
+              '<input type="text" class="keyinput plain" data-set="connections.githubRepo" value="' + esc(c.githubRepo || '') + '" placeholder="owner/insync-sync" autocomplete="off" spellcheck="false" />' +
+              '<div class="small" style="margin-top:6px">Must be private, separate from the repository publishing this app, and initialized with a README.</div>' +
             '</div>' +
             '<div class="keyfield">' +
               '<label class="kicker">Branch</label>' +
               '<input type="text" class="keyinput plain" data-set="connections.githubBranch" value="' + esc(c.githubBranch || 'main') + '" placeholder="main" autocomplete="off" spellcheck="false" />' +
             '</div>' +
             '<div class="keyfield">' +
+              '<label class="kicker">Claude model</label>' +
+              '<input type="text" class="keyinput plain" data-set="connections.claudeModel" value="' + esc(c.claudeModel || '') + '" placeholder="Claude model id" autocomplete="off" spellcheck="false" />' +
+              '<div class="small" style="margin-top:6px">Editable so a retired model can be changed without rebuilding the app.</div>' +
+            '</div>' +
+            '<div class="keyfield">' +
               '<label class="kicker">Walking with</label>' +
-              '<input type="text" class="keyinput plain" data-set="partner.name" value="' + esc(Store.state().partner.name || '') + '" placeholder="Their name" autocomplete="off" spellcheck="false" />' +
+              '<input type="text" class="keyinput plain" data-set="partner.name" data-partner-name="1" value="' + esc(Store.state().partner.name || '') + '" placeholder="Their name" autocomplete="off" spellcheck="false" />' +
               '<div class="small" style="margin-top:6px">Must match the name they entered on their device. It decides whose file you read.</div>' +
             '</div>' +
           '</div>' +
@@ -1777,12 +1792,12 @@
         '<article class="card">' +
           '<div class="cardhead"><div class="title sage"><i></i>What ' + esc(Store.partnerName()) + ' sees</div>' +
             '<div class="meta sage">' + shared + ' of 4 shared</div></div>' +
-          row('Weight', 'Your trend, not the daily number', toggle('privacy.weight', S.privacy.weight)) +
+          row('Weight', 'Only the recent change; never your exact daily weight', toggle('privacy.weight', S.privacy.weight)) +
           row('Calories and protein', 'Daily totals only, never the meals', toggle('privacy.calories', S.privacy.calories)) +
           row('Workouts', 'That you trained, not what you lifted', toggle('privacy.workouts', S.privacy.workouts)) +
           row('Steps and walks', 'Daily total and distance', toggle('privacy.steps', S.privacy.steps)) +
           row('Progress photos', 'Never shared. There is no switch for this.', '<span class="lockmark">' + icon('lock') + '</span>') +
-          '<p class="small pad-x" style="padding-bottom:15px">She sees totals, never entries. And she is never told something was hidden.</p>' +
+          '<p class="small pad-x" style="padding-bottom:15px">Core Together data — your name, points, streak, earned badges, notes you send, and the expedition route/leg — is shared so both phones stay in the same place. Exact meals, lifted weights, photographs and exact bodyweight never cross. Turning Steps off also pauses your shared expedition mileage.</p>' +
         '</article>' +
 
         '<article class="card">' +
@@ -1791,8 +1806,7 @@
           NOTIF_ROWS.map(function (r) {
             return row(r[1], r[2], toggle('notifs.' + r[0], S.notifs[r[0]]));
           }).join('') +
-          '<p class="small pad-x" style="padding-bottom:15px">Every one of these is news from ' + esc(Store.partnerName()) +
-            ' or news about the route. There is no daily reminder to log — it would fire hardest on the days you were already struggling.</p>' +
+          '<p class="small pad-x" style="padding-bottom:15px">These switches control the matching items in InSync’s notification centre. There is no daily reminder to log.</p>' +
         '</article>' +
 
         '<article class="card">' +
@@ -1806,16 +1820,16 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title sage"><i></i>Your data</div></div>' +
-          row('Export everything', 'One file, readable without this app', '<button class="btn ghost tiny" data-action="export">Export</button>') +
+          row('Create backup', 'Log, plans, settings and photographs; connection keys excluded', '<button class="btn ghost tiny" data-action="export">Backup</button>') +
+          row('Restore backup', 'Replace this device with a backup file', '<button class="btn ghost tiny" data-action="import">Restore</button>') +
           row('Start over', 'Clears this device and runs onboarding again', '<button class="btn ghost tiny danger" data-action="reset">Reset</button>') +
-          '<p class="small pad-x" style="padding-bottom:15px">Everything lives on this device. Sync is how it reaches ' + esc(Store.partnerName()) + '\u2019s, and nowhere else.</p>' +
+          '<p class="small pad-x" style="padding-bottom:15px">Your complete log and progress photos are stored on this device. GitHub sync sends only the shared fields above to the private sync repository. When you use a Claude feature, the facts or meal photo needed for that request are sent to Anthropic to produce the response.</p>' +
         '</article>' +
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.0</div></div>' +
-          '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: it keeps your log on your own phone, ' +
-            'writes nothing to a server, and asks nothing of you it cannot show you the reason for.</p>' +
+            '<div class="meta">Version 5.2.0</div></div>' +
+          '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
           '<p class="small pad-x" style="padding-bottom:15px">No account, no sign-out, no user switching. There is nothing to log in to.</p>' +
@@ -1957,7 +1971,7 @@
       return UI.screen({
         tab: null, rest: 260, photoHeight: '330px', blur: true,
         header: { back: 'body', title: 'Progress photos', right: '<div style="width:34px"></div>' },
-        art: 'assets/art/camp-day.jpg', photoPosition: 'center 40%',
+        art: 'assets/art/camp-day.webp', photoPosition: 'center 40%',
         overlay: '<div class="eyebrow">Nothing yet</div>' +
           '<p class="verse" style="font-size:25px">The first one is the one that matters.</p>',
         body: '<article class="card pad">' +
@@ -1987,7 +2001,7 @@
     return UI.screen({
       tab: null, rest: 300, photoHeight: '340px', blur: true,
       header: { back: 'body', title: 'Progress photos', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/camp-day.jpg', photoPosition: 'center 40%',
+      art: 'assets/art/camp-day.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(first.date) + ' to ' + dateLabel(list[list.length - 1].date) + '</div>' +
         '<p class="verse" style="font-size:25px">The same spot, ' + list.length + ' mornings apart.</p>',
       body:
@@ -2053,7 +2067,7 @@
       return UI.screen({
         tab: null, rest: 240, photoHeight: '300px', blur: true,
         header: { back: 'records', title: 'Machine', right: '<div style="width:34px"></div>' },
-        art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
+        art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
         overlay: '<p class="bigsub">Nothing logged on that machine.</p>',
         body: '<article class="card pad"><p class="lede" style="margin:0">Log it in a session and its line starts here.</p></article>'
       });
@@ -2073,7 +2087,7 @@
     return UI.screen({
       tab: null, rest: 300, photoHeight: '340px', blur: true,
       header: { back: 'records', title: r.name, right: '<div style="width:34px"></div>' },
-      art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + r.sessions + ' session' + (r.sessions === 1 ? '' : 's') + '</div>' +
         '<p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
@@ -2176,7 +2190,7 @@
     return UI.screen({
       tab: null, rest: 300, photoHeight: '340px', blur: true,
       header: { back: 'records', title: 'Sessions', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + rows.length + ' logged</div>' +
         '<p class="verse" style="font-size:25px">' +
         (rows.length ? Math.round(mins / 60) + ' hours under the bar.' : 'No sessions yet.') + '</p>',
@@ -2238,7 +2252,7 @@
     return UI.screen({
       tab: null, rest: 300, photoHeight: '340px', blur: true,
       header: { back: 'records', title: 'Walking', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/camp-day.jpg', photoPosition: 'center 44%',
+      art: 'assets/art/camp-day.webp', photoPosition: 'center 44%',
       overlay: '<div class="eyebrow">Last eight weeks</div>' +
         '<p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body: !live.length
@@ -2342,7 +2356,7 @@
     return UI.screen({
       tab: null, rest: 240, photoHeight: '300px', blur: true,
       header: { back: list.length ? 'photos' : 'body', title: 'New photograph', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/camp-day.jpg', photoPosition: 'center 40%',
+      art: 'assets/art/camp-day.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(Store.todayKey()) + '</div>' +
         '<p class="verse" style="font-size:25px">' +
         (last ? 'Line up with the last one.' : 'This is the one everything else is measured against.') + '</p>',
@@ -2494,7 +2508,7 @@
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: 'train', title: FULL[dt.getDay()], right: '<div style="width:34px"></div>' },
-      art: 'assets/art/train-banner.png', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(key) + (isToday ? ' \u00b7 today' : '') + '</div>' +
         '<p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body: body
@@ -2566,7 +2580,7 @@
 
     return UI.screen({
       header: { back: 'train', title: sn.name + ' day' },
-      art: 'assets/art/train-banner.png', photoHeight: '300px', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoHeight: '300px', photoPosition: 'center 40%',
       rest: 240,
       overlay: '<div class="eyebrow">In progress \u00b7 ' + elapsed + ' min</div>' +
         '<p class="verse" style="font-size:25px">' + doneCount + ' of ' + sn.items.length + ' finished.</p>',
@@ -2598,7 +2612,7 @@
 
     return UI.screen({
       header: { back: 'train', title: 'Session complete' },
-      art: 'assets/art/train-banner.png', photoHeight: '330px', photoPosition: 'center 40%',
+      art: 'assets/art/train-banner.webp', photoHeight: '330px', photoPosition: 'center 40%',
       rest: 270,
       overlay: '<div class="eyebrow">' + esc(r.name) + ' day</div>' +
         '<p class="verse" style="font-size:27px">' + r.minutes + (r.minutes === 1 ? ' minute. ' : ' minutes. ') + Store.fmtLift(r.volume) + ' moved.</p>',
@@ -2908,7 +2922,7 @@
 
     return UI.screen({
       tab: null, rest: 300, blur: true,
-      art: 'assets/art/provisions.png', photoPos: 'center 26%',
+      art: 'assets/art/provisions.webp', photoPos: 'center 26%',
       header: { back: false, title: '', right: '<div style="width:34px"></div>' },
       overlay: '<div class="eyebrow">' + (fresh.length > 1 ? fresh.length + ' stamps struck' : 'A stamp struck') + '</div>' +
         '<p class="verse" style="font-size:26px">' + esc(b.name) + '</p>' +
@@ -2992,7 +3006,7 @@
 
     return UI.screen({
       tab: null, rest: 330,
-      art: 'assets/art/camp-night.jpg',
+      art: 'assets/art/camp-night.webp',
       header: { back: true, title: 'Reflection', right: '<div style="width:34px"></div>' },
       overlay:
         '<div class="eyebrow">This morning\u2019s verse</div>' +
@@ -3238,25 +3252,33 @@
       route: 'planner'
     }));
 
-    if (r) cards.push(trendCard({
-      question: 'How is the expedition going?',
-      sage: true,
-      answer: 'Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length + ' on the ' + esc(r.name) + '. ' +
-        (walked >= leg().miles
-          ? '<strong>' + Store.fmtDistance(leg().miles) + '</strong> walked &mdash; this leg is done.'
-          : '<strong>' + Store.fmtDistance(walked) + '</strong> of ' + Store.fmtDistance(leg().miles) + ' walked on this leg.'),
-      evidence: [
-        { figure: Store.fmtDistance(Store.legMine()), text: 'your miles on this leg' },
-        { figure: Store.fmtDistance(Store.legHers()), text: Store.partnerName() + '&rsquo;s miles' },
-        { figure: (e.legIndex) + '', text: 'legs finished' }
-      ],
-      action: null
-    }));
+    if (r) {
+      var currentLeg = leg();
+      cards.push(trendCard({
+        question: 'How is the expedition going?',
+        sage: true,
+        answer: currentLeg
+          ? 'Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length + ' on the ' + esc(r.name) + '. ' +
+              (walked >= currentLeg.miles
+                ? '<strong>' + Store.fmtDistance(currentLeg.miles) + '</strong> walked &mdash; this leg is done.'
+                : '<strong>' + Store.fmtDistance(walked) + '</strong> of ' + Store.fmtDistance(currentLeg.miles) + ' walked on this leg.')
+          : '<strong>' + esc(r.name) + '</strong> is complete. All ' + r.legs.length + ' legs are finished.',
+        evidence: currentLeg ? [
+          { figure: Store.fmtDistance(Store.legMine()), text: 'your miles on this leg' },
+          { figure: Store.fmtDistance(Store.legHers()), text: Store.partnerName() + '&rsquo;s miles' },
+          { figure: (e.legIndex) + '', text: 'legs finished' }
+        ] : [
+          { figure: r.legs.length + '', text: 'legs finished' },
+          { figure: Store.fmtDistance(routeMiles(r)), text: 'route distance completed' }
+        ],
+        action: null
+      }));
+    }
 
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: true, title: 'Trends', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/provisions.png', photoPosition: 'center 22%',
+      art: 'assets/art/provisions.webp', photoPosition: 'center 22%',
       overlay:
         '<div class="eyebrow">Last four weeks</div>' +
         '<p class="verse">Six questions, and what the log says about each.</p>',
@@ -3287,7 +3309,7 @@
     var S = Store.state(), tg = S.targets;
     var mine = knownMeals();
     var ideas = S.mealIdeas || [];
-    var hasKey = !!(S.connections && S.connections.claudeKey);
+    var hasKey = !!Store.secret('claudeKey');
 
     function card(m, opts) {
       return '<div class="row recipe nothumb" data-action="' + (opts.action || 'plan-meal') + '" data-meal="' + esc(JSON.stringify(m)).replace(/"/g, '&quot;') + '">' +
@@ -3305,7 +3327,7 @@
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: true, title: 'Cookbook', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/provisions.png', photoPosition: 'center 34%',
+      art: 'assets/art/provisions.webp', photoPosition: 'center 34%',
       overlay:
         '<div class="eyebrow">The kitchen</div>' +
         '<p class="verse">What you already eat, and what the coach suggests next.</p>',
@@ -3398,7 +3420,7 @@
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: true, title: 'The week', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/provisions.png', photoPosition: 'center 42%',
+      art: 'assets/art/provisions.webp', photoPosition: 'center 42%',
       overlay:
         '<div class="eyebrow">' + (planned.length ? planned.length + ' of ' + totalSlots + ' planned' : 'Nothing planned') + '</div>' +
         '<p class="verse">' +
@@ -3465,7 +3487,7 @@
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: true, title: 'Meal history', right: '<div style="width:34px"></div>' },
-      art: 'assets/art/provisions.png', photoPosition: 'center 22%',
+      art: 'assets/art/provisions.webp', photoPosition: 'center 22%',
       overlay:
         '<div class="eyebrow">' + total + ' meals logged</div>' +
         '<p class="verse">' + (keys.length ? 'Across ' + keys.length + ' days.' : 'Nothing logged yet.') + '</p>',
@@ -3477,6 +3499,7 @@
     notifications: notifications, pendingCount: pendingCount, meal: meal,
     handshake: handshake, routeName: routeName, earnedMoment: earnedMoment,
     legCount: function () { var r = route(); return r ? r.legs.length : 0; },
+    legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
     home: home, coach: coach, nutrition: nutrition, train: train, together: together,
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,

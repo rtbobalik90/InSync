@@ -37,35 +37,44 @@
     var w = weights();
     return w.length ? w[w.length - 1].d.weight : null;
   }
-  function metTargets(d) {
-    var S = Store.state(), t = { cal: 0, pro: 0 };
-    (d.meals || []).forEach(function (m) { t.cal += m.kcal; t.pro += m.protein; });
-    return t.cal >= S.targets.calories * 0.9 && t.pro >= S.targets.protein && (d.steps || 0) >= S.targets.steps;
+  function metTargets(key, d) {
+    var S = Store.state(), target = Store.scoreTargets(key), t = { pro: 0 };
+    d = d || (S.days || {})[key];
+    if (!d) return false;
+    (d.meals || []).forEach(function (m) { t.pro += m.protein || 0; });
+    return Store.caloriesInRange(key) && t.pro >= target.protein &&
+      (d.steps || 0) >= target.steps && Store.trainingStatus(key).done;
   }
-  function cleanRun() {
-    var list = dayList(), best = 0, run = 0;
-    list.forEach(function (x) { run = metTargets(x.d) ? run + 1 : 0; if (run > best) best = run; });
+  function consecutiveRun(test) {
+    var list = dayList(), best = 0, run = 0, prev = '';
+    list.forEach(function (x) {
+      var consecutive = !prev || Store.shift(prev, 1) === x.key;
+      if (!consecutive) run = 0;
+      run = test(x) ? run + 1 : 0;
+      if (run > best) best = run;
+      prev = x.key;
+    });
     return best;
   }
+  function cleanRun() {
+    return consecutiveRun(function (x) { return metTargets(x.key, x.d); });
+  }
   function proteinDays() {
-    var target = Store.state().targets.protein;
     return dayList().filter(function (x) {
-      return (x.d.meals || []).reduce(function (a, m) { return a + m.protein; }, 0) >= target;
+      var target = Store.scoreTargets(x.key).protein;
+      return (x.d.meals || []).reduce(function (a, m) { return a + (m.protein || 0); }, 0) >= target;
     }).length;
   }
   function fullMealDays() {
     return dayList().filter(function (x) { return (x.d.meals || []).length >= 3; }).length;
   }
   function morningRun() {
-    var list = dayList(), best = 0, run = 0;
-    list.forEach(function (x) { run = x.d.weight ? run + 1 : 0; if (run > best) best = run; });
-    return best;
+    return consecutiveRun(function (x) { return !!x.d.weight; });
   }
   function weeksOfWeights() {
-    var w = weights();
-    if (w.length < 2) return 0;
-    var a = new Date(w[0].key + 'T12:00:00'), b = new Date(w[w.length - 1].key + 'T12:00:00');
-    return Math.floor((b - a) / (7 * 86400000)) + 1;
+    var seen = {};
+    weights().forEach(function (x) { seen[Store.weekStart(x.key)] = true; });
+    return Object.keys(seen).length;
   }
   /* The route's own leg count, read from the route table rather than assumed —
      and zero when no expedition has been agreed, so "route finished" cannot be
@@ -74,10 +83,39 @@
     if (!Store.state().expedition.routeId) return 0;
     return (window.Screens && Screens.legCount) ? Screens.legCount() : 0;
   }
-  function partnerPoints() {
-    var pd = Store.state().partnerData;
-    return pd && typeof pd.points === 'number' ? pd.points : null;
+  function completedWeek() {
+    var start = Store.shift(Store.weekStart(), -7);
+    var ph = Store.state().partnerHistory || {};
+    var mine = 0, partner = 0;
+    for (var i = 0; i < 7; i++) {
+      var key = Store.shift(start, i);
+      if (typeof ph[key] !== 'number') return null;
+      mine += Store.points(key);
+      partner += ph[key];
+    }
+    return { start: start, mine: mine, partner: partner };
   }
+  function bothLoggedRun() {
+    var ph = Store.state().partnerLoggedHistory || {}, best = 0, run = 0;
+    var key = Store.shift(Store.todayKey(), -44);
+    for (var i = 0; i < 45; i++, key = Store.shift(key, 1)) {
+      if (Store.logged(key) && ph[key] === true) run++; else run = 0;
+      if (run > best) best = run;
+    }
+    return best;
+  }
+  function sabbathRun() {
+    var key = Store.todayKey();
+    while (new Date(key + 'T12:00:00').getDay() !== 0) key = Store.shift(key, -1);
+    var run = 0;
+    for (var i = 0; i < 52; i++, key = Store.shift(key, -7)) {
+      var d = Store.state().days[key];
+      if (!d || !Store.logged(key) || (d.workouts || []).length) break;
+      run++;
+    }
+    return run;
+  }
+
 
   var CATS = [
     { key: 'streak', name: 'Streaks', blurb: 'Days logged without a gap.' },
@@ -98,7 +136,7 @@
     ['streak-hundred-days', 'streak', 'A hundred days', 'rare', 'One hundred days unbroken', function () { return Store.streak() >= 100; }],
     ['streak-dawn-riser', 'streak', 'Dawn riser', 'hard', 'Ten mornings weighed in a row', function () { return morningRun() >= 10; }],
 
-    ['first-first-step', 'first', 'First step', 'common', 'The first day logged', function () { return dayList().length >= 1; }],
+    ['first-first-step', 'first', 'First step', 'common', 'The first day logged', function () { return dayList().some(function (x) { return Store.logged(x.key); }); }],
     ['first-first-meal', 'first', 'First meal', 'common', 'The first meal logged', function () { return dayList().some(function (x) { return (x.d.meals || []).length; }); }],
     ['first-first-session', 'first', 'First session', 'common', 'The first workout saved', function () { return allWorkouts().length >= 1; }],
     ['first-first-weigh-in', 'first', 'First weigh-in', 'common', 'The first morning entry', function () { return weights().length >= 1; }],
@@ -116,7 +154,7 @@
     ['distance-first-leg-walked', 'distance', 'First leg walked', 'common', 'Complete an expedition leg', function () { return Store.state().expedition.legIndex >= 1; }],
     ['distance-hundred-miles', 'distance', 'A hundred miles', 'hard', 'One hundred miles walked', function () { return totalMiles() >= 100; }],
     ['distance-route-finished', 'distance', 'Route finished', 'rare', 'Complete a whole expedition', function () { var n = routeLegs(); return n > 0 && Store.state().expedition.legIndex >= n; }],
-    ['distance-both-of-you', 'distance', 'Both of you', 'hard', 'A leg you each walked some of', function () { return Store.legMine() > 0 && Store.legHers() > 0; }],
+    ['distance-both-of-you', 'distance', 'Both of you', 'hard', 'A leg you each walked some of', function () { var a = Store.state().lastArrival; return !!a && a.milesMine > 0 && a.milesHers > 0; }],
 
     ['consistency-clean-week', 'consistency', 'Clean week', 'common', 'Every target, seven days running', function () { return cleanRun() >= 7; }],
     ['consistency-protein-month', 'consistency', 'Protein month', 'hard', 'Protein hit on thirty days', function () { return proteinDays() >= 30; }],
@@ -124,7 +162,7 @@
     ['consistency-weekend-held', 'consistency', 'Weekend held', 'rare', 'Sixteen weekend days logged in full', function () {
       return dayList().filter(function (x) {
         var wd = new Date(x.key + 'T12:00:00').getDay();
-        return (wd === 0 || wd === 6) && metTargets(x.d);
+        return (wd === 0 || wd === 6) && metTargets(x.key, x.d);
       }).length >= 16;
     }],
 
@@ -134,37 +172,39 @@
       return w[0].d.weight - w[w.length - 1].d.weight >= 5;
     }],
     ['body-goal-weight', 'body', 'Goal weight', 'rare', 'Reach the target weight', function () {
-      var c = currentWeight(), g = Store.state().targets.weightGoal;
-      return c && g && c <= g;
+      var c = currentWeight(), g = Store.state().targets.weightGoal, goal = Store.state().goal;
+      if (!c || !g) return false;
+      if (goal === 'build') return c >= g;
+      if (goal === 'lose-fat') return c <= g;
+      return Math.abs(c - g) <= 1;
     }],
     ['body-twelve-weeks', 'body', 'Twelve weeks', 'hard', 'Twelve weeks of weigh-ins', function () { return weeksOfWeights() >= 12; }],
 
-    ['together-a-week-together', 'together', 'A week together', 'common', 'Seven days you both logged', function () { return !!Store.state().partnerData && Store.streak() >= 7; }],
+    ['together-a-week-together', 'together', 'A week together', 'common', 'Seven days you both logged', function () { return bothLoggedRun() >= 7; }],
     /* A route is only ever set once both of them have agreed it, so the route
        itself is the evidence — her synced file is not needed to prove it. */
     ['together-expedition-agreed', 'together', 'Expedition agreed', 'common', 'The first invitation accepted', function () { return !!Store.state().expedition.routeId; }],
     ['together-challenge-won', 'together', 'Challenge won', 'hard', 'Win a weekly challenge', function () {
-      var p = partnerPoints(); return p !== null && Store.points() > p;
+      var w = completedWeek(); return !!w && w.mine > w.partner;
     }],
     ['together-ten-notes', 'together', 'Ten notes', 'common', 'Ten encouragements sent', function () { return (Store.state().notesSent || 0) >= 10; }],
     ['together-neck-and-neck', 'together', 'Neck and neck', 'rare', 'Finish a week within three points', function () {
-      var p = partnerPoints(); return p !== null && Math.abs(Store.points() - p) <= 3;
+      var w = completedWeek(); return !!w && Math.abs(w.mine - w.partner) <= 3;
     }],
 
-    ['faith-first-verse', 'faith', 'First verse', 'common', 'Read the day\u2019s verse', function () { return dayList().length >= 1; }],
+    ['faith-first-verse', 'faith', 'First verse', 'common', 'Read the day\u2019s verse', function () { return dayList().some(function (x) { return !!x.d.verseRead; }); }],
     ['faith-ten-reflections', 'faith', 'Ten reflections', 'common', 'Ten evenings written', function () { return reflectionCount() >= 10; }],
     ['faith-forty-evenings', 'faith', 'Forty evenings', 'hard', 'Forty reflections written', function () { return reflectionCount() >= 40; }],
-    ['faith-sabbath-kept', 'faith', 'Sabbath kept', 'rare', 'Twelve weeks of Sundays logged', function () {
-      return dayList().filter(function (x) { return new Date(x.key + 'T12:00:00').getDay() === 0; }).length >= 12;
-    }]
+    ['faith-sabbath-kept', 'faith', 'Sabbath kept', 'rare', 'A Sunday rest day kept twelve weeks running', function () { return sabbathRun() >= 12; }]
   ];
 
   var TIER = { common: 'Common', hard: 'Hard', rare: 'Rare' };
 
   function all() {
+    var known = Store.state().earned || [];
     return LIST.map(function (b) {
-      var earned = false;
-      try { earned = !!b[5](); } catch (e) { earned = false; }
+      var earned = known.indexOf(b[0]) >= 0;
+      try { earned = earned || !!b[5](); } catch (e) {}
       return { id: b[0], cat: b[1], name: b[2], tier: b[3], tierLabel: TIER[b[3]], condition: b[4], earned: earned };
     });
   }
