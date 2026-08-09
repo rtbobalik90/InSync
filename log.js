@@ -504,7 +504,13 @@
     if (!sameKind && first && open.kind !== 'workout') setTimeout(function () { first.focus(); }, 60);
   }
 
-  function start(kind) { open = { kind: kind, draft: draftFor(kind) }; paint(); }
+  function start(kind, opts) {
+    open = { kind: kind, draft: draftFor(kind) };
+    opts = opts || {};
+    if (opts.slot && open.draft && Object.prototype.hasOwnProperty.call(open.draft, 'slot') &&
+        ['Breakfast', 'Lunch', 'Dinner', 'Snack'].indexOf(opts.slot) >= 0) open.draft.slot = opts.slot;
+    paint();
+  }
   function close() { open = null; paint(); }
 
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -987,8 +993,11 @@
       return;
     }
     var plan = Object.assign({}, Store.state().mealPlan || {});
+    var parts = pendingSlot.split('|'), date = parts[0], slot = parts[1] || meal.slot || 'Dinner';
+    meal = Object.assign({}, meal, { date: date, slot: slot, source: meal.source || 'saved' });
     plan[pendingSlot] = meal;
     Store.set('mealPlan', plan);
+    if (date && Store.weekStart) Store.set('mealPlannerWeek', Store.weekStart(date));
     pendingSlot = null;
     location.hash = '#planner';
   }

@@ -1,7 +1,7 @@
 /* InSync service worker. Code is network-first so fixes land promptly. Artwork
    is stale-while-revalidate: the cached image opens instantly, while the same
    request quietly refreshes it for the next view. */
-var CACHE = 'insync-v10-4';
+var CACHE = 'insync-v10-5';
 var SHELL = [
   './', 'index.html', 'styles.css',
   'store.js', 'cloud.js', 'ui.js', 'media.js', 'exercises.js', 'foods.js',

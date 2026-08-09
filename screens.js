@@ -532,16 +532,6 @@
     '</button>';
   }
 
-  /* The next unlogged slot, so the list ends on what is still open. */
-  function nextSlot(meals) {
-    var order = ['Breakfast', 'Lunch', 'Snack', 'Dinner'];
-    var had = {};
-    meals.forEach(function (m) { had[m.slot] = true; });
-    for (var i = 0; i < order.length; i++) if (!had[order[i]]) return order[i];
-    return null;
-  }
-
-
   /* Trends needs weeks behind it before it can say anything. */
   function trendsNote() {
     var days = Object.keys(Store.state().days || {}).length;
@@ -551,13 +541,17 @@
 
   /* The planner's own state, said plainly, so the row is worth tapping. */
   function plannerNote() {
-    var plan = Store.state().mealPlan || {};
-    var n = Object.keys(plan).filter(function (k) { return plan[k]; }).length;
-    if (!n) return 'Nothing planned this week';
-    var shop = Store.state().shopTicked || {};
+    var S = Store.state(), plan = S.mealPlan || {};
+    var week = S.mealPlannerWeek || Store.weekStart(Store.todayKey());
+    if (!S.mealPlannerWeek && new Date(Store.todayKey() + 'T12:00:00').getDay() === 0) week = Store.shift(week, 7);
+    var end = Store.shift(week, 6);
+    var n = Object.keys(plan).filter(function (k) {
+      var date = k.slice(0, 10); return plan[k] && date >= week && date <= end;
+    }).length;
+    if (!n) return 'Nothing planned for the week';
+    var shop = S.shopTicked || {};
     var ticked = Object.keys(shop).filter(function (k) { return shop[k]; }).length;
-    return n + (n === 1 ? ' meal planned' : ' meals planned') +
-      (ticked ? ' \u00b7 ' + ticked + ' bought' : '');
+    return n + ' of 28 meals planned' + (ticked ? ' \u00b7 ' + ticked + ' bought' : '');
   }
 
   function nutrition() {
@@ -603,21 +597,31 @@
       '</button>';
     }).join('');
 
-    var slot = nextSlot(d.meals);
-    var todayRows = byTime(d.meals).map(function (m) { return mealRow(m); }).join('') +
-      (slot
-        ? '<div class="row pending" data-action="log-meal">' +
-            '<div class="thumb dashed">' + icon('plus') + '</div>' +
-            '<div style="min-width:0">' +
-              '<h4>' + slot + '</h4>' +
-              '<div class="macros">' +
-                (gap > 0
-                  ? gap + ' g of protein left. ' + kcalLeft.toLocaleString() + ' calories to spend on it.'
-                  : 'Protein is closed. ' + kcalLeft.toLocaleString() + ' calories still available.') +
-              '</div>' +
-            '</div>' +
-          '</div>'
-        : '');
+    /* The day is four visible places, every day. The previous one-at-a-time
+       "next slot" row made a fresh day look like Breakfast was the only meal
+       the app understood. Multiple entries are still allowed inside a slot. */
+    var slotOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+    var todaySlots = slotOrder.map(function (slot) {
+      var meals = byTime(d.meals.filter(function (m) { return m.slot === slot; }));
+      var st = meals.reduce(function (a, m) {
+        a.kcal += +m.kcal || 0; a.protein += +m.protein || 0; return a;
+      }, { kcal: 0, protein: 0 });
+      var label = slot === 'Snack' ? 'Add a snack' : 'Add ' + slot.toLowerCase();
+      return '<article class="card mealslotcard">' +
+        '<div class="cardhead"><div class="title"><i></i>' + slot + '</div>' +
+          '<div class="meta">' + (meals.length ? st.kcal.toLocaleString() + ' kcal · ' + st.protein + ' g' : 'open') + '</div></div>' +
+        '<div class="rowlist">' +
+          (meals.length
+            ? meals.map(function (m) { return mealRow(m); }).join('')
+            : '<div class="mealslotempty"><span class="note">Nothing logged here yet.</span></div>') +
+          '<button class="row tap addmealrow" data-action="log-meal" data-slot="' + slot + '">' +
+            '<span class="thumb dashed">' + icon('plus') + '</span>' +
+            '<span style="min-width:0;text-align:left"><h4>' + label + '</h4>' +
+              '<span class="macros">Log it directly into ' + slot.toLowerCase() + '.</span></span>' +
+          '</button>' +
+        '</div>' +
+      '</article>';
+    }).join('');
 
     var ydTotal = yd.meals.reduce(function (a, m) { return { k: a.k + m.kcal, p: a.p + m.protein }; }, { k: 0, p: 0 });
 
@@ -643,14 +647,8 @@
         '<div class="waygrid">' + ways + '</div>' +
 
         '<div class="rulehead"><span class="kicker">Today</span><span></span>' +
-          '<span class="note">' + (d.meals.length ? d.meals.length + ' logged' : 'nothing yet') + '</span></div>' +
-        '<article class="card rowlist">' +
-          (todayRows ||
-            '<div class="empty">' +
-              '<p class="note">Nothing logged today.</p>' +
-              '<button class="btn ghost sm" data-action="log-meal" style="margin-top:12px">Log the first meal</button>' +
-            '</div>') +
-        '</article>' +
+          '<span class="note">' + (d.meals.length ? d.meals.length + ' logged' : 'four meal slots open') + '</span></div>' +
+        '<div class="mealslots">' + todaySlots + '</div>' +
 
         (yd.meals.length
           ? '<div class="rulehead"><span class="kicker sage">Yesterday</span><span></span>' +
@@ -1439,14 +1437,16 @@
      day, so a blank column means she has not synced — not that she did nothing. */
   function weekCard(S, p) {
     var hist = S.partnerHistory || {}, today = Store.todayKey(), start = Store.weekStart(today);
+    var mineStart = Store.startKey ? Store.startKey() : today;
+    var partnerStart = S.partnerData && S.partnerData.startDate ? S.partnerData.startDate : '';
     var days = [];
     for (var i = 0; i < 7; i++) {
       var k = Store.shift(start, i), future = k > today;
       days.push({
         key: k,
         letter: new Date(k + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'narrow' }),
-        mine: future ? null : Store.points(k),
-        hers: future ? null : (typeof hist[k] === 'number' ? hist[k] : null)
+        mine: future || k < mineStart ? null : Store.points(k),
+        hers: future || (partnerStart && k < partnerStart) ? null : (typeof hist[k] === 'number' ? hist[k] : null)
       });
     }
     var myWeek = days.reduce(function (a, d) { return a + (d.mine == null ? 0 : d.mine); }, 0);
@@ -1517,12 +1517,14 @@
   /* The week's contest, settled by the same points as everything else. */
   function challengeCard(S, p, mine, herToday) {
     var hist = S.partnerHistory || {}, today = Store.todayKey(), start = Store.weekStart(today);
+    var myStart = Store.startKey ? Store.startKey() : today;
+    var partnerStart = S.partnerData && S.partnerData.startDate ? S.partnerData.startDate : '';
     var myWeek = 0, herWeek = 0, known = 0;
     for (var i = 0; i < 7; i++) {
       var k = Store.shift(start, i);
       if (k > today) break;
-      myWeek += Store.points(k);
-      if (typeof hist[k] === 'number') { herWeek += hist[k]; known++; }
+      if (k >= myStart) myWeek += Store.points(k);
+      if ((!partnerStart || k >= partnerStart) && typeof hist[k] === 'number') { herWeek += hist[k]; known++; }
     }
     var lead = myWeek - herWeek;
     var line = !known
@@ -1864,7 +1866,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.2.3</div></div>' +
+            '<div class="meta">Version 5.3.0</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3398,96 +3400,194 @@
 
   /* ---- Week planner and shopping list ------------------------------------ */
 
-  var PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner'];
+  var PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+
+  function planKey(date, slot) { return date + '|' + slot; }
+
+  function defaultPlannerWeek(S) {
+    if (S.mealPlannerWeek && /^\d{4}-\d{2}-\d{2}$/.test(S.mealPlannerWeek)) return S.mealPlannerWeek;
+    var start = Store.weekStart(Store.todayKey());
+    /* On Sunday an untouched planner should open on tomorrow's week. That is
+       when this screen is most commonly used and avoids offering to generate
+       six days that have already happened. */
+    if (new Date(Store.todayKey() + 'T12:00:00').getDay() === 0) return Store.shift(start, 7);
+    return start;
+  }
 
   function planner() {
-    var S = Store.state();
-    var plan = S.mealPlan || {};
-    var DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    var FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-    var planned = [];
-    DOW.forEach(function (d) {
+    var S = Store.state(), plan = S.mealPlan || {};
+    var weekOf = defaultPlannerWeek(S), currentWeek = Store.weekStart(Store.todayKey());
+    var dates = [], planned = [];
+    for (var di = 0; di < 7; di++) dates.push(Store.shift(weekOf, di));
+    dates.forEach(function (date) {
       PLAN_SLOTS.forEach(function (sl) {
-        var m = plan[d + '-' + sl];
-        if (m) planned.push({ day: d, slot: sl, meal: m });
+        var m = plan[planKey(date, sl)];
+        if (m) planned.push({ date: date, slot: sl, meal: m });
       });
     });
 
-    var totalSlots = DOW.length * PLAN_SLOTS.length;
-    var avgKcal = planned.length
-      ? Math.round(planned.reduce(function (a, p) { return a + (p.meal.kcal || 0); }, 0) / planned.length)
-      : 0;
-    var avgProtein = planned.length
-      ? Math.round(planned.reduce(function (a, p) { return a + (p.meal.protein || 0); }, 0) / planned.length)
-      : 0;
+    var totalSlots = dates.length * PLAN_SLOTS.length;
+    var weekEnd = Store.shift(weekOf, 6);
+    var weekName = weekOf === currentWeek ? 'This week'
+      : weekOf === Store.shift(currentWeek, 7) ? 'Next week'
+      : new Date(weekOf + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+        ' – ' + new Date(weekEnd + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-    // Shopping list is derived from the planned meals' ingredients — nothing typed.
+    // Shopping list is derived only from this displayed week's recipes.
     var shop = {};
     planned.forEach(function (p) {
-      var items = p.meal.items && p.meal.items.length
-        ? p.meal.items
-        : [{ name: p.meal.name }];   // no ingredient list — shop for the dish itself
+      var items = p.meal.items && p.meal.items.length ? p.meal.items : [{ name: p.meal.name, weight: '' }];
       items.forEach(function (it) {
-        var k = it.name.toLowerCase();
-        if (!shop[k]) shop[k] = { name: it.name, n: 0 };
+        var name = String(it.name || '').trim();
+        if (!name) return;
+        var k = name.toLowerCase();
+        if (!shop[k]) shop[k] = { name: name, n: 0, amounts: [] };
         shop[k].n++;
+        var amount = String(it.weight || '').trim();
+        if (amount && shop[k].amounts.indexOf(amount) < 0) shop[k].amounts.push(amount);
       });
     });
     var shopList = Object.keys(shop).map(function (k) { return shop[k]; })
-      .sort(function (a, b) { return b.n - a.n || a.name.localeCompare(b.name); });
+      .sort(function (a, b) { return a.name.localeCompare(b.name); });
     var ticked = S.shopTicked || {};
 
-    var grid = DOW.map(function (d, i) {
+    var grid = dates.map(function (date) {
+      var dt = new Date(date + 'T12:00:00');
+      var full = dt.toLocaleDateString(undefined, { weekday: 'long' });
+      var shortDate = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      var dayMeals = PLAN_SLOTS.map(function (sl) { return plan[planKey(date, sl)]; }).filter(Boolean);
+      var dayKcal = dayMeals.reduce(function (a, m) { return a + (+m.kcal || 0); }, 0);
+      var dayProtein = dayMeals.reduce(function (a, m) { return a + (+m.protein || 0); }, 0);
       return '<div class="planday">' +
-        '<div class="pdhead"><span>' + FULL[i] + '</span></div>' +
+        '<div class="pdhead"><span>' + full + ' <em>' + shortDate + '</em></span>' +
+          '<span class="note">' + (dayMeals.length ? dayKcal.toLocaleString() + ' kcal · ' + dayProtein + ' g' : 'open') + '</span></div>' +
         PLAN_SLOTS.map(function (sl) {
-          var m = plan[d + '-' + sl];
-          return '<button class="planslot' + (m ? ' filled' : '') + '" data-action="plan-slot" data-slot="' + d + '-' + sl + '">' +
-            '<span class="pslabel">' + sl + '</span>' +
-            (m
-              ? '<span class="psmeal">' + esc(m.name) + '</span><span class="pskcal">' + m.kcal + ' kcal &middot; ' + m.protein + ' g</span>'
-              : '<span class="psempty">Not planned</span>') +
-          '</button>';
+          var key = planKey(date, sl), m = plan[key];
+          return m
+            ? '<button class="planslot filled" data-route="planned-meal/' + date + '/' + encodeURIComponent(sl) + '">' +
+                '<span class="pslabel">' + sl + '</span>' +
+                '<span class="psmeal">' + esc(m.name) + '</span>' +
+                '<span class="pskcal">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
+                  (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + '</span>' +
+              '</button>'
+            : '<button class="planslot" data-action="plan-slot" data-slot="' + key + '">' +
+                '<span class="pslabel">' + sl + '</span><span class="psempty">Choose a meal</span>' +
+              '</button>';
         }).join('') +
       '</div>';
     }).join('');
 
+    var canBuild = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
+    var planButton = canBuild
+      ? '<button class="btn block" data-action="build-meal-week" data-week="' + weekOf + '">' +
+          (planned.length ? 'Rebuild this week' : 'Build my week') + '</button>' +
+        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots with recipes, portions, nutrition, ingredients and cooking steps around your current targets.</p>'
+      : '<article class="card pad"><p class="note">Add your Claude key in Settings to build a complete week automatically. You can still tap any empty slot and choose from your Cookbook.</p></article>';
+
     return UI.screen({
-      tab: null, rest: 300, blur: true,
-      header: { back: true, title: 'The week', right: '<div style="width:34px"></div>' },
+      tab: null, rest: 320, blur: true,
+      header: { back: 'nutrition', title: 'Meal planner', right: '<div style="width:34px"></div>' },
       art: 'assets/art/provisions.webp', photoPosition: 'center 42%',
       overlay:
-        '<div class="eyebrow">' + (planned.length ? planned.length + ' of ' + totalSlots + ' planned' : 'Nothing planned') + '</div>' +
-        '<p class="verse">' +
-          (planned.length
-            ? 'Averaging ' + avgKcal.toLocaleString() + ' kcal and ' + avgProtein + ' g of protein a meal.'
-            : 'Mark a few meals and the shopping list writes itself.') +
-        '</p>',
+        '<div class="eyebrow">' + esc(weekName) + ' · ' + planned.length + ' of ' + totalSlots + ' meals planned</div>' +
+        '<p class="verse">Breakfast, lunch, dinner and a snack — every day, with the recipe attached.</p>',
       body:
+        '<article class="card pad plannercontrols">' +
+          '<div class="weeknav">' +
+            '<button class="btn ghost sm" data-action="planner-week" data-week="' + Store.shift(weekOf, -7) + '">Previous</button>' +
+            '<button class="btn ghost sm" data-action="planner-week" data-week="' + currentWeek + '">This week</button>' +
+            '<button class="btn ghost sm" data-action="planner-week" data-week="' + Store.shift(weekOf, 7) + '">Next</button>' +
+          '</div>' +
+          '<div style="margin-top:13px">' + planButton + '</div>' +
+        '</article>' +
+
         '<article class="card pad">' +
-          '<div class="kicker">The week</div>' +
+          '<div class="kicker">' + esc(weekName) + '</div>' +
           '<div class="plangrid">' + grid + '</div>' +
         '</article>' +
 
         '<div class="rulehead"><span class="kicker sage">Shopping list</span><span></span>' +
-          '<span class="note">' + (shopList.length ? shopList.length + ' items' : 'empty') + '</span></div>' +
+          '<span class="note">' + (shopList.length ? shopList.length + ' ingredients' : 'empty') + '</span></div>' +
         '<article class="card rowlist">' +
           (shopList.length
             ? shopList.map(function (it) {
                 var on = !!ticked[it.name.toLowerCase()];
+                var detail = it.amounts.length ? it.amounts.slice(0, 3).join(' + ') : (it.n > 1 ? it.n + ' meals' : '1 meal');
                 return '<button class="shoprow' + (on ? ' done' : '') + '" data-action="tick-shop" data-item="' + esc(it.name) + '">' +
                   '<span class="tick">' + (on ? icon('check') : '') + '</span>' +
                   '<span class="shopname">' + esc(it.name) + '</span>' +
-                  '<span class="note">' + (it.n > 1 ? it.n + ' meals' : '1 meal') + '</span>' +
+                  '<span class="note">' + esc(detail) + '</span>' +
                 '</button>';
               }).join('')
-            : '<div class="empty"><p class="note">Nothing planned yet. Mark a meal above and it appears here.</p></div>') +
+            : '<div class="empty"><p class="note">Nothing on the list yet. Build the week or choose meals above and the ingredients collect here automatically.</p></div>') +
         '</article>' +
 
         (planned.length
-          ? '<button class="btn ghost block" data-action="clear-plan">Clear the week</button>'
+          ? '<button class="btn ghost block" data-action="clear-plan" data-week="' + weekOf + '">Clear this week</button>'
           : '')
+    });
+  }
+
+  function plannedMeal() {
+    var parts = location.hash.split('/');
+    var date = decodeURIComponent(parts[1] || ''), slot = decodeURIComponent(parts[2] || '');
+    var key = planKey(date, slot), m = (Store.state().mealPlan || {})[key];
+    if (!m) {
+      return UI.screen({
+        tab: null, rest: 240, blur: true,
+        header: { back: 'planner', title: 'Recipe' },
+        art: 'assets/art/provisions.webp', photoPosition: 'center 42%',
+        overlay: '<p class="bigsub">That planned meal is no longer here.</p>',
+        body: '<article class="card pad"><button class="btn ghost block" data-route="planner">Back to the week</button></article>'
+      });
+    }
+    var when = new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    var items = m.items || [], steps = m.instructions || [];
+    var canRecipe = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
+    return UI.screen({
+      tab: null, rest: 320, blur: true,
+      header: { back: 'planner', title: slot, right: '<div style="width:34px"></div>' },
+      art: 'assets/art/provisions.webp', photoPosition: 'center 42%',
+      overlay:
+        '<div class="eyebrow">' + esc(when) + ' · ' + esc(slot) + '</div>' +
+        '<p class="verse">' + esc(m.name) + '</p>' +
+        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
+          (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + '</p>',
+      body:
+        '<article class="card pad">' +
+          '<div class="kicker">Nutrition</div>' +
+          '<div class="recipefacts">' +
+            [['Calories', Math.round(+m.kcal || 0)], ['Protein', Math.round(+m.protein || 0) + ' g'],
+             ['Carbs', Math.round(+m.carbs || 0) + ' g'], ['Fat', Math.round(+m.fat || 0) + ' g']].map(function (r) {
+              return '<div><span class="note">' + r[0] + '</span><strong>' + r[1] + '</strong></div>';
+            }).join('') +
+          '</div>' +
+          '<p class="small" style="margin:14px 0 0">' + (m.servings || 1) + ' planned serving' + ((m.servings || 1) === 1 ? '' : 's') +
+            (m.recipeNote ? ' · ' + esc(m.recipeNote) : '') + '</p>' +
+        '</article>' +
+
+        '<article class="card pad">' +
+          '<div class="kicker" style="margin-bottom:12px">Ingredients</div>' +
+          (items.length
+            ? '<div class="ingredientlist">' + items.map(function (it) {
+                return '<div class="ingredientrow"><span>' + esc(it.name) + '</span><span class="note">' + esc(it.weight || '') + '</span></div>';
+              }).join('') + '</div>'
+            : '<p class="note">No ingredient list is attached yet.</p>') +
+        '</article>' +
+
+        '<article class="card pad">' +
+          '<div class="kicker" style="margin-bottom:12px">Make it</div>' +
+          (steps.length
+            ? '<ol class="recipe-steps">' + steps.map(function (step) { return '<li>' + esc(step) + '</li>'; }).join('') + '</ol>'
+            : '<p class="note">This saved meal does not have cooking steps yet.</p>' +
+              (canRecipe ? '<button class="btn ghost block" data-action="write-planned-recipe" data-plan-key="' + esc(key) + '" style="margin-top:14px">Write the recipe</button>' : '')) +
+        '</article>' +
+
+        (date === Store.todayKey()
+          ? '<button class="btn block" data-action="log-planned-meal" data-plan-key="' + esc(key) + '">Log this meal today</button>'
+          : '') +
+        '<button class="btn ghost block" data-action="replace-planned-meal" data-plan-key="' + esc(key) + '">Replace this meal</button>' +
+        '<button class="btn danger block" data-action="remove-planned-meal" data-plan-key="' + esc(key) + '">Remove from the week</button>'
     });
   }
 
@@ -3540,7 +3640,7 @@
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,
     records: records, badges: badges, reflection: reflection,
-    trends: trends, planner: planner, cookbook: cookbook, history: history,
+    trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,
     route: route, leg: leg, verse: Store.verse
   };

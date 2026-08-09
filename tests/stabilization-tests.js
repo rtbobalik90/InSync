@@ -62,6 +62,16 @@ function withBadges() {
   eq(ctx.Store.iso(d), '2026-08-09', 'Store keeps the phone-local calendar date');
 }
 
+// 1b. A brand-new install cannot earn points before its journey began.
+{
+  const {ctx}=base(); const S=ctx.Store, today=S.todayKey();
+  S.set('profile.startDate',today);
+  S.set('plan',[]); // recovery would normally be worth three points
+  eq(S.points(S.shift(today,-1)),0,'a pre-start recovery day earns no phantom points');
+  eq(S.points(today),3,'today can still earn the scheduled recovery-day points');
+  ok(!S.activeOn(S.shift(today,-1)) && S.activeOn(today),'journey activity boundary is explicit');
+}
+
 // 2. Migration keeps the old log, moves secrets, and removes the old key only after persistence.
 {
   const old = { profile:{name:'Robert',initials:'RB'}, connections:{githubToken:'gh-secret',claudeKey:'sk-secret'}, days:{'2026-08-01':{meals:[],workouts:[],steps:1234,weight:null,reflection:''}} };
@@ -242,7 +252,8 @@ function withBadges() {
   let p=C.sharePayload();
   ok(!('steps' in p) && !('legMiles' in p),'turning Steps sharing off removes both steps and expedition miles');
   ok(!('weight' in p) && !('weightTrend' in p),'turning Weight sharing off removes weight information');
-  eq(Object.keys(p.history.points).length,35,'sync carries 35 days of point history so missed sync days can recover');
+  eq(Object.keys(p.history.points).length,8,'sync carries only the active journey history, not invented pre-start days');
+  ok(!Object.prototype.hasOwnProperty.call(p.history.points,S.shift(S.startKey(),-1)),'sync omits points from before the journey began');
   S.set('privacy.weight',true); p=C.sharePayload();
   ok(!('weight' in p) && !!p.weightTrend,'weight sharing sends only a trend, never exact bodyweight');
 }
@@ -376,8 +387,9 @@ function withBadges() {
   eq(S.day('2026-08-01').weight,null,'impossible imported bodyweight is discarded');
   ok(Array.isArray(S.state().mealIdeas) && S.state().mealIdeas.length===1,'malformed meal ideas are reduced to safe meal objects');
   eq(S.state().mealIdeas[0].kcal,0,'negative nutrition in imported meal ideas is clamped');
-  ok(!!S.state().mealPlan['Mon-Breakfast'] && !S.state().mealPlan['Not-A-Slot'],'meal plan keeps only valid planner slots');
-  eq(S.state().mealPlan['Mon-Breakfast'].kcal,0,'planned meal nutrition is normalized before planner math');
+  const migratedPlanKey=S.weekStart(S.todayKey())+'|Breakfast';
+  ok(!!S.state().mealPlan[migratedPlanKey] && !S.state().mealPlan['Not-A-Slot'],'legacy planner slots migrate into the dated week and invalid slots are removed');
+  eq(S.state().mealPlan[migratedPlanKey].kcal,0,'planned meal nutrition is normalized before planner math');
   eq(Object.keys(S.state().shopTicked).join(','),'oats','shopping state keeps only active bounded entries');
   eq(S.state().planMeta.writtenBy,'','invalid planner metadata cannot masquerade as a coach-written plan');
   eq(S.state().proposal.targets.calories,S.state().targets.calories,'invalid proposed target falls back to the current safe target');
@@ -456,7 +468,7 @@ function withBadges() {
   S.state().lastArrival={routeId:'camino',legIndex:1,at:new Date().toISOString(),milesMine:3.2,milesHers:2.8};
   S.state().privacy.steps=false; S.day(k).steps=4000; S.save();
   let p=C.sharePayload();
-  eq(p.schema,4,'partner payload uses conversation-aware sync schema 4');
+  eq(p.schema,5,'partner payload uses start-date-aware sync schema 5');
   eq(p.expedition.routeId,'camino','expedition route identity is core Together state even with Steps private');
   eq(p.expedition.legIndex,2,'expedition leg identity is core Together state even with Steps private');
   ok(!('legMiles' in p) && !('previousLegMiles' in p.expedition),'Steps privacy removes current and previous-leg mileage');
@@ -591,7 +603,7 @@ function withBadges() {
   ok(app.includes('window.visualViewport') && app.includes("addEventListener('resize', measureRest"),'sheet rest position is remeasured when the iOS viewport changes');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-4'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-5'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));

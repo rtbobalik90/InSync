@@ -1,98 +1,61 @@
-# InSync 5.2.3 — Ship-Readiness Review
+# InSync 5.3.0 — Ship-Readiness Code Review
 
 ## Verdict
 
-**Code/static release gate: PASS.**
+**Code/static release gate: PASS, pending final exact-ZIP clean-room rerun and real two-iPhone acceptance.**
 
-The third audit treated the exact release candidate as a production two-phone PWA rather than as a feature-complete prototype. It found several edge cases that were not covered by the earlier green suites, corrected them, and added permanent regression coverage.
+This pass was triggered by real-device observations rather than speculative refactoring. It corrected a historical-points boundary bug and replaced the incomplete Nutrition planner experience with a full four-slot daily log and dated weekly recipe planner while preserving the stabilized persistence/sync architecture.
 
-There is no current finding that justifies an architectural rewrite before deployment. The remaining release gate is real-device acceptance on the two iPhones with the actual GitHub repository, Claude credentials, camera, Safari/PWA lifecycle and offline behavior.
+## Findings corrected in this pass
 
-## Material third-pass corrections
+### Phantom points before the application existed
 
-### Historical scores are now immutable
+The scoring rule intentionally awards three points for respecting a planned recovery day. The weekly chart called the scoring engine for every day of the displayed week, including days before a brand-new profile existed. With no plan on those dates, they looked like recovery days and produced false bars.
 
-Previously, old days could be recomputed using today's targets or a newly generated weekly training plan. A day that was legitimately 10/10 could therefore change later and alter a completed weekly challenge.
+The Store now exposes one start boundary and refuses scoring before it. Together blanks those dates rather than drawing a zero/earned bar. The shared payload carries `startDate` under sync schema 5, and receiving devices purge cached partner-history entries from before that boundary. The fix is below the chart layer as well as in the UI, so other callers cannot manufacture the same historical points.
 
-Each meaningful day now stores a bounded `scoreBasis` containing the targets and training requirement in force for that day. Historical points and completed-week calculations read that snapshot.
+### Nutrition's single-slot experience
 
-### Restore and damaged-local-data handling are transactional
+The prior screen inferred one next slot and therefore made a new day look like Breakfast was the only supported meal. Nutrition now renders Breakfast, Lunch, Dinner and Snack every day. Slot buttons pass the destination into `Log.open`, while the log sheet still permits changing the slot and adding multiple entries.
 
-Restore normalization now happens in memory before the one durable localStorage commit. A failed state commit leaves the prior saved state intact, and photograph restore rolls back to the prior IndexedDB media set if the state restore fails.
+### Meal Planner was not a complete planning workflow
 
-If current localStorage is unreadable, InSync either recovers a readable older application copy or blocks ordinary writes and offers the damaged raw bytes for download. It does not silently treat damaged data as a new install.
+The old planner stored loose weekday/meal references and did not provide a dependable weekly recipe experience. The replacement uses dated keys (`YYYY-MM-DD|Slot`), preserves separate weeks, renders 28 explicit slots, and connects generation → recipe → shopping → daily logging. Legacy weekday planner keys are migrated into the dated week on normalization rather than discarded.
 
-### Date validation is calendar-real, not regex-only
+The AI contract is strict: a generated week is only committed if all 28 required date/slot combinations survive validation. Each recipe is bounded/sanitized before persistence. Ingredient amounts and cooking steps are retained so the shopping list and recipe screen do not have to infer details from meal names.
 
-Phone-local dates remain the source of truth. Imported and synced date keys must now also represent an actual calendar day, preventing strings such as `2026-02-31` from entering state simply because they match `YYYY-MM-DD`.
+## Data-integrity review
 
-### Sync is serialized and conflict-aware
+- State schema remains v10; new planner fields are normalized with bounded values and allowed slot/date keys.
+- Legacy `Mon-Breakfast` style planner keys migrate to dated keys.
+- Weekly generation is atomic: incomplete AI output does not partially replace an existing week.
+- Rebuild and Clear affect only the displayed week.
+- Historical score snapshots remain immutable after target/plan changes.
+- Pre-start dates cannot become score history through the points API or sync payload.
+- Existing damaged-local-state recovery, transactional restore and secret separation remain unchanged.
 
-GitHub repository writes and full sync rounds are explicitly serialized. A 409/422 content conflict refreshes the remote SHA and retries once. Network calls have bounded timeouts, failures are visible in Settings, and recovery clears stale failure state.
+## Sync/privacy review
 
-### Notes survive offline retries and midnight
+Sync schema 5 adds only the profile's start date to the existing Together payload. It does not broaden health sharing. Exact meals, recipes, shopping data, photographs, reflections, bodyweight and lifting details remain local. Meal planning is therefore private to each phone unless a future feature explicitly changes that contract.
 
-The latest partner note carries its authored date and remains representable after midnight. Successful GitHub write acknowledgement is the single source of truth for `notesSent`, whether delivery came from a manual send, automatic retry or later full sync.
-
-Editing an already-sent note clears its old sent timestamp immediately so new offline text cannot falsely look delivered. Home shows an unread partner note as news once rather than repeating an old note every day; Together can still display the latest note intentionally.
-
-### Expedition state is reconciled by route and leg
-
-The shared expedition/Together payload now uses sync schema 4 and identifies route/leg state. This fixes a two-phone failure where the lagging phone's previous-leg mileage could be interpreted as mileage on the already-advanced phone's new leg.
-
-Partner progress only contributes to the matching current leg. A partner may safely pull the other phone forward on the same route, stale files cannot move a route backward, and previous-leg contribution is preserved only for the arrival it belongs to.
-
-The route-complete UI now has a real terminal state. The Store also refuses duplicate completion or premature arrival unless distance and both-walker requirements are actually met.
-
-### Achievement evidence uses calendar continuity
-
-Several achievements previously used evidence that looked plausible but could bridge missing days or weeks. Third-pass corrections include:
-
-- First Step requires an actual logged action, not merely opening a screen.
-- Clean Week requires consecutive calendar days rather than seven qualifying records with gaps.
-- Dawn Riser cannot bridge skipped mornings.
-- Twelve Weeks requires weigh-ins across twelve distinct weeks rather than only enough elapsed time between first and last entries.
-
-Earlier stabilization corrections to verse reading, notes, Sabbath, completed weekly challenges and both-person logging remain covered.
-
-### Claude contract updated without breaking compact responses
-
-The default model is `claude-sonnet-5`, while the model ID remains editable in Settings. Sonnet 5 thinking is disabled for InSync's deliberately compact UI/JSON calls so reasoning tokens do not consume response budgets intended for the returned content.
-
-### Service-worker runtime writes are non-fatal
-
-The shell remains atomic, code remains network-first, and artwork remains stale-while-revalidate. Runtime cache write/quota rejection is now swallowed after a successful network response so a full cache cannot turn a successful request into an application error.
-
-## Security and privacy boundary
-
-- Secrets remain outside normal application state and backups.
-- Prototype-pollution keys are rejected on import and generic state paths.
-- Partner files are treated as external input and normalized before reaching screens or scoring.
-- Exact bodyweight, meals, lifting details, reflections and photographs do not enter partner sync.
-- Core Together state includes expedition route/leg identity; expedition mileage obeys the Steps privacy switch.
-- The sync repository must be private and separate from the application deployment repository.
-- Browser Content Security Policy restricts scripts, connections, images, fonts, objects and form actions to the services/features InSync actually uses.
+GitHub writes remain serialized/conflict-aware, partner input remains sanitized, and the dedicated repository must remain private and separate from the application deployment.
 
 ## Maintainability assessment
 
-The framework-free module architecture is appropriate for a private two-person PWA. `screens.js`, `store.js`, `cloud.js`, `log.js` and `app.js` are large, but restructuring them immediately before real-device acceptance would add regression risk without improving release safety.
+The framework-free architecture remains reasonable for a private two-person PWA. `screens.js`, `store.js`, `cloud.js`, `log.js` and `app.js` are large; however, splitting them during this real-device stabilization cycle would introduce more regression surface than value. The new planner code follows the existing module boundaries and has a dedicated test harness.
 
-For the next major feature cycle, extract domain modules (Training, Nutrition, Together, Settings), sync transport/reconciliation, and persistence/migrations behind the existing regression suite. That is future maintainability work, not a 5.2.3 release blocker.
+For a future large feature cycle, Nutrition/Planner is now a strong candidate to extract from `screens.js`/`cloud.js` behind these tests. That is maintainability work, not a current release blocker.
 
-## Release gate
+## Current automated gate
 
-- Code/static gate: **PASS**
-- Exact packaged ZIP clean-room gate: **PASS** — the distribution archive was extracted fresh and reran the full automated/static gate with zero failures
-- Real two-iPhone hardware/service gate: **PENDING** until the checklist in `TEST_REPORT.md` is completed
-## 5.2.3 Together conversation follow-up
+- 469 stabilization/regression checks: PASS
+- 23 sync stress/reconciliation checks: PASS
+- 54 screen/malformed-state checks: PASS
+- 11 meal-planner checks: PASS
+- **557/557 total: PASS**
 
-The former single-note mailbox has been replaced with a rolling two-person conversation. Each phone owns only the messages it authored, publishes the latest 50 in its private sync file, and reads the partner's authored list. This avoids cross-device message-write conflicts because neither phone edits the other phone's history.
+Final exact-package clean-room status is recorded in `TEST_REPORT.md` after the distribution ZIP is rebuilt and extracted.
 
-Sending commits the message locally, immediately clears the composer, displays the message in the thread, and marks it `waiting to sync` until the GitHub write succeeds. A successful write acknowledges each included pending message exactly once. Partner message arrays are sanitized before entering local state, while the previous single-note fields remain for one-release compatibility with a 5.2.2 partner.
+## Remaining external gate
 
-While InSync is visible it now schedules an automatic sync check every 60 seconds, in addition to launch, foreground, reconnect, and state-change triggers. iOS may suspend a Home Screen PWA in the background; when it resumes, InSync immediately catches up. Manual **Sync now** remains a diagnostic/recovery control, not a normal-use requirement.
-
-## 5.2.3 navigation stability follow-up
-
-A real iPhone interaction report exposed a UI issue the VM screen suite could not reproduce: synchronous Store renders replaced the active `.sheet` DOM and reset Safari scroll to zero on same-screen actions. The router now preserves scroll on exact-route refreshes and queues/coalesces Store-driven renders. Logging modals preserve their own scroll on same-kind repaints and no longer autofocus their first field after every repaint. Onboarding also preserves scroll when validation or a selection repaints the same step. New static regression checks cover these paths.
-
+Only real iOS/service behavior cannot be certified by this environment: actual Home Screen PWA lifecycle, camera permission/persistence, live Claude generation, live GitHub credentials/network handoff and two physical-device timing. The acceptance steps are in `TEST_REPORT.md`.

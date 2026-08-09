@@ -76,6 +76,7 @@
     else if (root === 'reflection') html = Screens.reflection();
     else if (root === 'trends') html = Screens.trends();
     else if (root === 'planner') html = Screens.planner();
+    else if (root === 'planned-meal') html = Screens.plannedMeal();
     else if (root === 'cookbook') html = Screens.cookbook();
     else if (root === 'history') html = Screens.history();
     else if (root === 'photos') html = Screens.photos();
@@ -336,6 +337,36 @@
       if (Log.assignPlanned) Log.assignPlanned(raw);
       return;
     }
+    if (action === 'planner-week') {
+      var week = el.getAttribute('data-week');
+      if (week) Store.set('mealPlannerWeek', week);
+      return;
+    }
+    if (action === 'build-meal-week') {
+      var buildWeek = el.getAttribute('data-week') || Store.weekStart(Store.todayKey());
+      var existingPlan = Store.state().mealPlan || {};
+      var hasExisting = Object.keys(existingPlan).some(function (k) {
+        return k.slice(0, 10) >= buildWeek && k.slice(0, 10) <= Store.shift(buildWeek, 6) && !!existingPlan[k];
+      });
+      if (hasExisting && !confirm('Rebuild this week? The 28 meal slots in this displayed week will be replaced. Other weeks stay untouched.')) return;
+      var bw = el, bwText = bw.textContent;
+      bw.disabled = true; bw.textContent = 'Building the week…';
+      Cloud.planMealsWeek(buildWeek, function (err, weekMap) {
+        bw.disabled = false; bw.textContent = bwText;
+        if (err) { alert(err.message); return; }
+        var merged = Object.assign({}, Store.state().mealPlan || {});
+        var end = Store.shift(buildWeek, 6);
+        Object.keys(merged).forEach(function (k) {
+          var date = k.slice(0, 10);
+          if (date >= buildWeek && date <= end) delete merged[k];
+        });
+        Object.keys(weekMap || {}).forEach(function (k) { merged[k] = weekMap[k]; });
+        Store.set('mealPlan', merged);
+        Store.set('mealPlannerWeek', buildWeek);
+        Store.set('shopTicked', {});
+      });
+      return;
+    }
     if (action === 'tick-shop') {
       var item = el.getAttribute('data-item').toLowerCase();
       var t = Object.assign({}, Store.state().shopTicked || {});
@@ -344,10 +375,59 @@
       return;
     }
     if (action === 'clear-plan') {
-      if (confirm('Clear every planned meal for the week?')) {
-        Store.set('mealPlan', {});
+      var clearWeek = el.getAttribute('data-week') || Store.state().mealPlannerWeek || Store.weekStart(Store.todayKey());
+      if (confirm('Clear every planned meal in this displayed week?')) {
+        var cp = Object.assign({}, Store.state().mealPlan || {}), clearEnd = Store.shift(clearWeek, 6);
+        Object.keys(cp).forEach(function (k) {
+          var date = k.slice(0, 10);
+          if (date >= clearWeek && date <= clearEnd) delete cp[k];
+        });
+        Store.set('mealPlan', cp);
         Store.set('shopTicked', {});
       }
+      return;
+    }
+    if (action === 'remove-planned-meal') {
+      var removeKey = el.getAttribute('data-plan-key');
+      var rp = Object.assign({}, Store.state().mealPlan || {});
+      if (removeKey && rp[removeKey]) {
+        delete rp[removeKey];
+        Store.set('mealPlan', rp);
+        location.hash = '#planner';
+      }
+      return;
+    }
+    if (action === 'replace-planned-meal') {
+      var replaceKey = el.getAttribute('data-plan-key');
+      if (replaceKey) Log.pickForSlot(replaceKey);
+      return;
+    }
+    if (action === 'log-planned-meal') {
+      var logKey = el.getAttribute('data-plan-key'), pm = (Store.state().mealPlan || {})[logKey];
+      if (!pm) return;
+      var lp = logKey.split('|'), now = new Date();
+      Store.addMeal({
+        name: pm.name, slot: lp[1] || pm.slot || 'Meal',
+        time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+        kcal: pm.kcal, protein: pm.protein, carbs: pm.carbs, fat: pm.fat,
+        items: pm.items || null
+      });
+      location.hash = '#nutrition';
+      return;
+    }
+    if (action === 'write-planned-recipe') {
+      var recipeKey = el.getAttribute('data-plan-key'), currentMeal = (Store.state().mealPlan || {})[recipeKey];
+      if (!recipeKey || !currentMeal) return;
+      var rb = el, rbt = rb.textContent;
+      rb.disabled = true; rb.textContent = 'Writing the recipe…';
+      Cloud.recipeForMeal(currentMeal, function (err, recipe) {
+        rb.disabled = false; rb.textContent = rbt;
+        if (err) { alert(err.message); return; }
+        var rplan = Object.assign({}, Store.state().mealPlan || {}), ps = recipeKey.split('|');
+        recipe.date = ps[0]; recipe.slot = ps[1] || recipe.slot;
+        rplan[recipeKey] = recipe;
+        Store.set('mealPlan', rplan);
+      });
       return;
     }
     if (action === 'generate-meals') {
@@ -541,7 +621,7 @@
       });
       return;
     }
-    if (action === 'log-meal') { Log.open('meal'); return; }
+    if (action === 'log-meal') { Log.open('meal', { slot: el.getAttribute('data-slot') || '' }); return; }
     if (action === 'describe-meal') { Log.open('meal'); return; }
     if (action === 'photograph-meal') { Log.photograph(); return; }
     if (action === 'scan-barcode') { Log.open('barcode'); return; }

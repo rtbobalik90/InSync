@@ -1118,3 +1118,26 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 }
 .chat-meta { margin-top: 5px; padding: 0 3px; font-size: 10.5px; color: var(--faint); letter-spacing: .02em; }
 .chat-empty { padding: 8px 0 4px; color: var(--muted); font-size: 13px; }
+
+/* 5.3 Nutrition: four permanent meal slots and a real weekly planner. */
+.mealslots { display: grid; gap: 14px; }
+.mealslotcard { overflow: hidden; }
+.mealslotempty { padding: 15px 17px 5px; }
+.addmealrow { border-top: 1px solid var(--rule); }
+.addmealrow .thumb { display: grid; place-items: center; }
+
+.plannercontrols { overflow: visible; }
+.weeknav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.weeknav .btn { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.pdhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,.018); }
+.pdhead > span:first-child { font-family: var(--serif); font-size: 15px; }
+.pdhead em { font-family: var(--sans); font-style: normal; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-left: 5px; }
+.recipefacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.recipefacts > div { border: 1px solid var(--rule); padding: 11px 12px; display: grid; gap: 4px; }
+.recipefacts strong { font-family: var(--serif); font-size: 20px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.ingredientlist { display: grid; }
+.ingredientrow { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.ingredientrow:last-child { border-bottom: 0; }
+.ingredientrow .note { text-align: right; flex: none; }
+.recipe-steps { margin: 0; padding-left: 21px; display: grid; gap: 12px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.recipe-steps li::marker { color: var(--gold); font-family: var(--serif); }

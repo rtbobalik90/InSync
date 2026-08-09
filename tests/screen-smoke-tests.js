@@ -115,6 +115,7 @@ Object.entries({
   reflection: 'reflection',
   trends: 'trends',
   planner: 'planner',
+  plannedMeal: 'planned-meal/2099-01-01/Breakfast',
   cookbook: 'cookbook',
   history: 'history',
   exercises: 'exercises',
@@ -124,6 +125,31 @@ Object.entries({
   meal: 'meal/unknown',
   handshake: 'handshake'
 }).forEach(([screenName, hash]) => check(screenName, hash, screenName === 'meal'));
+
+const plannedDate = Store.todayKey();
+const plannedKey = `${plannedDate}|Dinner`;
+Store.set('mealPlan', {
+  [plannedKey]: {
+    date: plannedDate, slot: 'Dinner', name: 'Chicken rice bowl', kcal: 620, protein: 48, carbs: 70, fat: 16,
+    servings: 1, prepMinutes: 25,
+    items: [{ name: 'Chicken breast', weight: '6 oz' }, { name: 'Rice', weight: '1 cup' }],
+    instructions: ['Cook the rice.', 'Cook the chicken.', 'Assemble the bowl.'], source: 'coach'
+  }
+});
+check('plannedMeal', `planned-meal/${plannedDate}/Dinner`);
+
+context.location.hash = '#nutrition';
+const nutritionHtml = context.Screens.nutrition();
+const nutritionSlots = ['Breakfast','Lunch','Dinner','Snack'];
+if (!nutritionSlots.every(slot => nutritionHtml.includes(`data-slot="${slot}"`))) {
+  failed += 1; console.error('FAIL nutrition does not expose all four explicit daily meal slots');
+} else passed += 1;
+context.location.hash = '#planner';
+const plannerHtml = context.Screens.planner();
+const slotCount = (plannerHtml.match(/class="planslot/g) || []).length;
+if (slotCount !== 28 || !/Snack/.test(plannerHtml)) {
+  failed += 1; console.error(`FAIL planner expected 28 daily slots, got ${slotCount}`);
+} else passed += 1;
 
 const workout = context.Exercises.expand([
   'dumbbell-chest-press',

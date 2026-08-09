@@ -64,7 +64,7 @@
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify(body)
-    }, 45000, 'Claude')
+    }, (opts && opts.timeoutMs) || 45000, 'Claude')
       .then(function (r) {
         return r.json().then(function (j) {
           if (!r.ok) throw new Error((j.error && j.error.message) || ('Claude ' + r.status));
@@ -534,6 +534,7 @@
       name: incomingName,
       initials: cleanText(raw.initials, 4),
       date: date,
+      startDate: validDateKey(raw.startDate) ? raw.startDate : '',
       updated: cleanText(raw.updated, 40),
       points: boundedNumber(raw.points, 0, 10, 0),
       streak: Math.round(boundedNumber(raw.streak, 0, 10000, 0)),
@@ -633,10 +634,11 @@
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
-      schema: 4,
+      schema: 5,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
+      startDate: Store.startKey ? Store.startKey() : (s.profile.startDate || k),
       updated: new Date().toISOString(),
       points: Store.points(k),
       streak: Store.streak(),
@@ -660,6 +662,7 @@
     };
     for (var h = 34; h >= 0; h--) {
       var hk = Store.shift(k, -h);
+      if (Store.activeOn && !Store.activeOn(hk)) continue;
       out.history.points[hk] = Store.points(hk);
       out.history.logged[hk] = !!Store.logged(hk);
     }
@@ -802,6 +805,13 @@
       } else if (typeof data.points === 'number') {
         hist[data.date] = data.points; loggedHist[data.date] = true;
       }
+      /* Schema 5 declares when that phone's journey actually began. Purge any
+         older cached values left by 5.2.x, whose recovery-day scoring could
+         manufacture points before onboarding. */
+      if (data.startDate) {
+        Object.keys(hist).forEach(function (k) { if (k < data.startDate) delete hist[k]; });
+        Object.keys(loggedHist).forEach(function (k) { if (k < data.startDate) delete loggedHist[k]; });
+      }
       var cutoff = Store.shift(Store.todayKey(), -45);
       Object.keys(hist).forEach(function (k) { if (!validDateKey(k) || k < cutoff) delete hist[k]; });
       Object.keys(loggedHist).forEach(function (k) { if (!validDateKey(k) || k < cutoff) delete loggedHist[k]; });
@@ -873,8 +883,9 @@
         ' g of protein a day. ' +
         (known.length ? 'They already eat: ' + known.slice(0, 12).join(', ') + '. Suggest different things. ' : '') +
         'Return ONLY JSON: {"meals":[{"name":"","slot":"Breakfast","kcal":0,"protein":0,"carbs":0,"fat":0,' +
-        '"items":[{"name":"","weight":"","kcal":0,"protein":0,"carbs":0,"fat":0}]}]}. ' +
-        'Ingredients matter - the shopping list is built from them.'
+        '"servings":1,"prepMinutes":0,"recipeNote":"",' +
+        '"items":[{"name":"","weight":"amount","kcal":0,"protein":0,"carbs":0,"fat":0}],"instructions":["step one"]}]}. ' +
+        'Ingredients and cooking steps matter - the shopping list and recipe view are built from them.'
     }], { system: VOICE, maxTokens: 1600 }, function (err, text) {
       if (err) return cb(err);
       var out;
@@ -883,6 +894,119 @@
         return cb(new Error('The coach\'s list came back incomplete. Try again.'));
       }
       cb(null, out.meals);
+    });
+  }
+
+  function cleanPlannedRecipe(raw, fallbackDate, fallbackSlot) {
+    if (!raw || Object.prototype.toString.call(raw) !== '[object Object]') return null;
+    var slot = cleanText(raw.slot || fallbackSlot, 20);
+    if (['Breakfast', 'Lunch', 'Dinner', 'Snack'].indexOf(slot) < 0) return null;
+    var date = validDateKey(raw.date) ? raw.date : fallbackDate;
+    if (!validDateKey(date)) return null;
+    var name = cleanText(raw.name, 160);
+    if (!name) return null;
+    var items = [];
+    if (Array.isArray(raw.items)) {
+      raw.items.slice(0, 24).forEach(function (it) {
+        if (!it || Object.prototype.toString.call(it) !== '[object Object]') return;
+        var ingredient = cleanText(it.name, 160);
+        if (!ingredient) return;
+        items.push({
+          name: ingredient,
+          weight: cleanText(it.weight || it.amount, 100),
+          kcal: 0, protein: 0, carbs: 0, fat: 0
+        });
+      });
+    }
+    var steps = Array.isArray(raw.instructions) ? raw.instructions.map(function (x) {
+      return cleanText(x, 420);
+    }).filter(Boolean).slice(0, 12) : [];
+    return {
+      date: date, slot: slot, name: name,
+      kcal: Math.round(boundedNumber(raw.kcal, 0, 2500, 0)),
+      protein: Math.round(boundedNumber(raw.protein, 0, 300, 0)),
+      carbs: Math.round(boundedNumber(raw.carbs, 0, 500, 0)),
+      fat: Math.round(boundedNumber(raw.fat, 0, 250, 0)),
+      servings: Math.round(boundedNumber(raw.servings, 1, 20, 1)),
+      prepMinutes: Math.round(boundedNumber(raw.prepMinutes, 0, 360, 0)),
+      recipeNote: cleanText(raw.recipeNote, 500),
+      instructions: steps,
+      items: items,
+      source: 'coach'
+    };
+  }
+
+  /* A real planner, not six loose suggestions. The contract is deliberately
+     strict: one recipe for every Breakfast/Lunch/Dinner/Snack slot across the
+     seven dated days. That lets the UI, shopping list and daily log all point
+     at the same objects without guessing what Claude meant. */
+  function planMealsWeek(weekOf, cb) {
+    weekOf = validDateKey(weekOf) ? weekOf : Store.weekStart(Store.todayKey());
+    var S = Store.state(), tg = S.targets, dates = [], known = [];
+    for (var i = 0; i < 7; i++) dates.push(Store.shift(weekOf, i));
+    Object.keys(S.days || {}).sort().reverse().slice(0, 21).forEach(function (k) {
+      (S.days[k].meals || []).forEach(function (m) {
+        if (m && m.name && known.indexOf(m.name) < 0) known.push(m.name);
+      });
+    });
+    var dayList = dates.map(function (d) {
+      return d + ' (' + new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }) + ')';
+    }).join(', ');
+    var prompt =
+      'Build a complete seven-day meal plan for ' + me() + '. Goal: ' + S.goal.replace(/-/g, ' ') + '. ' +
+      'Daily target: about ' + tg.calories + ' kcal and at least ' + tg.protein + ' g protein. ' +
+      'The seven dates are: ' + dayList + '. ' +
+      (known.length ? 'Meals they have already logged include: ' + known.slice(0, 14).join(', ') + '. You may reuse a good fit occasionally but do not repeat the same day over and over. ' : '') +
+      'Use ordinary grocery-store foods, practical portions, and purposeful ingredient overlap so the shopping list is reasonable. ' +
+      'Keep most recipes under 35 minutes and make snacks genuinely snack-sized. Do not assume allergies or dietary restrictions that were not provided. ' +
+      'Return EXACTLY 28 meals: Breakfast, Lunch, Dinner and Snack for each of the seven dates. ' +
+      'Each meal needs enough information to cook it. Ingredient amount belongs in weight (examples: "6 oz", "1 cup", "2 large"). ' +
+      'Nutrition values are for one planned serving. Across each full day, aim for 90-105% of the calorie target and at least the protein target. ' +
+      'Return ONLY JSON in this shape: ' +
+      '{"meals":[{"date":"YYYY-MM-DD","slot":"Breakfast","name":"","kcal":0,"protein":0,"carbs":0,"fat":0,' +
+      '"servings":1,"prepMinutes":0,"recipeNote":"optional prep/storage note",' +
+      '"items":[{"name":"ingredient","weight":"amount"}],"instructions":["step one","step two"]}]}. ' +
+      'Do not use markdown.';
+
+    claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 7600, timeoutMs: 90000 }, function (err, text) {
+      if (err) return cb(err);
+      var out;
+      try { out = extractJson(text); } catch (e) { return cb(new Error('The coach\'s weekly plan could not be read. Try again.')); }
+      if (!out || !Array.isArray(out.meals)) return cb(new Error('The coach returned no weekly meals. Try again.'));
+      var map = {}, slots = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+      out.meals.forEach(function (m) {
+        var cleaned = cleanPlannedRecipe(m, '', '');
+        if (!cleaned || dates.indexOf(cleaned.date) < 0) return;
+        var key = cleaned.date + '|' + cleaned.slot;
+        if (!map[key]) map[key] = cleaned;
+      });
+      var missing = [];
+      dates.forEach(function (d) {
+        slots.forEach(function (sl) { if (!map[d + '|' + sl]) missing.push(d + ' ' + sl); });
+      });
+      if (missing.length) {
+        return cb(new Error('The coach missed ' + missing.length + ' meal slot' + (missing.length === 1 ? '' : 's') + '. Nothing was replaced; try the week again.'));
+      }
+      cb(null, map);
+    });
+  }
+
+  function recipeForMeal(meal, cb) {
+    meal = meal || {};
+    if (!cleanText(meal.name, 160)) return cb(new Error('Choose a meal first.'));
+    var prompt = 'Turn this planned meal into a practical recipe without changing its nutrition target more than necessary. ' +
+      'Meal: ' + cleanText(meal.name, 160) + '. Slot: ' + cleanText(meal.slot, 20) + '. ' +
+      'Target nutrition: ' + Math.round(+meal.kcal || 0) + ' kcal, ' + Math.round(+meal.protein || 0) + ' g protein, ' +
+      Math.round(+meal.carbs || 0) + ' g carbs, ' + Math.round(+meal.fat || 0) + ' g fat. ' +
+      'Return ONLY JSON: {"name":"","slot":"' + cleanText(meal.slot, 20) + '","kcal":0,"protein":0,"carbs":0,"fat":0,' +
+      '"servings":1,"prepMinutes":0,"recipeNote":"","items":[{"name":"","weight":""}],"instructions":[""]}.';
+    claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
+      if (err) return cb(err);
+      var out;
+      try { out = extractJson(text); } catch (e) { return cb(new Error('The recipe could not be read. Try again.')); }
+      var cleaned = cleanPlannedRecipe(out, meal.date || Store.todayKey(), meal.slot || 'Dinner');
+      if (!cleaned || !cleaned.instructions.length || !cleaned.items.length) return cb(new Error('The recipe came back incomplete. Try again.'));
+      cb(null, cleaned);
     });
   }
 
@@ -973,7 +1097,7 @@
   }
 
   window.Cloud = {
-    suggestMeals: suggestMeals,
+    suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, recipeForMeal: recipeForMeal,
     proposeTargets: proposeTargets,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,

@@ -99,13 +99,13 @@ GitHub sync is **not** the full backup. Use **Settings → Your data → Create 
 
 ## Together messages and automatic sync
 
-Together is a rolling two-person conversation. Tapping **Send** clears the composer immediately and places the message into the thread. Each phone owns the messages it authored; the private repository carries up to the latest 50 authored messages per person using sync schema 4.
+Together is a rolling two-person conversation. Tapping **Send** clears the composer immediately and places the message into the thread. Each phone owns the messages it authored; the private repository carries up to the latest 50 authored messages per person using sync schema 5.
 
 A sent message is pushed immediately when connectivity is available. While InSync is visible, it performs a read-only partner refresh about once per minute, and opening Together requests an immediate refresh. Launching the app, returning it to the foreground, or regaining internet also triggers synchronization. iOS can suspend a Home Screen PWA in the background, so a suspended phone catches up when InSync is opened or resumed. **Sync now** remains available for troubleshooting but is not required for ordinary use.
 
 ## Expedition synchronization
 
-Expedition progress and Together conversations use sync schema 4. A partner payload identifies the route and leg that its mileage belongs to, preventing miles from a completed leg from leaking into the next leg when one phone advances first.
+Expedition progress and Together conversations use sync schema 5. The payload also carries each person's real InSync start date so pre-install days can never become phantom Together points. A partner payload identifies the route and leg that its mileage belongs to, preventing miles from a completed leg from leaking into the next leg when one phone advances first.
 
 If one phone learns that the other has already advanced the same route, it follows the monotonic leg index and establishes a safe local step baseline. Stale partner files cannot move a route backward. A completed route has no current leg and cannot be advanced again.
 
@@ -122,6 +122,18 @@ The daily score is 10 points:
 - 1 — weigh-in
 
 A legitimate recovery day can earn 10/10. A day's score basis is frozen when meaningful activity is logged so changing future targets or replacing the weekly plan cannot rewrite completed history.
+
+## Nutrition and weekly meal planning
+
+Nutrition always presents four daily destinations: **Breakfast, Lunch, Dinner and Snack**. Each slot can hold multiple entries, and tapping a slot opens the logger already assigned to that meal rather than defaulting everything to Breakfast.
+
+The Meal Planner is date-based and keeps separate weeks. It provides Previous / This week / Next navigation and 28 explicit slots per week (four meals × seven days). With Claude configured, **Build my week** generates a complete week around the current calorie/protein targets. Every generated planned meal includes nutrition, servings, prep time, ingredient amounts, a practical recipe note and step-by-step instructions. Opening a planned meal shows the recipe; a meal planned for today can be sent directly into the daily log. The shopping list is derived from the ingredient lists for the displayed week.
+
+On Sunday, an untouched planner opens on the upcoming Monday-Sunday week so weekly preparation does not default to a nearly completed week. Existing weeks remain stored independently; rebuilding or clearing one displayed week does not erase other weeks.
+
+## Journey start and weekly points
+
+The Together weekly chart begins on the person's actual InSync start date. Dates before that boundary are blank rather than scored. This is important because a planned recovery day is worth three points: without an explicit start boundary, looking backward over a brand-new week could accidentally manufacture recovery points for days before the app existed. Sync schema 5 carries the start date to the partner phone and removes cached partner history from before that date.
 
 ## Training plans
 
@@ -152,19 +164,21 @@ The optimized asset directory is approximately 27 MiB, down from roughly 148 MiB
 
 ## Release verification
 
-Run all three ship suites:
+Run all four ship suites:
 
 ```bash
 node tests/stabilization-tests.js
 node tests/cloud-sync-tests.js
 node tests/screen-smoke-tests.js
+node tests/meal-planner-tests.js
 ```
 
-App **5.2.3**, state schema **v10**, sync schema **4** currently passes:
+App **5.3.0**, state schema **v10**, sync schema **5** currently passes:
 
-- **465** stabilization/regression checks;
+- **469** stabilization/regression checks;
 - **23** sync concurrency/reconciliation checks;
-- **50** screen-render/malformed-state checks;
-- **538 total checks, 0 failures**.
+- **54** screen-render/malformed-state checks;
+- **11** dedicated weekly meal-planner checks;
+- **557 total checks, 0 failures**.
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the third-pass findings and the remaining real-iPhone acceptance gate.

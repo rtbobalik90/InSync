@@ -54,6 +54,7 @@
     planMeta: {},
     mealIdeas: [],
     mealPlan: {},
+    mealPlannerWeek: '',
     shopTicked: {},
     proposal: null,
     lastArrival: null,
@@ -305,6 +306,7 @@
       S.partnerData.name = shortText(S.partnerData.name, 100);
       S.partnerData.initials = shortText(S.partnerData.initials, 4);
       S.partnerData.date = validDateKey(S.partnerData.date) ? String(S.partnerData.date) : '';
+      S.partnerData.startDate = validDateKey(S.partnerData.startDate) ? String(S.partnerData.startDate) : '';
       S.partnerData.note = shortText(S.partnerData.note, 2000);
       S.partnerData.noteDate = validDateKey(S.partnerData.noteDate) ? String(S.partnerData.noteDate) : S.partnerData.date;
       S.partnerData.points = finiteOr(S.partnerData.points, 0, 0, 10);
@@ -382,6 +384,13 @@
           fat: Math.max(0, finiteOr(it.fat, 0, 0, 100000))
         };
       }) : null;
+      m.servings = Math.max(1, Math.min(20, Math.round(finiteOr(m.servings, 1, 1, 20))));
+      m.prepMinutes = Math.max(0, Math.min(360, Math.round(finiteOr(m.prepMinutes, 0, 0, 360))));
+      m.instructions = Array.isArray(m.instructions) ? m.instructions.map(function (step) {
+        return shortText(step, 500);
+      }).filter(Boolean).slice(0, 16) : [];
+      m.recipeNote = shortText(m.recipeNote, 600);
+      m.source = ['coach', 'saved', 'manual'].indexOf(m.source) >= 0 ? m.source : '';
       return m;
     }
 
@@ -389,12 +398,25 @@
       ? S.mealIdeas.filter(plainObject).slice(0, 60).map(cleanPlannedMeal).filter(Boolean)
       : [];
     if (!plainObject(S.mealPlan)) S.mealPlan = {};
-    var allowedPlanSlot = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Breakfast|Lunch|Dinner)$/;
+    /* 5.2.x stored planner positions as Mon-Breakfast. Move any surviving
+       entries onto the dated week once so a release update does not silently
+       erase a plan somebody had already made. */
+    var legacyPlanDays = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+    var legacyWeek = weekStart(todayKey());
+    Object.keys(S.mealPlan).forEach(function (k) {
+      var m = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Breakfast|Lunch|Dinner|Snack)$/.exec(k);
+      if (!m) return;
+      var dated = shift(legacyWeek, legacyPlanDays[m[1]]) + '|' + m[2];
+      if (!S.mealPlan[dated]) S.mealPlan[dated] = S.mealPlan[k];
+      delete S.mealPlan[k];
+    });
+    var allowedPlanSlot = /^\d{4}-\d{2}-\d{2}\|(Breakfast|Lunch|Dinner|Snack)$/;
     Object.keys(S.mealPlan).forEach(function (k) {
       if (!safeKey(k) || !allowedPlanSlot.test(k)) { delete S.mealPlan[k]; return; }
       var cleaned = cleanPlannedMeal(S.mealPlan[k]);
       if (!cleaned) delete S.mealPlan[k]; else S.mealPlan[k] = cleaned;
     });
+    S.mealPlannerWeek = validDateKey(S.mealPlannerWeek) ? String(S.mealPlannerWeek) : '';
     if (!plainObject(S.shopTicked)) S.shopTicked = {};
     Object.keys(S.shopTicked).slice(500).forEach(function (k) { delete S.shopTicked[k]; });
     Object.keys(S.shopTicked).forEach(function (k) {
@@ -512,7 +534,7 @@
       if (!S.invite.updatedAt) S.invite.updatedAt = S.invite.nudgedAt || S.invite.at || '';
     }
 
-    /* 5.2.3 turns the old single latest-note mailbox into a real rolling
+    /* This migration turns the old single latest-note mailbox into a real rolling
        conversation. Preserve the latest legacy note once so an upgrade does
        not make a message the user just sent disappear. */
     if (!S.sentMessages.length) {
@@ -751,13 +773,27 @@
     { key: 'weighin', value: 1, label: 'Weighed in', done: function (k) { return day(k).weight != null; } }
   ];
 
+  function activeOn(key) {
+    key = key || todayKey();
+    return key >= startKey();
+  }
+
   function points(key) {
     key = key || todayKey();
+    /* Before the journey began there was no contest. Without this guard a
+       scheduled recovery day is worth three points, so a brand-new Sunday
+       install could appear to have earned points earlier in the same week. */
+    if (!activeOn(key)) return 0;
     return POINTS.reduce(function (a, p) { return a + (p.done(key) ? p.value : 0); }, 0);
   }
 
   function pointRows(key) {
     key = key || todayKey();
+    if (!activeOn(key)) {
+      return POINTS.map(function (p) {
+        return { key: p.key, label: p.label, value: p.value, done: false };
+      });
+    }
     var ts = trainingStatus(key);
     return POINTS.map(function (p) {
       return { key: p.key, label: p.key === 'workout' ? ts.label : p.label, value: p.value, done: p.done(key) };
@@ -1575,7 +1611,7 @@
   window.Store = {
     state: function () { return S; },
     day: day, dayAt: function (n) { return day(shift(todayKey(), n || 0)); },
-    weekStart: weekStart,
+    weekStart: weekStart, startKey: startKey, activeOn: activeOn,
     todayKey: todayKey, shift: shift, iso: iso,
     planFor: planFor, trainingStatus: trainingStatus, scoreTargets: scoreTargets, calorieRange: calorieRange, caloriesInRange: caloriesInRange,
     totals: totals, streak: streak, daysIn: daysIn, logged: logged,
