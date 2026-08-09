@@ -173,12 +173,17 @@ node tests/screen-smoke-tests.js
 node tests/meal-planner-tests.js
 ```
 
-App **5.3.0**, state schema **v10**, sync schema **5** currently passes:
+App **5.4.0**, state schema **v10**, sync schema **5** currently passes:
 
-- **469** stabilization/regression checks;
+- **485** stabilization/regression checks;
 - **23** sync concurrency/reconciliation checks;
 - **54** screen-render/malformed-state checks;
 - **11** dedicated weekly meal-planner checks;
-- **557 total checks, 0 failures**.
+- **573 total checks, 0 failures**.
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the third-pass findings and the remaining real-iPhone acceptance gate.
+
+
+## Meal-prep preferences (5.4.0)
+
+The weekly Meal Planner is home-cooked only. Before generation, the user can select cuisines and primary proteins and enter like/avoid keywords. Favorites are reusable recipe snapshots and are intentionally brought back into later compatible weeks; “Not for me” meals are excluded from future generations. Finished-meal photos live in IndexedDB, are included in complete device backups, and never enter the two-person GitHub sync payload.

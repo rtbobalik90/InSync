@@ -42,7 +42,43 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
 
   setClaudeResponse(weekPayload(week,27));
   result=await plan(week);
-  ok(!!result.err && /missed 1 meal slot/i.test(result.err.message),'an incomplete 27-slot week is rejected atomically');
+  ok(!!result.err && /missed or rejected 1 meal slot/i.test(result.err.message),'an incomplete 27-slot week is rejected atomically');
+
+  // The generator is home-cooked only: a restaurant/fast-food chain in any slot
+  // causes the whole atomic rebuild to be rejected instead of sneaking through.
+  const fast=weekPayload(week); fast.meals[0].name='McDonald\'s Egg McMuffin';
+  setClaudeResponse(fast); result=await plan(week);
+  ok(!!result.err && /missed or rejected/i.test(result.err.message),'fast-food or chain-brand meals are rejected from generated weeks');
+
+  // User taste preferences must actually reach the prompt and become a hard
+  // filter, not just decorate the planner screen.
+  S.set('mealPrefs',{cuisines:['Mexican','Indian'],proteins:['Chicken','Beef'],likes:'spicy, rice bowls',avoid:'mushrooms, olives'});
+  let promptBody='';
+  ctx.fetch=(url,opts)=>{ promptBody=JSON.parse(opts.body).messages[0].content; return Promise.resolve({ok:true,status:200,json:()=>Promise.resolve({content:[{type:'text',text:JSON.stringify(weekPayload(week))}]})}); };
+  result=await plan(week);
+  ok(!result.err,'preference-aware week still generates successfully');
+  ok(promptBody.includes('Selected cuisines for this week: Mexican, Indian') && promptBody.includes('Selected protein choices: Chicken, Beef'),'cuisine and protein choices are sent to the meal coach');
+  ok(promptBody.includes('Foods/flavors they like: spicy, rice bowls') && promptBody.includes('Foods/flavors they do NOT like or want: mushrooms, olives'),'like and avoid keywords are sent to the meal coach');
+
+  // A forbidden ingredient is rejected even if Claude ignored the written preference.
+  const avoidPayload=weekPayload(week); avoidPayload.meals[3].items.push({name:'Mushrooms',weight:'1 cup'});
+  setClaudeResponse(avoidPayload); result=await plan(week);
+  ok(!!result.err && /missed or rejected/i.test(result.err.message),'avoid keywords are enforced against returned ingredients');
+
+  // Favorites are not passive metadata: a compatible favorite is inserted back
+  // into a generated week, with its old finished-photo reference cleared.
+  S.set('mealPrefs',{cuisines:[],proteins:[],likes:'',avoid:''});
+  S.set('mealFavorites',[{name:'Robert Favorite Chicken Bowl',slot:'Dinner',kcal:610,protein:52,carbs:58,fat:16,servings:1,prepMinutes:25,cuisine:'Mexican',proteins:['Chicken'],photoId:'old-finished-photo',items:[{name:'Chicken breast',weight:'6 oz'},{name:'Rice',weight:'1 cup'}],instructions:['Cook chicken.','Build bowl.'],source:'favorite'}]);
+  setClaudeResponse(weekPayload(week)); result=await plan(week);
+  ok(!result.err,'week with a saved favorite generates successfully');
+  const favoriteReturn=Object.values(result.map).find(m=>m.name==='Robert Favorite Chicken Bowl');
+  ok(!!favoriteReturn,'a compatible favorite deliberately reappears in the generated week');
+  eq(favoriteReturn && favoriteReturn.photoId,'','a repeated favorite starts as a new occurrence without reusing the old finished photo');
+
+  S.set('mealDislikedMeals',['Breakfast 1']);
+  setClaudeResponse(weekPayload(week)); result=await plan(week);
+  ok(!!result.err && /missed or rejected/i.test(result.err.message),'thumbs-downed meal names cannot return in a generated week');
+  S.set('mealDislikedMeals',[]); S.set('mealFavorites',[]);
 
   const storeText=fs.readFileSync(path.join(ROOT,'store.js'),'utf8');
   const screenText=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
@@ -50,7 +86,10 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   ok(storeText.includes('(Breakfast|Lunch|Dinner|Snack)'), 'planner persistence accepts all four meal slots');
   ok(screenText.includes("var PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack']"),'planner UI permanently defines all four daily slots');
   ok(screenText.includes('planned-meal/') && screenText.includes('Ingredients') && screenText.includes('Make it'),'planned meals open into recipe detail with ingredients and method');
+  ok(screenText.includes('Plan preferences') && screenText.includes('Home-cooked only') && screenText.includes('PLAN_CUISINES') && screenText.includes('PLAN_PROTEINS'),'planner exposes home-cooked cuisine, protein and taste controls before generation');
+  ok(screenText.includes('add-planned-photo') && screenText.includes('favorite-planned-meal') && screenText.includes('dislike-planned-meal'),'recipe detail exposes finished photo, favorite and thumbs-down controls');
   ok(appText.includes("action === 'build-meal-week'") && appText.includes("action === 'log-planned-meal'"),'weekly generation and planned-meal logging actions are wired');
+  ok(appText.includes("action === 'meal-pref-chip'") && appText.includes("action === 'add-planned-photo'"),'meal preference and finished-photo actions are wired');
 
   console.log(`\n${passed} meal-planner checks passed, ${failed} failed`);
   if(failed) process.exitCode=1;

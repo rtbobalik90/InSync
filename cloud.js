@@ -930,10 +930,64 @@
       servings: Math.round(boundedNumber(raw.servings, 1, 20, 1)),
       prepMinutes: Math.round(boundedNumber(raw.prepMinutes, 0, 360, 0)),
       recipeNote: cleanText(raw.recipeNote, 500),
+      cuisine: cleanText(raw.cuisine, 60),
+      proteins: Array.isArray(raw.proteins) ? raw.proteins.map(function (x) { return cleanText(x, 60); }).filter(Boolean).slice(0, 8) : [],
       instructions: steps,
       items: items,
       source: 'coach'
     };
+  }
+
+  function normalizedMealName(name) {
+    return cleanText(name, 200).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  var FAST_FOOD_TERMS = [
+    'mcdonald', 'burger king', 'wendy', 'taco bell', 'chipotle', 'chick-fil-a', 'chick fil a',
+    'kfc', 'popeyes', 'subway', 'domino', 'pizza hut', 'little caesars', 'five guys',
+    'culver', 'panera', 'starbucks', 'dunkin', 'arbys', 'arby', 'sonic drive', 'takeout',
+    'take-out', 'drive thru', 'drive-thru', 'restaurant meal', 'fast food', 'meal delivery'
+  ];
+  function fastFoodLike(meal) {
+    var text = [meal && meal.name || ''].concat((meal && meal.items || []).map(function (x) { return x.name || ''; })).join(' ').toLowerCase();
+    return FAST_FOOD_TERMS.some(function (term) { return text.indexOf(term) >= 0; });
+  }
+  function preferenceTerms(text) {
+    return cleanText(text, 1200).toLowerCase().split(/[,;\n]/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length >= 2; }).slice(0, 40);
+  }
+  function conflictsWithAvoids(meal, avoids) {
+    if (!avoids.length) return '';
+    var hay = [meal.name || ''].concat((meal.items || []).map(function (x) { return x.name || ''; })).join(' ').toLowerCase();
+    for (var i = 0; i < avoids.length; i++) if (hay.indexOf(avoids[i]) >= 0) return avoids[i];
+    return '';
+  }
+
+  /* Favorites are not just a heart on a card. If the user has compatible
+     favorites, bring up to two back into every generated week so the planner
+     learns their real rotation instead of inventing twenty-eight new meals. */
+  function reintroduceFavorites(map, favorites, prefs, disliked) {
+    if (!favorites.length) return map;
+    disliked = disliked || [];
+    var dislikedKeys = disliked.map(normalizedMealName);
+    var selectedCuisines = prefs.cuisines || [], selectedProteins = prefs.proteins || [];
+    var compatible = favorites.filter(function (m) {
+      if (!m || !m.name || ['Breakfast','Lunch','Dinner','Snack'].indexOf(m.slot) < 0) return false;
+      if (dislikedKeys.indexOf(normalizedMealName(m.name)) >= 0) return false;
+      if (selectedCuisines.length && m.cuisine && selectedCuisines.indexOf(m.cuisine) < 0) return false;
+      if (selectedProteins.length && Array.isArray(m.proteins) && m.proteins.length &&
+          !m.proteins.some(function (x) { return selectedProteins.indexOf(x) >= 0; })) return false;
+      return !fastFoodLike(m);
+    }).slice(-2);
+    var used = {};
+    compatible.forEach(function (fav) {
+      var candidates = Object.keys(map).filter(function (k) { return k.split('|')[1] === fav.slot && !used[k]; });
+      if (!candidates.length) return;
+      candidates.sort(function (a, b) { return Math.abs((map[a].kcal || 0) - (fav.kcal || 0)) - Math.abs((map[b].kcal || 0) - (fav.kcal || 0)); });
+      var key = candidates[0], bits = key.split('|');
+      used[key] = true;
+      map[key] = Object.assign({}, fav, { date: bits[0], slot: bits[1], source: 'favorite', photoId: '' });
+    });
+    return map;
   }
 
   /* A real planner, not six loose suggestions. The contract is deliberately
@@ -949,24 +1003,31 @@
         if (m && m.name && known.indexOf(m.name) < 0) known.push(m.name);
       });
     });
+    var prefs = S.mealPrefs || {}, favorites = Array.isArray(S.mealFavorites) ? S.mealFavorites : [];
+    var disliked = Array.isArray(S.mealDislikedMeals) ? S.mealDislikedMeals : [];
     var dayList = dates.map(function (d) {
       return d + ' (' + new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }) + ')';
     }).join(', ');
+    var favNames = favorites.slice(-12).map(function (m) { return m.name; }).filter(Boolean);
     var prompt =
-      'Build a complete seven-day meal plan for ' + me() + '. Goal: ' + S.goal.replace(/-/g, ' ') + '. ' +
+      'Build a complete seven-day HOME-COOKED meal-prep plan for ' + me() + '. Goal: ' + S.goal.replace(/-/g, ' ') + '. ' +
       'Daily target: about ' + tg.calories + ' kcal and at least ' + tg.protein + ' g protein. ' +
       'The seven dates are: ' + dayList + '. ' +
+      'NON-NEGOTIABLE: no fast food, restaurant orders, takeout, drive-thru meals, meal-delivery dishes, or restaurant/chain brand names. Every meal must be made from grocery-store ingredients at home. ' +
+      ((prefs.cuisines || []).length ? 'Selected cuisines for this week: ' + prefs.cuisines.join(', ') + '. Keep the week within these cuisines. ' : 'Cuisine is open; use a varied home-cooked mix. ') +
+      ((prefs.proteins || []).length ? 'Selected protein choices: ' + prefs.proteins.join(', ') + '. Use these as the primary proteins for the week. ' : '') +
+      (cleanText(prefs.likes, 1200) ? 'Foods/flavors they like: ' + cleanText(prefs.likes, 1200) + '. Lean toward these. ' : '') +
+      (cleanText(prefs.avoid, 1200) ? 'Foods/flavors they do NOT like or want: ' + cleanText(prefs.avoid, 1200) + '. Do not use them. ' : '') +
+      (disliked.length ? 'Meals they have explicitly thumbs-downed and must NOT return: ' + disliked.slice(-30).join(', ') + '. ' : '') +
+      (favNames.length ? 'Favorite meals they want to see again: ' + favNames.join(', ') + '. Reuse compatible favorites naturally instead of always inventing new food. ' : '') +
       (known.length ? 'Meals they have already logged include: ' + known.slice(0, 14).join(', ') + '. You may reuse a good fit occasionally but do not repeat the same day over and over. ' : '') +
-      'Use ordinary grocery-store foods, practical portions, and purposeful ingredient overlap so the shopping list is reasonable. ' +
-      'Keep most recipes under 35 minutes and make snacks genuinely snack-sized. Do not assume allergies or dietary restrictions that were not provided. ' +
-      'Return EXACTLY 28 meals: Breakfast, Lunch, Dinner and Snack for each of the seven dates. ' +
-      'Each meal needs enough information to cook it. Ingredient amount belongs in weight (examples: "6 oz", "1 cup", "2 large"). ' +
-      'Nutrition values are for one planned serving. Across each full day, aim for 90-105% of the calorie target and at least the protein target. ' +
+      'Use practical portions and purposeful ingredient overlap so grocery shopping and batch prep are reasonable. Keep most recipes under 35 minutes and make snacks genuinely snack-sized. ' +
+      'Return EXACTLY 28 meals: Breakfast, Lunch, Dinner and Snack for each of the seven dates. Every meal must contain at least two grocery ingredients and at least one real preparation/cooking instruction. ' +
+      'Ingredient amount belongs in weight (examples: "6 oz", "1 cup", "2 large"). Nutrition values are for one planned serving. Across each full day, aim for 90-105% of the calorie target and at least the protein target. ' +
       'Return ONLY JSON in this shape: ' +
-      '{"meals":[{"date":"YYYY-MM-DD","slot":"Breakfast","name":"","kcal":0,"protein":0,"carbs":0,"fat":0,' +
+      '{"meals":[{"date":"YYYY-MM-DD","slot":"Breakfast","name":"","cuisine":"Mexican","proteins":["Chicken"],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
       '"servings":1,"prepMinutes":0,"recipeNote":"optional prep/storage note",' +
-      '"items":[{"name":"ingredient","weight":"amount"}],"instructions":["step one","step two"]}]}. ' +
-      'Do not use markdown.';
+      '"items":[{"name":"ingredient","weight":"amount"}],"instructions":["step one","step two"]}]}. Do not use markdown.';
 
     claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 7600, timeoutMs: 90000 }, function (err, text) {
       if (err) return cb(err);
@@ -977,6 +1038,10 @@
       out.meals.forEach(function (m) {
         var cleaned = cleanPlannedRecipe(m, '', '');
         if (!cleaned || dates.indexOf(cleaned.date) < 0) return;
+        if (fastFoodLike(cleaned)) return;
+        if (!cleaned.items || cleaned.items.length < 2 || !cleaned.instructions || !cleaned.instructions.length) return;
+        if (conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid))) return;
+        if (disliked.some(function (x) { return normalizedMealName(x) === normalizedMealName(cleaned.name); })) return;
         var key = cleaned.date + '|' + cleaned.slot;
         if (!map[key]) map[key] = cleaned;
       });
@@ -985,27 +1050,32 @@
         slots.forEach(function (sl) { if (!map[d + '|' + sl]) missing.push(d + ' ' + sl); });
       });
       if (missing.length) {
-        return cb(new Error('The coach missed ' + missing.length + ' meal slot' + (missing.length === 1 ? '' : 's') + '. Nothing was replaced; try the week again.'));
+        return cb(new Error('The coach missed or rejected ' + missing.length + ' meal slot' + (missing.length === 1 ? '' : 's') + '. Nothing was replaced; try the week again.'));
       }
-      cb(null, map);
+      cb(null, reintroduceFavorites(map, favorites, prefs, disliked));
     });
   }
 
   function recipeForMeal(meal, cb) {
     meal = meal || {};
     if (!cleanText(meal.name, 160)) return cb(new Error('Choose a meal first.'));
-    var prompt = 'Turn this planned meal into a practical recipe without changing its nutrition target more than necessary. ' +
+    var prefs = Store.state().mealPrefs || {};
+    var prompt = 'Turn this planned meal into a practical HOME-COOKED recipe without changing its nutrition target more than necessary. ' +
+      'Never turn it into fast food, restaurant takeout, a chain-brand meal, or meal delivery. Use grocery-store ingredients. ' +
       'Meal: ' + cleanText(meal.name, 160) + '. Slot: ' + cleanText(meal.slot, 20) + '. ' +
+      (cleanText(prefs.avoid, 1200) ? 'Avoid these foods/flavors: ' + cleanText(prefs.avoid, 1200) + '. ' : '') +
       'Target nutrition: ' + Math.round(+meal.kcal || 0) + ' kcal, ' + Math.round(+meal.protein || 0) + ' g protein, ' +
       Math.round(+meal.carbs || 0) + ' g carbs, ' + Math.round(+meal.fat || 0) + ' g fat. ' +
-      'Return ONLY JSON: {"name":"","slot":"' + cleanText(meal.slot, 20) + '","kcal":0,"protein":0,"carbs":0,"fat":0,' +
+      'Return ONLY JSON: {"name":"","slot":"' + cleanText(meal.slot, 20) + '","cuisine":"","proteins":[],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
       '"servings":1,"prepMinutes":0,"recipeNote":"","items":[{"name":"","weight":""}],"instructions":[""]}.';
     claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
       if (err) return cb(err);
       var out;
       try { out = extractJson(text); } catch (e) { return cb(new Error('The recipe could not be read. Try again.')); }
       var cleaned = cleanPlannedRecipe(out, meal.date || Store.todayKey(), meal.slot || 'Dinner');
-      if (!cleaned || !cleaned.instructions.length || !cleaned.items.length) return cb(new Error('The recipe came back incomplete. Try again.'));
+      if (!cleaned || !cleaned.instructions.length || cleaned.items.length < 2 || fastFoodLike(cleaned) || conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid))) {
+        return cb(new Error('The recipe came back incomplete or outside your meal preferences. Try again.'));
+      }
       cb(null, cleaned);
     });
   }

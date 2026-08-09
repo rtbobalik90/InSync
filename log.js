@@ -994,7 +994,7 @@
     }
     var plan = Object.assign({}, Store.state().mealPlan || {});
     var parts = pendingSlot.split('|'), date = parts[0], slot = parts[1] || meal.slot || 'Dinner';
-    meal = Object.assign({}, meal, { date: date, slot: slot, source: meal.source || 'saved' });
+    meal = Object.assign({}, meal, { date: date, slot: slot, source: meal.source || 'saved', photoId: '' });
     plan[pendingSlot] = meal;
     Store.set('mealPlan', plan);
     if (date && Store.weekStart) Store.set('mealPlannerWeek', Store.weekStart(date));

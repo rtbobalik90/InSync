@@ -56,6 +56,11 @@
     mealPlan: {},
     mealPlannerWeek: '',
     shopTicked: {},
+    /* Meal-prep taste memory stays on this device. Favorites are full recipe
+       snapshots so they can be reused even when the original planned week is gone. */
+    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '' },
+    mealFavorites: [],
+    mealDislikedMeals: [],
     proposal: null,
     lastArrival: null,
     lastFinish: null,
@@ -390,7 +395,10 @@
         return shortText(step, 500);
       }).filter(Boolean).slice(0, 16) : [];
       m.recipeNote = shortText(m.recipeNote, 600);
-      m.source = ['coach', 'saved', 'manual'].indexOf(m.source) >= 0 ? m.source : '';
+      m.cuisine = shortText(m.cuisine, 60);
+      m.proteins = Array.isArray(m.proteins) ? m.proteins.map(function (x) { return shortText(x, 60); }).filter(Boolean).slice(0, 8) : [];
+      m.photoId = shortText(m.photoId, 220);
+      m.source = ['coach', 'saved', 'manual', 'favorite'].indexOf(m.source) >= 0 ? m.source : '';
       return m;
     }
 
@@ -423,6 +431,33 @@
       if (!safeKey(k) || k.length > 220 || !S.shopTicked[k]) delete S.shopTicked[k];
       else S.shopTicked[k] = true;
     });
+
+    var allowedCuisines = ['Mexican','Chinese','Indian','American','Italian','Mediterranean','Thai','Japanese','Korean','Greek','Middle Eastern','Cajun'];
+    var allowedProteins = ['Chicken','Beef','Turkey','Pork','Fish','Shrimp','Eggs','Vegetarian'];
+    if (!plainObject(S.mealPrefs)) S.mealPrefs = clone(DEFAULT.mealPrefs);
+    S.mealPrefs.cuisines = Array.isArray(S.mealPrefs.cuisines) ? S.mealPrefs.cuisines.filter(function (x, i, a) {
+      return allowedCuisines.indexOf(x) >= 0 && a.indexOf(x) === i;
+    }).slice(0, allowedCuisines.length) : [];
+    S.mealPrefs.proteins = Array.isArray(S.mealPrefs.proteins) ? S.mealPrefs.proteins.filter(function (x, i, a) {
+      return allowedProteins.indexOf(x) >= 0 && a.indexOf(x) === i;
+    }).slice(0, allowedProteins.length) : [];
+    S.mealPrefs.likes = shortText(S.mealPrefs.likes, 1200);
+    S.mealPrefs.avoid = shortText(S.mealPrefs.avoid, 1200);
+    S.mealFavorites = Array.isArray(S.mealFavorites) ? S.mealFavorites.filter(plainObject).map(cleanPlannedMeal).filter(Boolean).slice(-60) : [];
+    /* One favorite per normalized recipe name. The newest snapshot wins. */
+    var favoriteNames = {};
+    S.mealFavorites = S.mealFavorites.slice().reverse().filter(function (m) {
+      var k = String(m.name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (!k || favoriteNames[k]) return false;
+      favoriteNames[k] = true; return true;
+    }).reverse();
+    var dislikedNames = {};
+    S.mealDislikedMeals = Array.isArray(S.mealDislikedMeals) ? S.mealDislikedMeals.map(function (x) { return shortText(x, 200).trim(); })
+      .filter(function (x) {
+        var k = x.toLowerCase();
+        if (!x || dislikedNames[k]) return false;
+        dislikedNames[k] = true; return true;
+      }).slice(-120) : [];
     if (!plainObject(S.planMeta)) S.planMeta = {};
     S.planMeta.writtenBy = S.planMeta.writtenBy === 'coach' ? 'coach' : '';
     S.planMeta.weekOf = validDateKey(S.planMeta.weekOf) ? String(S.planMeta.weekOf) : '';

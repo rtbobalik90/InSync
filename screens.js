@@ -44,11 +44,12 @@
     },
     inca: {
       name: 'Inca Trail to Machu Picchu', where: 'Cusco, Peru', grade: 'Moderate',
+      banner: 'assets/art/inca/inca-trail-banner.webp',
       legs: [
-        { from: 'Km 82', to: 'Wayllabamba', miles: 7.5 },
-        { from: 'Wayllabamba', to: 'Pacaymayo', miles: 6.2 },
-        { from: 'Pacaymayo', to: 'Wiñay Wayna', miles: 9.3 },
-        { from: 'Wiñay Wayna', to: 'Machu Picchu', miles: 3.1 }
+        { from: 'Km 82', to: 'Wayllabamba', miles: 7.5, art: 'assets/art/inca/inca-trail-leg-1.webp' },
+        { from: 'Wayllabamba', to: 'Pacaymayo', miles: 6.2, art: 'assets/art/inca/inca-trail-leg-2.webp' },
+        { from: 'Pacaymayo', to: 'Wiñay Wayna', miles: 9.3, art: 'assets/art/inca/inca-trail-leg-3.webp' },
+        { from: 'Wiñay Wayna', to: 'Machu Picchu', miles: 3.1, art: 'assets/art/inca/inca-trail-leg-4.webp' }
       ]
     },
     jesus: {
@@ -1866,7 +1867,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.3.0</div></div>' +
+            '<div class="meta">Version 5.4.0</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3347,6 +3348,10 @@
     var S = Store.state(), tg = S.targets;
     var mine = knownMeals();
     var ideas = S.mealIdeas || [];
+    var favorites = S.mealFavorites || [];
+    var disliked = (S.mealDislikedMeals || []).map(function (x) { return String(x).toLowerCase(); });
+    mine = mine.filter(function (m) { return disliked.indexOf(String(m.name).toLowerCase()) < 0; });
+    ideas = ideas.filter(function (m) { return disliked.indexOf(String(m.name).toLowerCase()) < 0; });
     var hasKey = !!Store.secret('claudeKey');
 
     function card(m, opts) {
@@ -3370,6 +3375,10 @@
         '<div class="eyebrow">The kitchen</div>' +
         '<p class="verse">What you already eat, and what the coach suggests next.</p>',
       body:
+        (favorites.length
+          ? '<div class="rulehead"><span class="kicker">Favorites</span><span></span><span class="note">' + favorites.length + '</span></div>' +
+            '<article class="card rowlist">' + favorites.slice().reverse().slice(0, 12).map(function (m) { return card(m, {}); }).join('') + '</article>'
+          : '') +
         (best.length
           ? '<div class="rulehead"><span class="kicker">Carries its weight</span><span></span>' +
               '<span class="note">' + best.length + '</span></div>' +
@@ -3401,8 +3410,15 @@
   /* ---- Week planner and shopping list ------------------------------------ */
 
   var PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+  var PLAN_CUISINES = ['Mexican','Chinese','Indian','American','Italian','Mediterranean','Thai','Japanese','Korean','Greek','Middle Eastern','Cajun'];
+  var PLAN_PROTEINS = ['Chicken','Beef','Turkey','Pork','Fish','Shrimp','Eggs','Vegetarian'];
 
   function planKey(date, slot) { return date + '|' + slot; }
+  function mealNameKey(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function isFavoriteMeal(name) {
+    var key = mealNameKey(name);
+    return (Store.state().mealFavorites || []).some(function (m) { return mealNameKey(m.name) === key; });
+  }
 
   function defaultPlannerWeek(S) {
     if (S.mealPlannerWeek && /^\d{4}-\d{2}-\d{2}$/.test(S.mealPlannerWeek)) return S.mealPlannerWeek;
@@ -3477,11 +3493,32 @@
       '</div>';
     }).join('');
 
+    var prefs = S.mealPrefs || { cuisines: [], proteins: [], likes: '', avoid: '' };
+    var favoriteCount = (S.mealFavorites || []).length, dislikedCount = (S.mealDislikedMeals || []).length;
+    function prefChips(values, selected, kind) {
+      return '<div class="prefchips">' + values.map(function (v) {
+        return '<button class="ob-chip' + (selected.indexOf(v) >= 0 ? ' on' : '') + '" data-action="meal-pref-chip" data-pref-kind="' + kind + '" data-pref-value="' + esc(v) + '">' + esc(v) + '</button>';
+      }).join('') + '</div>';
+    }
+    var preferencesCard =
+      '<article class="card pad mealprefs">' +
+        '<div class="kicker">Plan preferences</div>' +
+        '<p class="small" style="margin:8px 0 16px"><strong>Home-cooked only.</strong> Fast food, restaurant takeout, drive-thru meals and chain-brand meals are blocked from generated weeks.</p>' +
+        '<div class="preflabel">Cuisines <span>pick any that sound good this week</span></div>' +
+        prefChips(PLAN_CUISINES, prefs.cuisines || [], 'cuisines') +
+        '<div class="preflabel">Proteins <span>leave blank for any</span></div>' +
+        prefChips(PLAN_PROTEINS, prefs.proteins || [], 'proteins') +
+        '<label class="preftext"><span>Things I like</span><input type="text" data-meal-pref-text="likes" value="' + esc(prefs.likes || '') + '" placeholder="spicy, rice bowls, garlic, crunchy…"></label>' +
+        '<label class="preftext"><span>Things I do not like / avoid</span><input type="text" data-meal-pref-text="avoid" value="' + esc(prefs.avoid || '') + '" placeholder="mushrooms, olives, mayo…"></label>' +
+        '<div class="prefmemory"><span>★ ' + favoriteCount + ' favorite' + (favoriteCount === 1 ? '' : 's') + '</span><span>Not for me: ' + dislikedCount + '</span></div>' +
+        '<p class="note" style="margin:10px 0 0">Favorites are deliberately brought back into future generated weeks when they fit these selections. Thumbs-downed meals stay out.</p>' +
+      '</article>';
+
     var canBuild = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
     var planButton = canBuild
       ? '<button class="btn block" data-action="build-meal-week" data-week="' + weekOf + '">' +
           (planned.length ? 'Rebuild this week' : 'Build my week') + '</button>' +
-        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots with recipes, portions, nutrition, ingredients and cooking steps around your current targets.</p>'
+        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots from the preferences above, your targets, favorites and thumbs-down history.</p>'
       : '<article class="card pad"><p class="note">Add your Claude key in Settings to build a complete week automatically. You can still tap any empty slot and choose from your Cookbook.</p></article>';
 
     return UI.screen({
@@ -3492,6 +3529,7 @@
         '<div class="eyebrow">' + esc(weekName) + ' · ' + planned.length + ' of ' + totalSlots + ' meals planned</div>' +
         '<p class="verse">Breakfast, lunch, dinner and a snack — every day, with the recipe attached.</p>',
       body:
+        preferencesCard +
         '<article class="card pad plannercontrols">' +
           '<div class="weeknav">' +
             '<button class="btn ghost sm" data-action="planner-week" data-week="' + Store.shift(weekOf, -7) + '">Previous</button>' +
@@ -3544,6 +3582,17 @@
     var when = new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
     var items = m.items || [], steps = m.instructions || [];
     var canRecipe = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
+    var favorite = isFavoriteMeal(m.name);
+    var photoCard =
+      '<article class="card pad">' +
+        '<div class="kicker">Finished plate</div>' +
+        (m.photoId
+          ? '<div class="mealprep-photo" data-photo="' + esc(m.photoId) + '"></div>' +
+            '<div class="recipeactions"><button class="btn ghost sm" data-action="add-planned-photo" data-plan-key="' + esc(key) + '">Replace photo</button>' +
+            '<button class="btn ghost sm" data-action="remove-planned-photo" data-plan-key="' + esc(key) + '">Remove photo</button></div>'
+          : '<p class="small" style="margin:9px 0 13px">Once you make it, add your own finished photo. It stays on this device and is included in your private backup.</p>' +
+            '<button class="btn ghost block" data-action="add-planned-photo" data-plan-key="' + esc(key) + '">Add finished photo</button>') +
+      '</article>';
     return UI.screen({
       tab: null, rest: 320, blur: true,
       header: { back: 'planner', title: slot, right: '<div style="width:34px"></div>' },
@@ -3552,7 +3601,7 @@
         '<div class="eyebrow">' + esc(when) + ' · ' + esc(slot) + '</div>' +
         '<p class="verse">' + esc(m.name) + '</p>' +
         '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
-          (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + '</p>',
+          (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + (m.cuisine ? ' · ' + esc(m.cuisine) : '') + '</p>',
       body:
         '<article class="card pad">' +
           '<div class="kicker">Nutrition</div>' +
@@ -3583,6 +3632,11 @@
               (canRecipe ? '<button class="btn ghost block" data-action="write-planned-recipe" data-plan-key="' + esc(key) + '" style="margin-top:14px">Write the recipe</button>' : '')) +
         '</article>' +
 
+        photoCard +
+        '<div class="recipeactions full">' +
+          '<button class="btn ghost" data-action="favorite-planned-meal" data-plan-key="' + esc(key) + '">' + (favorite ? '★ Favorited' : '☆ Favorite') + '</button>' +
+          '<button class="btn ghost" data-action="dislike-planned-meal" data-plan-key="' + esc(key) + '">Not for me</button>' +
+        '</div>' +
         (date === Store.todayKey()
           ? '<button class="btn block" data-action="log-planned-meal" data-plan-key="' + esc(key) + '">Log this meal today</button>'
           : '') +

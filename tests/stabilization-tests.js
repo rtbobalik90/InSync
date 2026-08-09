@@ -572,6 +572,13 @@ function withBadges() {
   const h=f=>crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,f))).digest('hex');
   ok(h('assets/art/coach-desk.webp')!==h('assets/art/dispatch-day.webp'),'coach and dispatch artwork are not accidental duplicate files');
   ok(fs.statSync(path.join(ROOT,'assets/art/train-banner.webp')).size>1000,'training banner is a real image, not an empty placeholder');
+  var routeSource=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
+  ['inca-trail-banner.webp','inca-trail-leg-1.webp','inca-trail-leg-2.webp','inca-trail-leg-3.webp','inca-trail-leg-4.webp'].forEach(function (name) {
+    ok(fs.statSync(path.join(ROOT,'assets/art/inca',name)).size>1000,`Inca Trail art is present and non-empty: ${name}`);
+  });
+  ok(routeSource.includes("banner: 'assets/art/inca/inca-trail-banner.webp'") &&
+    [1,2,3,4].every(function (n) { return routeSource.includes("art: 'assets/art/inca/inca-trail-leg-" + n + ".webp'"); }),
+    'Inca Trail banner and all four legs are wired to the production WebP assets');
 
   const cloud=fs.readFileSync(path.join(ROOT,'cloud.js'),'utf8');
   ok(cloud.includes("DEFAULT_MODEL = 'claude-sonnet-5'") && cloud.includes("thinking = { type: 'disabled' }"),'Claude requests use the current Sonnet default with compact-response thinking disabled');
@@ -603,7 +610,7 @@ function withBadges() {
   ok(app.includes('window.visualViewport') && app.includes("addEventListener('resize', measureRest"),'sheet rest position is remeasured when the iOS viewport changes');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-5'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-7'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));

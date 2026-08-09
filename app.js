@@ -121,8 +121,16 @@
   function currentMealId() { return (location.hash.split('/')[1] || ''); }
 
   function num(v) { var n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? 0 : n; }
+  function mealNameKey(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
   app.addEventListener('change', function (e) {
+    var pref = e.target.closest('[data-meal-pref-text]');
+    if (pref) {
+      var prefs = Object.assign({}, Store.state().mealPrefs || {});
+      prefs[pref.getAttribute('data-meal-pref-text')] = String(pref.value || '').trim();
+      Store.set('mealPrefs', prefs);
+      return;
+    }
     var f = e.target.closest('[data-meal-edit]');
     if (!f) return;
     var key = f.getAttribute('data-meal-edit');
@@ -342,6 +350,81 @@
       if (week) Store.set('mealPlannerWeek', week);
       return;
     }
+    if (action === 'meal-pref-chip') {
+      var prefKind = el.getAttribute('data-pref-kind'), prefValue = el.getAttribute('data-pref-value');
+      if (['cuisines','proteins'].indexOf(prefKind) < 0 || !prefValue) return;
+      var mprefs = Object.assign({}, Store.state().mealPrefs || {});
+      var selected = Array.isArray(mprefs[prefKind]) ? mprefs[prefKind].slice() : [];
+      var pos = selected.indexOf(prefValue);
+      if (pos >= 0) selected.splice(pos, 1); else selected.push(prefValue);
+      mprefs[prefKind] = selected;
+      Store.set('mealPrefs', mprefs);
+      return;
+    }
+    if (action === 'favorite-planned-meal') {
+      var favKey = el.getAttribute('data-plan-key'), favMeal = (Store.state().mealPlan || {})[favKey];
+      if (!favMeal) return;
+      var favorites = (Store.state().mealFavorites || []).slice(), fkey = mealNameKey(favMeal.name);
+      var existing = favorites.findIndex(function (m) { return mealNameKey(m.name) === fkey; });
+      if (existing >= 0) favorites.splice(existing, 1);
+      else favorites.push(Object.assign({}, favMeal, { source: 'favorite' }));
+      Store.set('mealFavorites', favorites.slice(-60));
+      if (existing < 0) {
+        var dislikes = (Store.state().mealDislikedMeals || []).filter(function (n) { return mealNameKey(n) !== fkey; });
+        Store.set('mealDislikedMeals', dislikes);
+      }
+      return;
+    }
+    if (action === 'dislike-planned-meal') {
+      var badKey = el.getAttribute('data-plan-key'), badPlan = Object.assign({}, Store.state().mealPlan || {}), badMeal = badPlan[badKey];
+      if (!badMeal) return;
+      var badName = badMeal.name, bkey = mealNameKey(badName);
+      var bads = (Store.state().mealDislikedMeals || []).filter(function (n) { return mealNameKey(n) !== bkey; });
+      bads.push(badName);
+      var favs = (Store.state().mealFavorites || []).filter(function (m) { return mealNameKey(m.name) !== bkey; });
+      delete badPlan[badKey];
+      Store.set('mealDislikedMeals', bads.slice(-120));
+      Store.set('mealFavorites', favs);
+      Store.set('mealPlan', badPlan);
+      if (badMeal.photoId && window.Media) Media.del(badMeal.photoId, function () {});
+      location.hash = '#planner';
+      return;
+    }
+    if (action === 'add-planned-photo') {
+      var photoKey = el.getAttribute('data-plan-key'), photoMeal = (Store.state().mealPlan || {})[photoKey];
+      if (!photoKey || !photoMeal || !window.Media) return;
+      Media.capture(function (err, dataUrl) {
+        if (err || !dataUrl) return;
+        Media.shrink(dataUrl, 1200, 0.82, function (shrinkErr, small) {
+          if (shrinkErr) { alert('That photograph could not be prepared. Try it again.'); return; }
+          var photoId = 'planned-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+          Media.put(photoId, small, function (putErr) {
+            if (putErr) { alert('The recipe is safe, but its photograph could not be saved.'); return; }
+            var latest = Object.assign({}, Store.state().mealPlan || {}), currentMeal = latest[photoKey];
+            if (!currentMeal) { Media.del(photoId, function () {}); return; }
+            var oldPhoto = currentMeal.photoId || '';
+            latest[photoKey] = Object.assign({}, currentMeal, { photoId: photoId });
+            Store.set('mealPlan', latest);
+            var faves = (Store.state().mealFavorites || []).slice(), nkey = mealNameKey(currentMeal.name), changed = false;
+            faves = faves.map(function (m) { if (mealNameKey(m.name) !== nkey) return m; changed = true; return Object.assign({}, m, { photoId: photoId }); });
+            if (changed) Store.set('mealFavorites', faves);
+            if (oldPhoto && oldPhoto !== photoId) Media.del(oldPhoto, function () {});
+          });
+        });
+      });
+      return;
+    }
+    if (action === 'remove-planned-photo') {
+      var clearKey = el.getAttribute('data-plan-key'), clearPlan = Object.assign({}, Store.state().mealPlan || {}), clearPm = clearPlan[clearKey];
+      if (!clearPm) return;
+      var clearPhoto = clearPm.photoId || '', clearName = mealNameKey(clearPm.name);
+      clearPlan[clearKey] = Object.assign({}, clearPm, { photoId: '' });
+      Store.set('mealPlan', clearPlan);
+      var clearFavs = (Store.state().mealFavorites || []).map(function (m) { return mealNameKey(m.name) === clearName ? Object.assign({}, m, { photoId: '' }) : m; });
+      Store.set('mealFavorites', clearFavs);
+      if (clearPhoto && window.Media) Media.del(clearPhoto, function () {});
+      return;
+    }
     if (action === 'build-meal-week') {
       var buildWeek = el.getAttribute('data-week') || Store.weekStart(Store.todayKey());
       var existingPlan = Store.state().mealPlan || {};
@@ -406,13 +489,22 @@
       var logKey = el.getAttribute('data-plan-key'), pm = (Store.state().mealPlan || {})[logKey];
       if (!pm) return;
       var lp = logKey.split('|'), now = new Date();
-      Store.addMeal({
-        name: pm.name, slot: lp[1] || pm.slot || 'Meal',
-        time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
-        kcal: pm.kcal, protein: pm.protein, carbs: pm.carbs, fat: pm.fat,
-        items: pm.items || null
-      });
-      location.hash = '#nutrition';
+      function commitPlannedLog(photoId) {
+        Store.addMeal({
+          name: pm.name, slot: lp[1] || pm.slot || 'Meal',
+          time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+          kcal: pm.kcal, protein: pm.protein, carbs: pm.carbs, fat: pm.fat,
+          items: pm.items || null, photoId: photoId || ''
+        });
+        location.hash = '#nutrition';
+      }
+      if (pm.photoId && window.Media) {
+        Media.get(pm.photoId, function (photoErr, dataUrl) {
+          if (photoErr || !dataUrl) return commitPlannedLog('');
+          var copyId = 'meal-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          Media.put(copyId, dataUrl, function (putErr) { commitPlannedLog(putErr ? '' : copyId); });
+        });
+      } else commitPlannedLog('');
       return;
     }
     if (action === 'write-planned-recipe') {

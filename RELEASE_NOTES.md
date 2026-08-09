@@ -1,52 +1,44 @@
-# InSync 5.3.0 — Nutrition Week Planner + Start-Date Scoring
+# InSync 5.4.0 — Meal Prep Memory
 
-## What changed in 5.3.0
+## What changed
 
-### Weekly points now begin when InSync actually begins
+### Home-cooked weekly generation
+- Weekly meal generation is now explicitly **home-cooked only**.
+- Claude is instructed not to return fast food, restaurant/takeout, drive-thru, meal-delivery or chain-brand meals.
+- Returned weeks are validated before they replace an existing plan. Chain/fast-food names, missing ingredients/instructions, thumbs-downed meals and user avoid-keywords can reject a generated week atomically.
 
-A new profile could previously show points earlier in the same week even though the app had only been started that day. The scoring engine treated an otherwise empty historical date as a recovery day, which is legitimately worth three points. InSync now has an explicit journey-start boundary: pre-start dates are non-scoring/blank, the weekly challenge excludes them, and sync schema 5 carries each person's start date so the other phone follows the same rule. Cached partner history before that declared start is removed when the newer payload arrives.
+### Plan preferences before generation
+The Meal Planner now includes persistent controls immediately above weekly generation:
+- cuisines: Mexican, Chinese, Indian, American, Italian, Mediterranean, Thai, Japanese, Korean, Greek, Middle Eastern and Cajun;
+- proteins: Chicken, Beef, Turkey, Pork, Fish, Shrimp, Eggs and Vegetarian;
+- free-text **Things I like** keywords;
+- free-text **Things I do not like / avoid** keywords.
 
-### Nutrition has four real daily meal destinations
+Leaving cuisine or protein chips blank means no restriction. These preferences stay on the device until changed and are included in future weekly generation.
 
-Breakfast, Lunch, Dinner and Snack are permanently visible on Nutrition instead of exposing only one "next" meal. Each slot shows its own totals and entries. Tapping Add breakfast/lunch/dinner/snack opens the logger already assigned to that slot, while multiple entries per slot remain supported.
+### Favorites and dislikes
+- Any planned recipe can be marked **Favorite**.
+- Favorites are saved as reusable recipe snapshots in the local Cookbook.
+- Compatible favorites are deliberately reintroduced into later AI-generated weeks instead of forcing 28 brand-new meals every time.
+- A reused favorite begins as a fresh occurrence; an old finished-photo reference is not copied into the new week.
+- **Not for me** removes the current planned occurrence, removes it from Favorites, and adds the meal name to the future-generation exclusion list.
 
-### The Meal Planner is now a real seven-day planner
+### Finished-meal photographs
+- Planned recipes now have a **Finished plate** section.
+- A camera/photo can be attached after the meal is made, replaced, or removed.
+- Meal-prep photos use the same IndexedDB photo store as the rest of InSync rather than localStorage.
+- They remain local to the device, are included in complete InSync backups, and are not sent through partner sync.
+- Logging a planned meal copies its finished photo into the logged-meal record so later editing/removal does not share one destructive photo reference.
 
-The planner is date-based rather than a loose list of ideas. It provides:
+### Cookbook integration
+- Favorites now appear first in Cookbook.
+- Thumbs-downed meals are filtered from Cookbook suggestions/ideas.
+- Manually placing a favorite into another week starts without carrying the prior occurrence's finished photo.
 
-- seven dated days per displayed week;
-- Breakfast, Lunch, Dinner and Snack on every day (**28 slots**);
-- Previous / This week / Next week navigation;
-- separate persisted plans for different weeks;
-- one-button **Build my week** generation around the current calorie/protein targets;
-- complete recipe objects containing nutrition, serving count, prep time, ingredient quantities, recipe/prep notes and cooking steps;
-- a dedicated recipe-detail screen;
-- direct logging of today's planned meal into Nutrition;
-- a shopping list derived from that displayed week's recipe ingredients;
-- rebuild/clear behavior scoped to only the displayed week.
+## Compatibility
+- App version: **5.4.0**
+- State schema: **v10** (no destructive migration required)
+- Partner sync schema: **5** (unchanged; meal-planning preferences/photos remain local)
+- Service-worker cache: **insync-v10-7**
 
-If Claude returns an incomplete week, InSync rejects it atomically and keeps the existing plan rather than leaving a half-written planner. Sunday defaults an untouched planner to the upcoming Monday-Sunday week.
-
-### Release plumbing
-
-- Settings version: **5.3.0**.
-- State schema remains **v10** (the added planner fields are backward-compatible).
-- Partner sync schema advances to **5** for the start-date boundary.
-- Service-worker cache advances to `insync-v10-5`.
-- A dedicated meal-planner regression suite is now part of the ship gate.
-
-## Automated verification before packaging
-
-- 469 stabilization/regression checks
-- 23 sync stress/reconciliation checks
-- 54 screen/malformed-state checks
-- 11 dedicated meal-planner checks
-- **557 total, 0 failures**
-
-The exact distribution ZIP is also extracted and retested before handoff; see `TEST_REPORT.md` for that clean-room result.
-
----
-
-## Earlier 5.2.x stabilization retained
-
-5.3.0 retains the earlier phone-local dates, safe v5-v10 migrations, secret separation, transactional backup/restore, IndexedDB photographs, private-sync-repository enforcement, serialized/conflict-aware GitHub writes, rolling Together conversation and automatic visible-app sync, immutable historical score basis, recovery-day/calorie scoring, personalized targets, training-plan validation, expedition reconciliation, corrected achievements, notification/privacy controls, explicit Back routing, iPhone standalone viewport/scroll fixes, CSP/no-referrer policy, optimized WebP assets, atomic service-worker shell install, malformed-data sanitation and removal of destructive demo/debug code.
+5.4.0 retains all 5.3.1 expedition artwork, nutrition four-slot planning, two-device GitHub sync, automatic visible-app pulls, rolling chat, local-date scoring, historical score snapshots, recovery-day scoring, backups/restores, photo storage, privacy controls and iPhone viewport/scroll fixes.
