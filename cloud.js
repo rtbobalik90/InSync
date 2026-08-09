@@ -540,8 +540,21 @@
       earned: [],
       note: cleanText(raw.note, 2000),
       noteDate: validDateKey(raw.noteDate) ? raw.noteDate : date,
+      messages: [],
       history: { points: {}, logged: {} }
     };
+    if (Array.isArray(raw.messages)) {
+      raw.messages.slice(-100).forEach(function (m) {
+        if (!m || Object.prototype.toString.call(m) !== '[object Object]') return;
+        var mid = cleanText(m.id, 120), text = cleanText(m.text, 140);
+        var md = validDateKey(m.date) ? m.date : date;
+        var created = cleanText(m.createdAt, 80), sent = cleanText(m.sentAt, 80), display = cleanText(m.displayTime, 40);
+        if (!mid || !text) return;
+        if (created && isNaN(Date.parse(created))) created = '';
+        if (sent && isNaN(Date.parse(sent))) sent = '';
+        out.messages.push({ id: mid, date: md, text: text, createdAt: created, sentAt: sent, displayTime: display });
+      });
+    }
     if (Array.isArray(raw.earned)) {
       raw.earned.slice(0, 200).forEach(function (id) {
         if (typeof id !== 'string') return;
@@ -620,7 +633,7 @@
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
-      schema: 3,
+      schema: 4,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
@@ -630,6 +643,13 @@
       earned: (s.earned || []).slice(),
       note: sharedNote.text,
       noteDate: sharedNote.date,
+      messages: (s.sentMessages || []).slice(-50).map(function (m) {
+        return {
+          id: cleanText(m.id, 120), date: validDateKey(m.date) ? m.date : k,
+          text: cleanText(m.text, 140), createdAt: cleanText(m.createdAt, 80),
+          sentAt: cleanText(m.sentAt, 80), displayTime: cleanText(m.displayTime, 40)
+        };
+      }).filter(function (m) { return !!m.id && !!m.text; }),
       history: { points: {}, logged: {} },
       expedition: {
         routeId: s.expedition.routeId || '', legIndex: Math.max(0, +(s.expedition.legIndex || 0)),
@@ -699,7 +719,11 @@
       gh(path, { method: 'PUT', body: body }, function (e2) {
         if (e2 && retries > 0 && (e2.status === 409 || e2.status === 422)) return pushUnsafe(cb, retries - 1);
         if (e2) return cb(e2);
-        if (shared.note && shared.noteDate && Store.markCurrentNoteSynced) Store.markCurrentNoteSynced(shared.noteDate, shared.note);
+        if (shared.messages && shared.messages.length && Store.markMessagesSynced) {
+          Store.markMessagesSynced(shared.messages);
+        } else if (shared.note && shared.noteDate && Store.markCurrentNoteSynced) {
+          Store.markCurrentNoteSynced(shared.noteDate, shared.note);
+        }
         cb(null, true);
       });
     });
@@ -727,6 +751,7 @@
     });
   }
 
+  var applyingRemote = false;
   function pull(cb) {
     if (!partnerSlug()) return cb(new Error('Set your partner’s name in Settings before syncing.'));
     gh('sync/' + partnerSlug() + '.json', { method: 'GET' }, function (err, j) {
@@ -735,7 +760,9 @@
       var raw, data;
       try { raw = JSON.parse(b64decode(j.content)); data = sanitizePartnerPayload(raw); }
       catch (e) { return cb(e && e.message ? e : new Error('The partner sync file could not be read')); }
-      Store.set('partnerData', data);
+      applyingRemote = true;
+      try {
+        Store.set('partnerData', data);
       var localExp = Store.state().expedition || {};
       if (data.expedition && data.expedition.routeId === localExp.routeId &&
           data.expedition.legIndex > (+localExp.legIndex || 0) && Store.syncExpeditionProgress) {
@@ -780,6 +807,11 @@
       Object.keys(loggedHist).forEach(function (k) { if (!validDateKey(k) || k < cutoff) delete loggedHist[k]; });
       Store.set('partnerHistory', hist);
       Store.set('partnerLoggedHistory', loggedHist);
+      } catch (applyErr) {
+        applyingRemote = false;
+        return cb(applyErr && applyErr.message ? applyErr : new Error('The partner sync data could not be applied safely.'));
+      }
+      applyingRemote = false;
       return cb(null, data);
     });
   }
@@ -950,6 +982,7 @@
     readBarcodePhoto: readBarcodePhoto,
     restaurantMenu: restaurantMenu, menuItem: menuItem,
     push: push, pull: pull, sync: sync, autoSync: autoSync, ensureSyncRepo: ensureSyncRepo,
+    isApplyingRemote: function () { return applyingRemote; },
     sharePayload: sharePayload, validatePlan: validatePlan, sanitizePartnerPayload: sanitizePartnerPayload
   };
 })();

@@ -97,9 +97,15 @@ Exact meals, exercise weights/reps, reflections, progress photographs and exact 
 
 GitHub sync is **not** the full backup. Use **Settings → Your data → Create backup** for device recovery.
 
+## Together messages and automatic sync
+
+Together is a rolling two-person conversation. Tapping **Send** clears the composer immediately and places the message into the thread. Each phone owns the messages it authored; the private repository carries up to the latest 50 authored messages per person using sync schema 4.
+
+A sent message is pushed immediately when connectivity is available. While InSync is visible, it performs a read-only partner refresh about once per minute, and opening Together requests an immediate refresh. Launching the app, returning it to the foreground, or regaining internet also triggers synchronization. iOS can suspend a Home Screen PWA in the background, so a suspended phone catches up when InSync is opened or resumed. **Sync now** remains available for troubleshooting but is not required for ordinary use.
+
 ## Expedition synchronization
 
-Expedition progress uses sync schema 3. A partner payload identifies the route and leg that its mileage belongs to, preventing miles from a completed leg from leaking into the next leg when one phone advances first.
+Expedition progress and Together conversations use sync schema 4. A partner payload identifies the route and leg that its mileage belongs to, preventing miles from a completed leg from leaking into the next leg when one phone advances first.
 
 If one phone learns that the other has already advanced the same route, it follows the monotonic leg index and establishes a safe local step baseline. Stale partner files cannot move a route backward. A completed route has no current leg and cannot be advanced again.
 
@@ -154,11 +160,11 @@ node tests/cloud-sync-tests.js
 node tests/screen-smoke-tests.js
 ```
 
-App **5.2.2**, state schema **v10**, sync schema **3** currently passes:
+App **5.2.3**, state schema **v10**, sync schema **4** currently passes:
 
-- **452** stabilization/regression checks;
+- **465** stabilization/regression checks;
 - **23** sync concurrency/reconciliation checks;
 - **50** screen-render/malformed-state checks;
-- **525 total checks, 0 failures**.
+- **538 total checks, 0 failures**.
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the third-pass findings and the remaining real-iPhone acceptance gate.

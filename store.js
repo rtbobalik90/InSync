@@ -43,6 +43,8 @@
     earned: [],
     photos: [],
     notesSent: 0,
+    /* Messages this device has authored. The partner's messages live in partnerData.messages. */
+    sentMessages: [],
     frequency: 4,
     partnerData: null,
     coachCache: null,
@@ -282,6 +284,20 @@
     if (!Array.isArray(S.photos)) S.photos = [];
     S.photos = S.photos.filter(plainObject).map(function (p) { return { id: shortText(p.id, 200), date: shortText(p.date, 10) }; }).filter(function (p) { return !!p.id; });
     S.notesSent = Math.max(0, Math.round(finiteOr(S.notesSent, 0, 0, 1000000)));
+    if (!Array.isArray(S.sentMessages)) S.sentMessages = [];
+    S.sentMessages = S.sentMessages.filter(plainObject).map(function (m) {
+      var date = validDateKey(m.date) ? String(m.date) : '';
+      var createdAt = shortText(m.createdAt, 80);
+      if (!date && createdAt && !isNaN(Date.parse(createdAt))) date = createdAt.slice(0, 10);
+      return {
+        id: shortText(m.id, 120),
+        date: validDateKey(date) ? date : todayKey(),
+        text: shortText(m.text, 140).trim(),
+        createdAt: createdAt && !isNaN(Date.parse(createdAt)) ? createdAt : '',
+        sentAt: shortText(m.sentAt, 80),
+        displayTime: shortText(m.displayTime, 40)
+      };
+    }).filter(function (m) { return !!m.id && !!m.text; }).slice(-100);
     S.frequency = Math.max(2, Math.min(6, Math.round(finiteOr(S.frequency, DEFAULT.frequency, 2, 6))));
 
     if (S.partnerData != null && !plainObject(S.partnerData)) S.partnerData = null;
@@ -294,6 +310,19 @@
       S.partnerData.points = finiteOr(S.partnerData.points, 0, 0, 10);
       S.partnerData.streak = Math.max(0, Math.round(finiteOr(S.partnerData.streak, 0, 0, 10000)));
       S.partnerData.earned = Array.isArray(S.partnerData.earned) ? S.partnerData.earned.filter(function (x) { return typeof x === 'string'; }).slice(0, 500) : [];
+      S.partnerData.messages = Array.isArray(S.partnerData.messages) ? S.partnerData.messages.filter(plainObject).map(function (m) {
+        var date = validDateKey(m.date) ? String(m.date) : '';
+        var createdAt = shortText(m.createdAt, 80);
+        if (!date && createdAt && !isNaN(Date.parse(createdAt))) date = createdAt.slice(0, 10);
+        return {
+          id: shortText(m.id, 120),
+          date: validDateKey(date) ? date : S.partnerData.date,
+          text: shortText(m.text, 140).trim(),
+          createdAt: createdAt && !isNaN(Date.parse(createdAt)) ? createdAt : '',
+          sentAt: shortText(m.sentAt, 80),
+          displayTime: shortText(m.displayTime, 40)
+        };
+      }).filter(function (m) { return !!m.id && !!m.text; }).slice(-100) : [];
       ['calories','protein','workouts','steps','legMiles'].forEach(function (f) {
         if (S.partnerData[f] != null) {
           var n = finiteOr(S.partnerData[f], null, 0, 500000);
@@ -481,6 +510,26 @@
     if (S.invite) {
       if (!(+S.invite.rev > 0)) S.invite.rev = Math.max(1, (+S.invite.counters || 0) + 1);
       if (!S.invite.updatedAt) S.invite.updatedAt = S.invite.nudgedAt || S.invite.at || '';
+    }
+
+    /* 5.2.3 turns the old single latest-note mailbox into a real rolling
+       conversation. Preserve the latest legacy note once so an upgrade does
+       not make a message the user just sent disappear. */
+    if (!S.sentMessages.length) {
+      var noteKeys = Object.keys(S.days || {}).filter(validDateKey).sort().reverse();
+      for (var ni = 0; ni < noteKeys.length; ni++) {
+        var nd = S.days[noteKeys[ni]], nt = nd && shortText(nd.noteToPartner, 140).trim();
+        if (!nt) continue;
+        S.sentMessages.push({
+          id: 'legacy-' + noteKeys[ni] + '-' + Math.abs(nt.split('').reduce(function (a, c) { return ((a << 5) - a) + c.charCodeAt(0) | 0; }, 0)),
+          date: noteKeys[ni],
+          text: nt,
+          createdAt: noteKeys[ni] + 'T12:00:00',
+          sentAt: nd.noteSentAt ? noteKeys[ni] + 'T12:00:00' : '',
+          displayTime: nd.noteSentAt || ''
+        });
+        break;
+      }
     }
 
     /* v10 freezes the scoring rules on every day that already contains real
@@ -1357,13 +1406,52 @@
   function setPartnerNote(text, key) {
     var k = key || todayKey(), d = day(k);
     var next = shortText(String(text || '').trim(), 140);
+    if (!next) return false;
+    var now = new Date();
+    var id = 'msg-' + now.getTime().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    S.sentMessages.push({
+      id: id,
+      date: k,
+      text: next,
+      createdAt: now.toISOString(),
+      sentAt: '',
+      displayTime: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    });
+    if (S.sentMessages.length > 100) S.sentMessages = S.sentMessages.slice(-100);
+
+    /* Keep the legacy latest-note fields for one release so a 5.2.2 partner
+       can still receive the newest message while the two phones update. */
     var nextSig = k + '|' + next;
     if (d.noteSentSignature !== nextSig) d.noteSentAt = '';
     d.noteToPartner = next;
     var saved = save(); emit();
-    return saved;
+    return saved ? id : false;
   }
 
+  function markMessagesSynced(sharedMessages) {
+    if (!Array.isArray(sharedMessages) || !sharedMessages.length) return false;
+    var ids = {};
+    sharedMessages.forEach(function (m) { if (m && m.id) ids[m.id] = true; });
+    var changed = false, newest = null;
+    S.sentMessages.forEach(function (m) {
+      if (!ids[m.id] || m.sentAt) return;
+      m.sentAt = new Date().toISOString();
+      S.notesSent = (S.notesSent || 0) + 1;
+      changed = true;
+      newest = m;
+    });
+    if (newest) {
+      var d = S.days[newest.date];
+      if (d && d.noteToPartner === newest.text) {
+        d.noteSentSignature = newest.date + '|' + newest.text;
+        d.noteSentAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+    }
+    return changed ? save() : true;
+  }
+
+  /* Legacy acknowledgement retained for older backups and one-version
+     compatibility. New conversation delivery uses markMessagesSynced(). */
   function markCurrentNoteSynced(key, sentText) {
     var k = key || todayKey(), d = S.days[k];
     var text = sentText != null ? String(sentText).trim()
@@ -1513,7 +1601,7 @@
     fmtLift: fmtLift, liftNum: liftNum, fmtClimb: fmtClimb,
     weightNum: weightNum, weightToLb: weightToLb,
     recentWeights: recentWeights,
-    setProfileName: setProfileName, setPartnerName: setPartnerName, setPartnerNote: setPartnerNote, markCurrentNoteSynced: markCurrentNoteSynced,
+    setProfileName: setProfileName, setPartnerName: setPartnerName, setPartnerNote: setPartnerNote, markMessagesSynced: markMessagesSynced, markCurrentNoteSynced: markCurrentNoteSynced,
     acceptProposal: acceptProposal, dismissProposal: dismissProposal,
     wipe: wipe, KEY: KEY, SECRET_KEY: SECRET_KEY,
     on: function (f) { subs.push(f); }

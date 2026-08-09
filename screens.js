@@ -1540,37 +1540,73 @@
   }
 
 
-  /* Where the note is: unsent, waiting for a sync, or gone. Never claims
-     it reached her — only a completed push can say that. */
-  function noteStatus(d, mineNote) {
-    if (!mineNote) return 'Notes cross over whatever your privacy settings say. They are words, not numbers.';
-    if (d.noteSentAt) return 'Sent ' + d.noteSentAt + '. They see it when their app next syncs.';
-    return 'Saved but not sent. It goes across on your next sync.';
+  function messageClock(m) {
+    if (m.displayTime) return esc(m.displayTime);
+    if (m.createdAt && !isNaN(Date.parse(m.createdAt))) {
+      return esc(new Date(m.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+    }
+    return dateLabel(m.date || Store.todayKey());
   }
 
-  /* A note is the only thing that crosses regardless of the privacy toggles,
-     because it is words she chose to send rather than a number about her. */
+  /* Conversation history is intentionally split by author in GitHub: this
+     device owns sentMessages, the partner owns partnerData.messages. That means
+     neither phone ever edits the other's message history, so normal sync cannot
+     create a chat conflict. */
   function notesCard(S, p, pd) {
-    var d = Store.day();
-    var mineNote = d.noteToPartner || '';
-    var herNote = pd && pd.note ? pd.note : '';
+    var mine = Array.isArray(S.sentMessages) ? S.sentMessages.slice(-50) : [];
+    var theirs = pd && Array.isArray(pd.messages) ? pd.messages.slice(-50) : [];
+
+    /* One-version compatibility: a 5.2.2 partner only publishes `note`. */
+    if (!theirs.length && pd && pd.note) {
+      theirs = [{
+        id: 'legacy-partner-' + (pd.noteDate || pd.date || ''),
+        date: pd.noteDate || pd.date,
+        text: pd.note,
+        createdAt: (pd.noteDate || pd.date || Store.todayKey()) + 'T12:00:00',
+        displayTime: ''
+      }];
+    }
+
+    var thread = mine.map(function (m) {
+      return { mine: true, id: m.id, date: m.date, text: m.text, createdAt: m.createdAt, sentAt: m.sentAt, displayTime: m.displayTime };
+    }).concat(theirs.map(function (m) {
+      return { mine: false, id: m.id, date: m.date, text: m.text, createdAt: m.createdAt, sentAt: m.sentAt, displayTime: m.displayTime };
+    }));
+
+    thread.sort(function (a, b) {
+      var aa = a.createdAt && !isNaN(Date.parse(a.createdAt)) ? Date.parse(a.createdAt) : Date.parse((a.date || '1970-01-01') + 'T12:00:00');
+      var bb = b.createdAt && !isNaN(Date.parse(b.createdAt)) ? Date.parse(b.createdAt) : Date.parse((b.date || '1970-01-01') + 'T12:00:00');
+      return aa - bb;
+    });
+    thread = thread.slice(-60);
+
+    var messages = thread.length
+      ? '<div class="chat-thread">' + thread.map(function (m) {
+          var meta = m.mine
+            ? messageClock(m) + ' · ' + (m.sentAt ? 'sent' : 'waiting to sync')
+            : esc(p.name) + ' · ' + messageClock(m);
+          return '<div class="chat-row ' + (m.mine ? 'mine' : 'theirs') + '">' +
+            '<div class="chat-bubble">' + esc(m.text) + '</div>' +
+            '<div class="chat-meta">' + meta + '</div>' +
+          '</div>';
+        }).join('') + '</div>'
+      : '<div class="chat-empty">No messages yet. Send the first one.</div>';
 
     return '<article class="card">' +
-      '<div class="cardhead"><div class="title"><i></i>Notes</div>' +
-        '<div class="meta">' + (herNote ? 'latest from ' + esc(p.name) : 'no note yet') + '</div></div>' +
-      (herNote
-        ? '<div class="pad-x" style="padding-top:14px">' +
-            '<p class="quote">\u201C' + esc(herNote) + '\u201D</p>' +
-            '<div class="small" style="margin-top:8px">' + esc(p.name) + ' &middot; ' + dateLabel(pd.noteDate || pd.date) + '</div>' +
-          '</div>'
-        : '') +
-      '<div class="pad-x" style="padding-top:14px;padding-bottom:15px">' +
-        '<div class="kicker" style="margin-bottom:9px">' + (mineNote ? 'What they will see' : 'Send them something') + '</div>' +
-        '<input type="text" class="keyinput plain" data-note-input value="' + esc(mineNote) + '" placeholder="One line, then send it." maxlength="140" />' +
+      '<div class="cardhead"><div class="title"><i></i>Messages</div>' +
+        '<div class="meta">AUTO SYNC</div></div>' +
+      '<div class="pad-x chat-compose">' +
+        '<div class="kicker" style="margin-bottom:9px">Message ' + esc(p.name) + '</div>' +
+        '<input type="text" class="keyinput plain" data-note-input value="" placeholder="Write a message…" maxlength="140" />' +
         '<div class="btnrow" style="margin-top:11px">' +
-          '<button class="btn gold auto" data-action="note-send">' + (mineNote ? 'Send it again' : 'Send it') + '</button>' +
+          '<button class="btn gold auto" data-action="note-send">Send</button>' +
         '</div>' +
-        '<p class="small" style="margin:10px 0 0">' + noteStatus(d, mineNote) + '</p>' +
+        '<p class="small" style="margin:10px 0 0">Sent messages clear from this box and appear below. InSync checks automatically while the app is open and whenever it comes back to the foreground.</p>' +
+      '</div>' +
+      '<div class="chat-divider"></div>' +
+      '<div class="pad-x" style="padding-top:15px;padding-bottom:18px">' +
+        '<div class="kicker" style="margin-bottom:12px">Conversation</div>' +
+        messages +
       '</div>' +
     '</article>';
   }
@@ -1828,7 +1864,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.2.2</div></div>' +
+            '<div class="meta">Version 5.2.3</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +

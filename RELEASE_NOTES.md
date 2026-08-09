@@ -1,16 +1,27 @@
-# InSync 5.2.2 — Scroll Stability Hotfix
+# InSync 5.2.3 — Together Conversation + Automatic Sync
 
-## What changed
+## What changed in 5.2.3
 
-- Fixed same-screen controls jumping the user back to the top of long pages after a Store save. InSync now preserves the current `.sheet` scroll position when the exact same route re-renders.
-- Real route changes still open as new screens; scroll preservation is intentionally limited to same-route state refreshes.
-- Store-driven renders are queued and coalesced instead of synchronously replacing the DOM from inside a click handler. This prevents a tap from destroying the control that is still handling it and reduces duplicate render churn.
-- Delegated app controls now prevent browser default navigation/submission behavior defensively.
-- Service-worker cache advanced to `insync-v10-3` so installed iPhones receive the corrected `app.js`.
+- Replaced the sticky single-note mailbox with a rolling two-person conversation thread.
+- Tapping **Send** now commits the message locally, clears the text box immediately, and places the message in the conversation with `sent` or `waiting to sync` status.
+- Each phone keeps the messages it authored and publishes up to the latest 50 through the private sync repository. The partner's authored messages are read separately, so the phones do not overwrite one another's chat history.
+- Partner message arrays are sanitized before entering local state.
+- Sync schema advanced to **4** while retaining the legacy latest-note fields for one-release compatibility with a partner still running 5.2.2.
+- Successful GitHub writes acknowledge included pending messages exactly once, including later automatic retries.
+- Added a visible-app read-only sync poll every 60 seconds, plus an immediate refresh when Together is opened. Normal messaging no longer requires opening Settings and pressing **Sync now**.
+- Launch, foreground return, connectivity return, and meaningful local state changes still trigger automatic synchronization as before. Remote pull writes are suppressed from the local-change autosync trigger so a poll cannot create an unnecessary Git commit loop.
+- Because iOS suspends Home Screen PWAs in the background, a phone that is fully suspended catches up automatically when InSync is opened or brought back to the foreground.
+- Service-worker cache advanced to `insync-v10-4` so installed phones receive the conversation and autosync changes.
 
 ## Verification added
 
-The release suite now explicitly checks that the app contains no hash-anchor controls or forms capable of browser-native top jumps, that same-route scroll restoration is wired, and that Store renders are queued rather than performed re-entrantly.
+The regression suite now covers rolling authored history, unique message IDs, sync schema 4 message exchange, per-message delivery acknowledgement, retry deduplication, sanitized partner replies, composer clearing, and visible-app periodic autosync.
+
+## Previous 5.2.2 scroll-stability fix retained
+
+- Same-screen controls preserve `.sheet` scroll position after Store saves.
+- Store renders remain queued/coalesced rather than replacing controls inside their active click handlers.
+- No hash-anchor or implicit form-submit jump paths are present.
 
 ## Previous 5.2.1 viewport fix retained
 

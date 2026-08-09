@@ -232,6 +232,13 @@
         if (pd && pd.note) Store.set('partnerNoteSeen', (pd.noteDate || pd.date) + '|' + pd.note);
       }
       location.hash = '#' + route;
+      if (route === 'together' && window.Cloud && Cloud.hasGit && Cloud.hasGit() && Cloud.pull) {
+        Cloud.pull(function (err) {
+          if (err || location.hash.replace(/^#/, '').split('/')[0] !== 'together') return;
+          var fresh = Store.state().partnerData;
+          if (fresh && fresh.note) Store.set('partnerNoteSeen', (fresh.noteDate || fresh.date) + '|' + fresh.note);
+        });
+      }
       return;
     }
 
@@ -252,6 +259,11 @@
       var text = input ? input.value.trim() : '';
       if (!text) { if (input) input.focus(); return; }
       Store.setPartnerNote(text);
+      /* A message composer behaves like a message composer: once the user has
+         committed the text locally, clear the box immediately. Delivery state
+         is shown on the message in the thread instead of leaving sent text in
+         an editable field. */
+      if (input) input.value = '';
       el.disabled = true;
       el.textContent = 'Sending\u2026';
       if (!Cloud.hasGit()) {
@@ -672,6 +684,10 @@
   window.addEventListener('hashchange', render);
   Store.on(safeRender);
   Store.on(function () {
+    /* Pulling partner data writes it into Store too. Do not interpret those
+       remote-applied writes as a new local change that needs to be pushed
+       back to GitHub; that would create a needless sync/commit loop. */
+    if (window.Cloud && Cloud.isApplyingRemote && Cloud.isApplyingRemote()) return;
     if (Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(false);
   });
 
@@ -736,6 +752,17 @@
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
   });
+
+  /* iOS suspends a Home Screen PWA in the background, but while InSync is
+     actually visible we can poll the tiny private sync files. This makes
+     Together behave like a conversation without requiring Settings > Sync Now.
+     The existing Cloud throttle/queue still serializes GitHub writes. */
+  setInterval(function () {
+    if (document.hidden || !navigator.onLine || !Store.state().onboarded) return;
+    /* Poll is read-only. Local changes already push immediately/debounced, so
+       a chat refresh must not create an empty Git commit every minute. */
+    if (window.Cloud && Cloud.hasGit && Cloud.hasGit() && Cloud.pull) Cloud.pull(function () {});
+  }, 60000);
 
   /* The coach chooses the day's verse once a day. Silent: if there is no key,
      or the call fails, the rotation has already rendered and stays. */

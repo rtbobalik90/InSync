@@ -1097,3 +1097,24 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 }
 .lockrow:last-child { border-bottom: 0; }
 .lockname { font-family: var(--serif); font-size: 15.5px; color: #B8AF9B; }
+
+/* ---- Together conversation ---- */
+.chat-compose { padding-top: 15px; padding-bottom: 15px; }
+.chat-divider { height: 1px; background: var(--rule); }
+.chat-thread { display: flex; flex-direction: column; gap: 14px; }
+.chat-row { display: flex; flex-direction: column; max-width: 88%; }
+.chat-row.mine { align-self: flex-end; align-items: flex-end; }
+.chat-row.theirs { align-self: flex-start; align-items: flex-start; }
+.chat-bubble {
+  padding: 11px 14px; border-radius: 16px; font-size: 14px; line-height: 1.45;
+  border: 1px solid var(--line); background: rgba(243,237,225,.045); color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.chat-row.mine .chat-bubble {
+  background: rgba(198,161,93,.15); border-color: rgba(198,161,93,.38);
+}
+.chat-row.theirs .chat-bubble {
+  background: rgba(139,151,124,.12); border-color: rgba(139,151,124,.28);
+}
+.chat-meta { margin-top: 5px; padding: 0 3px; font-size: 10.5px; color: var(--faint); letter-spacing: .02em; }
+.chat-empty { padding: 8px 0 4px; color: var(--muted); font-size: 13px; }

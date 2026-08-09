@@ -1,4 +1,4 @@
-# InSync 5.2.2 — Ship-Readiness Test Report
+# InSync 5.2.3 — Ship-Readiness Test Report
 
 ## Automated release result
 
@@ -6,7 +6,7 @@ The working release candidate currently passes all three suites:
 
 ```bash
 node tests/stabilization-tests.js
-# 452 passed, 0 failed
+# 465 passed, 0 failed
 
 node tests/cloud-sync-tests.js
 # 23 passed, 0 failed
@@ -15,15 +15,17 @@ node tests/screen-smoke-tests.js
 # 50 passed, 0 failed
 ```
 
-**525 total checks passed, 0 failed.**
+**538 total checks passed, 0 failed.**
 
 The distribution ZIP was extracted into a fresh clean-room directory and these same three suites were rerun against the packaged bytes with the same zero-failure result.
 
-## Stabilization/regression coverage — 452 checks
+## Stabilization/regression coverage — 465 checks
 
 Includes the iPhone Home Screen standalone viewport fix: full `100lvh` canvas, `navigator.standalone` fallback, and visual-viewport remeasurement.
 
 Also covers same-route sheet scroll preservation, queued/coalesced Store renders, logging-modal scroll preservation, same-step onboarding scroll preservation, and the absence of browser-native hash-anchor/form-submit jump paths.
+
+Coverage also includes the 5.2.3 Together conversation behavior: unique rolling message IDs, local message history, sync schema 4 message arrays, per-message delivery acknowledgement without double-counting, sanitized partner replies, composer clearing after send, and visible-app periodic automatic sync.
 
 Coverage includes:
 
@@ -109,7 +111,7 @@ The available execution environment blocks Chromium navigation with `ERR_BLOCKED
 
 Use the exact packaged release on both devices and complete these checks before declaring deployment complete:
 
-1. Install/update the PWA from the production URL on both phones and confirm Settings shows **Version 5.2.2**.
+1. Install/update the PWA from the production URL on both phones and confirm Settings shows **Version 5.2.3**.
 2. On both phones, fully close/reopen the PWA and confirm local logs persist.
 3. Capture a progress photo and a meal photo; fully close/reopen; confirm both remain usable.
 4. Connect both phones to the same dedicated private GitHub sync repository and complete **Sync now** in each direction.

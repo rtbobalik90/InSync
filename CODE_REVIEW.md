@@ -1,4 +1,4 @@
-# InSync 5.2.2 — Ship-Readiness Review
+# InSync 5.2.3 — Ship-Readiness Review
 
 ## Verdict
 
@@ -38,7 +38,7 @@ Editing an already-sent note clears its old sent timestamp immediately so new of
 
 ### Expedition state is reconciled by route and leg
 
-The shared expedition payload now uses sync schema 3 and identifies route/leg state. This fixes a two-phone failure where the lagging phone's previous-leg mileage could be interpreted as mileage on the already-advanced phone's new leg.
+The shared expedition/Together payload now uses sync schema 4 and identifies route/leg state. This fixes a two-phone failure where the lagging phone's previous-leg mileage could be interpreted as mileage on the already-advanced phone's new leg.
 
 Partner progress only contributes to the matching current leg. A partner may safely pull the other phone forward on the same route, stale files cannot move a route backward, and previous-leg contribution is preserved only for the arrival it belongs to.
 
@@ -77,14 +77,22 @@ The shell remains atomic, code remains network-first, and artwork remains stale-
 
 The framework-free module architecture is appropriate for a private two-person PWA. `screens.js`, `store.js`, `cloud.js`, `log.js` and `app.js` are large, but restructuring them immediately before real-device acceptance would add regression risk without improving release safety.
 
-For the next major feature cycle, extract domain modules (Training, Nutrition, Together, Settings), sync transport/reconciliation, and persistence/migrations behind the existing regression suite. That is future maintainability work, not a 5.2.2 release blocker.
+For the next major feature cycle, extract domain modules (Training, Nutrition, Together, Settings), sync transport/reconciliation, and persistence/migrations behind the existing regression suite. That is future maintainability work, not a 5.2.3 release blocker.
 
 ## Release gate
 
 - Code/static gate: **PASS**
 - Exact packaged ZIP clean-room gate: **PASS** — the distribution archive was extracted fresh and reran the full automated/static gate with zero failures
 - Real two-iPhone hardware/service gate: **PENDING** until the checklist in `TEST_REPORT.md` is completed
-## 5.2.2 navigation stability follow-up
+## 5.2.3 Together conversation follow-up
+
+The former single-note mailbox has been replaced with a rolling two-person conversation. Each phone owns only the messages it authored, publishes the latest 50 in its private sync file, and reads the partner's authored list. This avoids cross-device message-write conflicts because neither phone edits the other phone's history.
+
+Sending commits the message locally, immediately clears the composer, displays the message in the thread, and marks it `waiting to sync` until the GitHub write succeeds. A successful write acknowledges each included pending message exactly once. Partner message arrays are sanitized before entering local state, while the previous single-note fields remain for one-release compatibility with a 5.2.2 partner.
+
+While InSync is visible it now schedules an automatic sync check every 60 seconds, in addition to launch, foreground, reconnect, and state-change triggers. iOS may suspend a Home Screen PWA in the background; when it resumes, InSync immediately catches up. Manual **Sync now** remains a diagnostic/recovery control, not a normal-use requirement.
+
+## 5.2.3 navigation stability follow-up
 
 A real iPhone interaction report exposed a UI issue the VM screen suite could not reproduce: synchronous Store renders replaced the active `.sheet` DOM and reset Safari scroll to zero on same-screen actions. The router now preserves scroll on exact-route refreshes and queues/coalesces Store-driven renders. Logging modals preserve their own scroll on same-kind repaints and no longer autofocus their first field after every repaint. Onboarding also preserves scroll when validation or a selection repaints the same step. New static regression checks cover these paths.
 

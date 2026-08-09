@@ -422,6 +422,32 @@ function withBadges() {
   eq(p.noteDate,today,'new note carries its own date');
 }
 
+// 10d1. Together messages are a rolling authored history, not a sticky latest-note field.
+{
+  const {ctx}=withCloud(); const S=ctx.Store, C=ctx.Cloud, k=S.todayKey();
+  S.setProfileName('Robert'); S.setPartnerName('Lizzie');
+  const id1=S.setPartnerNote('First message');
+  const id2=S.setPartnerNote('Second message');
+  ok(!!id1 && !!id2 && id1!==id2,'each sent message receives a stable unique id');
+  eq(S.state().sentMessages.length,2,'multiple outgoing messages remain in local conversation history');
+  let p=C.sharePayload();
+  eq(p.messages.length,2,'sync payload carries rolling message history instead of only the latest note');
+  eq(p.messages[1].text,'Second message','newest message is represented in sync history');
+  S.markMessagesSynced(p.messages);
+  ok(S.state().sentMessages.every(m=>!!m.sentAt),'successful GitHub write acknowledges every included pending message');
+  eq(S.state().notesSent,2,'message badge counter increments once per newly delivered message');
+  S.markMessagesSynced(p.messages);
+  eq(S.state().notesSent,2,'retrying the same message payload cannot double-count delivery');
+
+  const incoming=C.sanitizePartnerPayload({
+    schema:4,name:'Lizzie',initials:'L',date:k,points:0,streak:0,earned:[],
+    messages:[{id:'her-1',date:k,text:'Reply back',createdAt:new Date().toISOString(),sentAt:new Date().toISOString()}],
+    history:{points:{},logged:{}}
+  });
+  eq(incoming.messages.length,1,'partner message history survives sync-file sanitation');
+  eq(incoming.messages[0].text,'Reply back','sanitized partner reply keeps its text');
+}
+
 // 10d2. Expedition sync carries route/leg identity even when health mileage is private.
 {
   const {ctx}=withCloud(); const S=ctx.Store, C=ctx.Cloud, k=S.todayKey();
@@ -430,7 +456,7 @@ function withBadges() {
   S.state().lastArrival={routeId:'camino',legIndex:1,at:new Date().toISOString(),milesMine:3.2,milesHers:2.8};
   S.state().privacy.steps=false; S.day(k).steps=4000; S.save();
   let p=C.sharePayload();
-  eq(p.schema,3,'partner payload uses expedition-aware sync schema 3');
+  eq(p.schema,4,'partner payload uses conversation-aware sync schema 4');
   eq(p.expedition.routeId,'camino','expedition route identity is core Together state even with Steps private');
   eq(p.expedition.legIndex,2,'expedition leg identity is core Together state even with Steps private');
   ok(!('legMiles' in p) && !('previousLegMiles' in p.expedition),'Steps privacy removes current and previous-leg mileage');
@@ -545,6 +571,11 @@ function withBadges() {
   ok(app.includes('renderQueued = true') && app.includes('setTimeout(function () {') && app.includes('Store emits synchronously'),
     'Store-driven renders are queued/coalesced instead of replacing the DOM inside the active click handler');
   ok(app.includes('e.preventDefault();'),'delegated app controls defensively suppress browser-native navigation/submission defaults');
+  ok(app.includes("input.value = ''"),'sending a Together message clears the composer instead of leaving sent text editable');
+  ok(app.includes('setInterval(function ()') && app.includes('60000') && app.includes('Cloud.pull(function () {})'),'visible app performs periodic read-only sync polling without requiring Settings');
+  ok(cloud.includes('applyingRemote') && app.includes('Cloud.isApplyingRemote'),'remote pull writes do not trigger a push-back sync/commit loop');
+  const screensText=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
+  ok(screensText.includes('chat-thread') && screensText.includes('AUTO SYNC'),'Together renders a rolling conversation thread with explicit automatic-sync status');
   const htmlSources=[app,fs.readFileSync(path.join(ROOT,'screens.js'),'utf8'),fs.readFileSync(path.join(ROOT,'log.js'),'utf8'),fs.readFileSync(path.join(ROOT,'onboarding.js'),'utf8'),fs.readFileSync(path.join(ROOT,'ui.js'),'utf8')].join('\n');
   ok(!/href\s*=\s*["']#/i.test(htmlSources),'production controls contain no hash anchors that can jump the browser to the top');
   ok(!/<form\b/i.test(htmlSources),'production screens contain no implicit form submission path that can jump/reload the page');
@@ -560,7 +591,7 @@ function withBadges() {
   ok(app.includes('window.visualViewport') && app.includes("addEventListener('resize', measureRest"),'sheet rest position is remeasured when the iOS viewport changes');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-3'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-4'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));
