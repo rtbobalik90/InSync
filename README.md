@@ -58,7 +58,7 @@ Create a second GitHub repository used only for InSync shared data:
 
 Both phones use the same private repository and branch. InSync verifies that the repository is private and rejects repositories that look like the InSync application deployment.
 
-Use a GitHub token with only the access needed to read and write contents in that dedicated repository.
+Use a **fine-grained GitHub token** restricted to only this repository with **Contents: Read and write**. Recommended: create a separate token for each phone so one device can be revoked without disconnecting the other. No GitHub account is required on the second phone if you are using a token issued by the repository owner.
 
 ### 3. Configure both phones
 
@@ -154,11 +154,11 @@ node tests/cloud-sync-tests.js
 node tests/screen-smoke-tests.js
 ```
 
-App **5.2.0**, state schema **v10**, sync schema **3** currently passes:
+App **5.2.2**, state schema **v10**, sync schema **3** currently passes:
 
-- **442** stabilization/regression checks;
+- **452** stabilization/regression checks;
 - **23** sync concurrency/reconciliation checks;
 - **50** screen-render/malformed-state checks;
-- **515 total checks, 0 failures**.
+- **525 total checks, 0 failures**.
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the third-pass findings and the remaining real-iPhone acceptance gate.

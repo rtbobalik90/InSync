@@ -469,12 +469,39 @@
     if (el) el.remove();
   }
 
+  var lastPaintKind = '';
   function paint() {
-    if (!open) { host.innerHTML = ''; host.classList.remove('on'); return; }
+    var sameKind = !!open && lastPaintKind === open.kind;
+    var oldBody = sameKind ? host.querySelector('.modal-body') : null;
+    var oldMenu = sameKind ? host.querySelector('.menulist') : null;
+    var bodyTop = oldBody ? oldBody.scrollTop : 0;
+    var menuTop = oldMenu ? oldMenu.scrollTop : 0;
+
+    if (!open) {
+      host.innerHTML = '';
+      host.classList.remove('on');
+      lastPaintKind = '';
+      return;
+    }
     host.innerHTML = BUILD[open.kind](open.draft);
     host.classList.add('on');
+    lastPaintKind = open.kind;
+
+    /* Repainting a logging sheet after a picker/toggle/AI result used to reset
+       both the sheet and nested restaurant menu to the top. Preserve those
+       positions for same-kind repaints. Only a newly opened sheet receives the
+       initial autofocus, because refocusing the first field on every repaint is
+       another way iOS scrolls the modal back upward. */
+    if (sameKind && (bodyTop || menuTop)) {
+      requestAnimationFrame(function () {
+        var body = host.querySelector('.modal-body');
+        var menu = host.querySelector('.menulist');
+        if (body && bodyTop) body.scrollTop = Math.min(bodyTop, Math.max(0, body.scrollHeight - body.clientHeight));
+        if (menu && menuTop) menu.scrollTop = Math.min(menuTop, Math.max(0, menu.scrollHeight - menu.clientHeight));
+      });
+    }
     var first = host.querySelector('.field-input');
-    if (first && open.kind !== 'workout') setTimeout(function () { first.focus(); }, 60);
+    if (!sameKind && first && open.kind !== 'workout') setTimeout(function () { first.focus(); }, 60);
   }
 
   function start(kind) { open = { kind: kind, draft: draftFor(kind) }; paint(); }

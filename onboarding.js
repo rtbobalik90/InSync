@@ -420,9 +420,12 @@
     if (window.Badges) Badges.markSeen();
   }
 
+  var lastRenderedStep = '';
   function render() {
     var root = document.getElementById('onboarding');
     var key = ORDER[at];
+    var oldScroller = root.querySelector('.ob-scroll');
+    var keepScroll = lastRenderedStep === key && oldScroller ? oldScroller.scrollTop : 0;
     var hero = key === 'welcome';
     root.className = 'ob' + (hero ? ' hero' : '');
     root.innerHTML =
@@ -430,8 +433,9 @@
       (hero ? '<img class="ob-icon" src="assets/insync-icon.webp" alt="InSync" />' : '') +
       (hero || key === 'coach' ? '' : progress()) +
       '<div class="ob-scroll">' + SCREENS[key]() + '</div>';
+    lastRenderedStep = key;
     var scroller = root.querySelector('.ob-scroll');
-    if (scroller) scroller.scrollTop = 0;
+    if (scroller) scroller.scrollTop = keepScroll || 0;
     var focus = root.querySelector('.ob-input');
     if (focus && !('ontouchstart' in window)) focus.focus();
   }

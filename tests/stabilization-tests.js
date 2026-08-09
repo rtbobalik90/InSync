@@ -540,9 +540,27 @@ function withBadges() {
   ok(cloud.includes("'x-github-api-version': '2026-03-10'"),'GitHub requests pin the current API version used by this release');
   ok(cloud.includes('pushBusy') && cloud.includes('pushQueued') && cloud.includes('syncBusy'),'GitHub writes and full syncs are explicitly serialized');
   ok(app.includes('showLoadRecovery') && app.includes('save-damaged-data'),'startup has a blocking recovery path for unreadable local state');
+  ok(app.includes('function restoreSheetScroll(key, top)') && app.includes('lastRenderedKey === key') && app.includes('if (keepScroll) restoreSheetScroll(key, keepScroll)'),
+    'same-route state refreshes preserve the current sheet scroll position');
+  ok(app.includes('renderQueued = true') && app.includes('setTimeout(function () {') && app.includes('Store emits synchronously'),
+    'Store-driven renders are queued/coalesced instead of replacing the DOM inside the active click handler');
+  ok(app.includes('e.preventDefault();'),'delegated app controls defensively suppress browser-native navigation/submission defaults');
+  const htmlSources=[app,fs.readFileSync(path.join(ROOT,'screens.js'),'utf8'),fs.readFileSync(path.join(ROOT,'log.js'),'utf8'),fs.readFileSync(path.join(ROOT,'onboarding.js'),'utf8'),fs.readFileSync(path.join(ROOT,'ui.js'),'utf8')].join('\n');
+  ok(!/href\s*=\s*["']#/i.test(htmlSources),'production controls contain no hash anchors that can jump the browser to the top');
+  ok(!/<form\b/i.test(htmlSources),'production screens contain no implicit form submission path that can jump/reload the page');
+  ok(log.includes("var lastPaintKind = ''") && log.includes("var bodyTop = oldBody ? oldBody.scrollTop : 0") && log.includes("if (!sameKind && first"),
+    'logging-sheet repaints preserve modal scroll and do not refocus the first field on same-kind updates');
+  const onboarding=fs.readFileSync(path.join(ROOT,'onboarding.js'),'utf8');
+  ok(onboarding.includes("var lastRenderedStep = ''") && onboarding.includes('lastRenderedStep === key') && onboarding.includes('scroller.scrollTop = keepScroll || 0'),
+    'same-step onboarding validation/selection repaints preserve their scroll position');
+
+  const css=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
+  ok(css.includes('@media (display-mode: standalone)') && css.includes('height: 100lvh'),'standalone PWA uses the full large viewport instead of the shorter dynamic viewport');
+  ok(app.includes('navigator.standalone') && app.includes("classList.add('insync-standalone')"),'iOS standalone detection backs up the display-mode media query');
+  ok(app.includes('window.visualViewport') && app.includes("addEventListener('resize', measureRest"),'sheet rest position is remeasured when the iOS viewport changes');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-1'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-3'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));

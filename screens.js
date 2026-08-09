@@ -1828,7 +1828,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.2.0</div></div>' +
+            '<div class="meta">Version 5.2.2</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +

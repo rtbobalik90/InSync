@@ -2,6 +2,13 @@
 (function () {
   'use strict';
 
+  /* Safari exposes navigator.standalone on iOS even on versions where the
+     display-mode media query can lag during Home Screen launch. Mark the root
+     as well so CSS can always select the full standalone viewport. */
+  var standaloneMode = !!(navigator.standalone ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  if (standaloneMode) document.documentElement.classList.add('insync-standalone');
+
   var app = document.getElementById('app');
   var TABS = ['home', 'coach', 'train', 'nutrition', 'together'];
 
@@ -14,11 +21,43 @@
 
 
 
+  var lastRenderedKey = '';
+
+  /* Store changes frequently re-render the current screen: toggling privacy,
+     checking a shopping item, logging a set, receiving a background sync, etc.
+     Replacing .innerHTML resets Safari's scroll container to zero. That made a
+     tap halfway down a long screen look like navigation even though the route
+     never changed. Preserve the sheet position only when we are re-rendering
+     the exact same route; a real route change still opens at the top. */
+  function restoreSheetScroll(key, top) {
+    if (!top || top < 1) return;
+    function apply() {
+      if (current() !== key) return;
+      var sheet = app.querySelector('.sheet');
+      if (!sheet) return;
+      var max = Math.max(0, sheet.scrollHeight - sheet.clientHeight);
+      sheet.scrollTop = Math.min(top, max);
+    }
+    requestAnimationFrame(function () {
+      if (window.UI && UI.restFor) UI.restFor(app);
+      apply();
+      /* iOS may finish safe-area/font/image layout a beat after the first
+         frame. Re-apply once after that layout settles so the same card stays
+         under the user's finger instead of snapping to the hero. */
+      setTimeout(function () {
+        if (window.UI && UI.restFor) UI.restFor(app);
+        apply();
+      }, 160);
+    });
+  }
+
   function render() {
     var key = current(), root = base(key);
     var html;
+    var oldSheet = app.querySelector('.sheet');
+    var keepScroll = lastRenderedKey === key && oldSheet ? oldSheet.scrollTop : 0;
 
-    if (!Store.state().onboarded) { app.innerHTML = ''; return; }
+    if (!Store.state().onboarded) { app.innerHTML = ''; lastRenderedKey = ''; return; }
 
     // Opening a verse surface is the evidence for the verse-reading badge.
     if ((root === 'home' || root === 'reflection') && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
@@ -51,6 +90,7 @@
     else { location.hash = '#home'; return; }
 
     app.innerHTML = html;
+    lastRenderedKey = key;
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
     maybeBadge(key);
@@ -59,6 +99,7 @@
        survive copy changes or a shorter viewport: too small and the next card
        peeks above the nav, too large and the first card is clipped behind it. */
     measureRest();
+    if (keepScroll) restoreSheetScroll(key, keepScroll);
   }
 
 
@@ -170,6 +211,10 @@
        every "ask it something" button, did nothing at all. */
     var el = e.target.closest('[data-route],[data-back],[data-action],[data-toggle],[data-ask]');
     if (!el) return;
+    /* These controls are app commands, not browser navigation. Prevent any
+       default anchor/submit behavior if a future screen changes the element
+       type without changing the delegated handler. */
+    e.preventDefault();
 
     if (el.hasAttribute('data-back')) {
       var backTo = el.getAttribute('data-back');
@@ -597,7 +642,7 @@
 
   /* Any save re-renders. If a field has focus, that would replace the node
      mid-edit and drop the caret — so hold the render until the field is done. */
-  var deferred = false;
+  var deferred = false, renderQueued = false;
   function editing() {
     var el = document.activeElement;
     return !!el && app.contains(el) &&
@@ -605,12 +650,23 @@
   }
   function safeRender() {
     if (editing()) { deferred = true; return; }
-    render();
+    if (renderQueued) return;
+    renderQueued = true;
+    /* Store emits synchronously. Rendering synchronously from inside a click
+       handler destroys the button that handler is still using and resets the
+       iOS scroll container before the tap has even completed. Queue and
+       coalesce state-driven renders instead. Route hashchanges still render
+       immediately through their own listener. */
+    setTimeout(function () {
+      renderQueued = false;
+      if (editing()) { deferred = true; return; }
+      render();
+    }, 0);
   }
   document.addEventListener('focusout', function () {
     if (!deferred) return;
     deferred = false;
-    setTimeout(function () { if (!editing()) render(); }, 0);
+    safeRender();
   });
 
   window.addEventListener('hashchange', render);
@@ -734,6 +790,12 @@
       setTimeout(function () { UI.restFor(app); }, 140);
     });
   }
+  /* Re-anchor the resting card whenever iOS changes the visual viewport. This
+     keeps the fold attached to the real tab-bar position after launch,
+     rotation, or browser-chrome changes instead of preserving an old gap. */
+  window.addEventListener('resize', measureRest, { passive: true });
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', measureRest, { passive: true });
+
   new MutationObserver(function () {
     clearTimeout(restTimer);
     restTimer = setTimeout(function () { UI.restFor(app); }, 60);

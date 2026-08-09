@@ -1,4 +1,4 @@
-# InSync 5.2.0 — Third-Pass Ship Review
+# InSync 5.2.2 — Ship-Readiness Review
 
 ## Verdict
 
@@ -77,10 +77,14 @@ The shell remains atomic, code remains network-first, and artwork remains stale-
 
 The framework-free module architecture is appropriate for a private two-person PWA. `screens.js`, `store.js`, `cloud.js`, `log.js` and `app.js` are large, but restructuring them immediately before real-device acceptance would add regression risk without improving release safety.
 
-For the next major feature cycle, extract domain modules (Training, Nutrition, Together, Settings), sync transport/reconciliation, and persistence/migrations behind the existing regression suite. That is future maintainability work, not a 5.2.0 release blocker.
+For the next major feature cycle, extract domain modules (Training, Nutrition, Together, Settings), sync transport/reconciliation, and persistence/migrations behind the existing regression suite. That is future maintainability work, not a 5.2.2 release blocker.
 
 ## Release gate
 
 - Code/static gate: **PASS**
 - Exact packaged ZIP clean-room gate: **PASS** — the distribution archive was extracted fresh and reran the full automated/static gate with zero failures
 - Real two-iPhone hardware/service gate: **PENDING** until the checklist in `TEST_REPORT.md` is completed
+## 5.2.2 navigation stability follow-up
+
+A real iPhone interaction report exposed a UI issue the VM screen suite could not reproduce: synchronous Store renders replaced the active `.sheet` DOM and reset Safari scroll to zero on same-screen actions. The router now preserves scroll on exact-route refreshes and queues/coalesces Store-driven renders. Logging modals preserve their own scroll on same-kind repaints and no longer autofocus their first field after every repaint. Onboarding also preserves scroll when validation or a selection repaints the same step. New static regression checks cover these paths.
+

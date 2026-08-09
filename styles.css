@@ -44,11 +44,27 @@ button { font-family: var(--sans); cursor: pointer; }
   top: 0;
   left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 430px;
-  /* Dynamic viewport height: in a browser tab the visible height changes as the
-     toolbars collapse, and anchoring to bottom:0 left a dead band under the nav. */
+  /* In a normal browser tab, use the dynamic viewport so collapsing browser
+     chrome does not strand the tab bar above the visible bottom edge. */
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+}
+/* iOS Home Screen PWAs expose a smaller dynamic viewport than the actual
+   standalone canvas on some devices. That left the nav correctly positioned
+   at the bottom of 100dvh while a second band of body background remained
+   underneath it. In standalone mode the app should own the full large
+   viewport, including the safe-area canvas; the nav itself already handles
+   env(safe-area-inset-bottom). */
+@media (display-mode: standalone) {
+  .app {
+    height: 100vh;
+    height: 100lvh;
+  }
+}
+html.insync-standalone .app {
+  height: 100vh;
+  height: 100lvh;
 }
 @media (min-width: 460px) {
   html, body { background: #070805; }
