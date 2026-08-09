@@ -1,11 +1,20 @@
 /* Network-first for the app's own code so updates land; cache-first for artwork. */
-var CACHE = 'insync-v5-2';
+var CACHE = 'insync-v7-1';
 var SHELL = [
-  './', 'index.html', 'styles.css', 'store.js', 'ui.js', 'screens.js', 'onboarding.js', 'app.js',
+  './', 'index.html', 'styles.css',
+  /* Every script index.html loads — a missing one here is a screen that cannot
+     open on a phone with no signal. */
+  'store.js', 'cloud.js', 'ui.js', 'media.js', 'exercises.js', 'foods.js',
+  'badges.js', 'screens.js', 'onboarding.js', 'log.js', 'app.js',
   'manifest.webmanifest',
+  'assets/icon-192.png', 'assets/icon-512.png', 'assets/icon-maskable-512.png',
+  'assets/insync-icon.png',
   'assets/art/camp-dawn.jpg', 'assets/art/camp-day.jpg',
   'assets/art/camp-sunset.jpg', 'assets/art/camp-night.jpg',
-  'assets/art/meal-example.jpg', 'assets/art/train-banner.png'
+  'assets/art/onboarding-welcome.png', 'assets/art/expedition-none.png',
+  'assets/art/expedition-overlook.png', 'assets/art/campfire.png',
+  'assets/art/dispatch-day.png', 'assets/art/provisions.png',
+  'assets/art/coach-desk.jpg', 'assets/art/meal-example.jpg', 'assets/art/train-banner.png'
 ];
 
 // Anything that is code gets revalidated; artwork never changes, so it is cached hard.

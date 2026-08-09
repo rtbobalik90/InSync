@@ -1,0 +1,10 @@
+# Nothing here is built, so nothing needs ignoring except editor and OS noise.
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# The sync folder each phone writes into, if you keep it in the same repository.
+# Remove this line if you want the synced totals under version control.
+sync/

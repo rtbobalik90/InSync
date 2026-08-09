@@ -1,12 +1,17 @@
 {
+  "id": "insync",
   "name": "InSync",
   "short_name": "InSync",
+  "description": "Two people, one trail. Training, meals and a shared expedition, kept on your own phone.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#14150F",
   "theme_color": "#14150F",
   "orientation": "portrait",
   "icons": [
-    { "src": "assets/badges/faith-first-verse.png", "sizes": "320x320", "type": "image/png", "purpose": "any" }
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

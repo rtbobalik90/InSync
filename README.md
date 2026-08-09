@@ -1,65 +1,82 @@
 # InSync
 
-A two-person health app. Not a product — built for Robert and Lizzie, and the design assumes exactly two users who trust each other.
+Two people, one trail. A local-first PWA for one couple: training, meals, body metrics and a shared expedition.
 
-Open `index.html`. No build step, no dependencies.
+Everything lives on the phone that logged it. There is no account, no server and no sign-in. The two devices reach each other through a private GitHub repository, and the coach reaches Claude directly from the device. Both keys are optional; the app works without either.
 
-## What's here
-
-**The app** — `index.html`, `styles.css`, `store.js`, `ui.js`, `screens.js`, `app.js`, `sw.js`, `manifest.webmanifest`.
-
-**The designs** — sixteen `.dc.html` files, one per screen. These are review artifacts, not app files. Each carries a row of state-switcher buttons at the top and its own copy of the header and nav so it can be looked at on its own. What's *the design* is everything inside the phone frame.
-
-**The specs** — `DESIGN-BRIEF.md` (every decision and why), `EXPEDITIONS.md` (12 routes, 64 legs), `BADGES.md` (39 badges with conditions and tiers).
-
-## Architecture
-
-One page. One `#app` container. `location.hash` is the router. `render()` replaces the container's HTML and rebinds. No framework, no bundler.
+## Files
 
 ```
-store.js    the only state. Persists to localStorage under insync.v5
-ui.js       shared chrome — header, bottom nav, the photo-and-sheet construction
-screens.js  one function per tab, returns HTML for the sheet body
-app.js      router, event delegation, first-run seed
+index.html            the whole app, one container
+styles.css            all styling
+store.js              the only state; persists to localStorage under insync.v8
+cloud.js              Claude (the coach) and GitHub (reaching the other phone)
+ui.js                 shared chrome — header, bottom nav, photo-and-sheet shell
+media.js              camera capture, image shrinking, photo storage (IndexedDB)
+exercises.js          the exercise library; every entry has a GIF in assets/exercises
+foods.js              quick-add food table
+badges.js             the 39 badges; every condition is a function of real state
+screens.js            one function per screen, returns HTML for the sheet body
+onboarding.js         nine-screen first run; gates the app until it completes
+log.js                the logging sheets (meal, workout, morning, steps, barcode)
+app.js                router and init
+sw.js                 service worker: network-first for code, cache-first for artwork
+manifest.webmanifest  install metadata
+assets/               artwork, badge stamps, exercise GIFs, app icons
 ```
 
-**The five tabs are Home, Coach, Train, Nutrition, Together.** Everything else — Body, Records, Badges, Settings, Reflection, Notifications — is reached from inside a tab, not from the nav.
+No build step, no dependencies, no bundler. Open `index.html` and it runs.
 
-### The screen construction
+## Hosting
 
-Every screen is a fixed photograph with a sheet of cards sliding over it. The photo blurs and the overlay text fades as the sheet rises. `UI.screen({...})` builds it; `UI.bindScroll()` wires the motion.
+Any static host over **https** (GitHub Pages is enough). The service worker and the
+camera both require a secure origin; on `http` the app still runs but will not
+install or use the camera.
 
-The sheet's resting position is **measured, not typed**. `UI.restFor()` reads the nav's top edge and the first card's real height and sets the spacer from that, so the first card always clears the nav whatever the copy does to its height.
+With GitHub Pages: push this folder to the repository, then Settings → Pages →
+deploy from branch. Open the URL on the phone and use *Add to Home Screen*.
 
-## The rule that matters
+## Setting it up on a phone
 
-**Nothing on screen is typed.** Every figure, count, percentage and sentence containing a number is derived from `Store`.
+1. Open the URL and walk the nine onboarding screens. The last one takes a
+   Claude API key with a **Test and save** button — paste one and the coach
+   writes from the first day. Skipping it is fine; the coach falls back to its
+   own rules.
+2. Settings → Connections: paste a GitHub token, the repository (`owner/name`)
+   and the branch, and the partner's name.
+3. Do the same on the second phone, with the two names swapped.
 
-During design this was violated eight times — a sentence would assert "four sessions this week" beside a strip showing three, because the prose was written before the data existed and never revisited. If you find yourself typing a number into a string, that number belongs in `store.js` as a selector.
+**Pairing.** Each device writes only its own totals to `sync/<name>.json` and reads
+only the other's. The names must match across the two phones; capitals and
+spacing do not matter. What crosses over is governed entirely by the privacy
+toggles, and progress photos never cross — there is no switch for them.
 
-Selectors that already exist: `totals()`, `streak()`, `daysIn()`, `points()`, `pointRows()`, `nextStep()`, `timeOfDay()`, `logged()`.
+## What is unproven
 
-## Design system
+The code is complete and internally consistent, but as shipped it has never run:
 
-One token layer in `styles.css`. It is not overridden anywhere else — the v4 stylesheet stacked four `:root` blocks from four releases and every change after that was guesswork about which layer won.
+- against a real GitHub token — sync, and the expedition handshake across two devices
+- against a real Claude key — the coach's line, the verse choice, meal reading,
+  barcode reading, the plan writer, the target proposal
+- against a real camera, or on iOS at all
 
-| | |
-| --- | --- |
-| Ground / card | `#14150F` / `#0D0E0A` |
-| Ink / muted / floor | `#F3EDE1` / `#A29A87` / `#8A8371` |
-| Gold / sage | `#C6A15D` / `#8FA184` |
-| Display / UI | Playfair Display / Archivo |
+Expect the first pass on a phone to find something.
 
-**Type floor is 11px.** Nothing smaller, anywhere.
+## Notifications
 
-**`#8A8371` is the muted-ink floor.** Anything darker is for inactive controls and decoration only — never for text a person needs to read. Recession comes from weight and size, not darker ink.
+The eight toggles in Settings are stored preferences. Nothing sends a push —
+that needs a server, and this app deliberately has none. Everything arrives when
+the app is opened, through the notification centre behind the bell.
 
-**Buttons are squared** (2px radius). Cards keep 16px. Remove actions use `--danger`, which appears nowhere else, so destruction reads as destruction.
+## Conventions worth keeping
 
-**No emoji.** Icons are inline SVG in `ui.js`. Badges are real artwork in `assets/badges/`.
-
-## Still to port
-
-`app.js` has a `STUBS` map. Each entry names the design file it comes from. Porting one means: strip the state-switcher row and the duplicated header and nav, replace hardcoded arrays with `Store` reads, add it to the router.
-
-Order that avoids rework: extend `store.js` first for whatever the screen needs, then port the markup.
+- **Nothing on screen is typed.** Every figure, count and sentence containing a
+  number is derived from the store. Distances come from steps, badges from the
+  log, totals from the lists that imply them.
+- **Units are display only.** Everything is stored in pounds, miles and
+  kilocalories and converted at the edge, so switching units cannot round the
+  history away.
+- **11px is the type floor**, and small text is dimmed by setting its colour
+  outright, never with `opacity`.
+- **Neither device assumes whose it is.** No name is hardcoded anywhere; both
+  read from `profile` and `partner`.
