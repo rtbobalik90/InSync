@@ -1,44 +1,49 @@
-# InSync 6.0.0-p3b — Phase 3B Code Review
+# InSync 6.0.0-p4 — Training 2.0 Review
 
-## Review conclusion
+## Architecture
+A new `training.js` domain owns deterministic training decisions. It consumes Store history and the existing exercise library but does not own UI or network calls.
 
-Phase 3B is an additive presentation/interaction rebuild over the Phase 3 Faith foundation. It does not require a destructive state migration and does not widen the partner-sharing boundary.
+Responsibilities include:
+- gym/equipment profiles;
+- readiness interpretation;
+- exercise eligibility;
+- progression recommendations and evidence;
+- recovery/deload proposal signals;
+- rest-duration defaults;
+- movement-pattern warm-ups;
+- structured walking-distance calculation.
 
-## Architecture decisions
+`insights.js` delegates progression to this engine when it is loaded. `cloud.js` may still use Claude to compose a weekly program, but the prompt is constrained to eligible exercises and `validatePlan()` rejects unavailable equipment before anything reaches Store.
 
-### Scripture is deterministic
-`scripture.js` owns stored Scripture used by the new reader and waypoint experiences. Faith and Journey consume verified local text; Claude is not used to generate or quote Bible passages.
+## State safety
+Training additions remain additive inside local state v10:
+- `trainingProfile`
+- day-level `readiness`
+- structured walk fields
+- working-set effort/RIR
+- session rest-timer state
 
-### Faith remains a cross-cutting journey domain
-Primary navigation remains:
+No destructive migration or reset is introduced. Partner sync remains schema 7.
 
-**Home · Journey · Train · Nutrition · Together**
+## Progression safety
+The next-load decision is never taken from Claude output. The deterministic engine uses:
+- exercise rep range;
+- recent working sets;
+- recent load/reps;
+- Easy/Right/Hard or RIR;
+- current readiness;
+- recent discomfort substitutions.
 
-Faith is reached contextually from Daily Camp, Journey, Coach and evening reflection. This prevents a second, disconnected mini-application from emerging inside InSync.
+The UI renders the supporting facts under **Why this?** so a recommendation is inspectable rather than a black box.
 
-### Private formation data stays private
-`faith.waypointNotes` joins prayer journal, gratitude and reflection as owner-private content. Partner payload construction remains intentionally narrow and only carries the explicitly selected shared prayer plus bounded acknowledgements.
+## Recovery behavior
+Readiness and deload are proposals, not automatic plan mutations. Pain is treated only as a caution signal: InSync explicitly does not diagnose it and does not force progression.
 
-### Game boundary remains hard
-The Faith module has no reward emission or Base Camp XP path. The redesigned interactions do not change that contract.
+## Distance correctness
+Structured treadmill/manual walking can be more accurate than step-derived distance. Expedition contribution therefore takes the maximum credible source per day rather than summing sources that may represent the same walk.
 
-## Risk review
+## Media requirement
+Every exercise newly made available to the planner ships with a real animated WebP asset. Claude cannot prescribe an exercise outside the registered library/equipment rules.
 
-### Local state
-Low risk. `faith.waypointNotes` is additive and normalized under the existing `insync.v10` store. Existing installs retain their data.
-
-### Partner sync
-Low risk. Schema remains 7. No new private Faith fields were added to the shared payload.
-
-### Offline behavior
-`scripture.js` was added to the service-worker shell and the cache was bumped to `insync-v10-19`.
-
-### Browser support
-Scripture listening uses native `speechSynthesis` only when available; core reading/memory functionality does not depend on it.
-
-### Accessibility
-The practice flows use native buttons, textareas, details/summary and normal focus behavior. Scripture remains actual text rather than text baked into art.
-
-## Release gate
-
-All automated suites pass: **1,156 / 1,156**.
+## Faith
+Faith remains parked and dormant in the active shell, with prior source/data preserved for a later design pass.

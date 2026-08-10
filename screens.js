@@ -81,42 +81,6 @@
     '</article>';
   }
 
-
-  function faithBriefCard() {
-    if (!window.Faith) return '';
-    var v = Store.verse(), f = Faith.summary(), partnerPrayer = f.partnerPrayer;
-    var r = route(), e = Store.state().expedition, road = r ? r.name + (leg() ? ' · Camp ' + (e.legIndex + 1) : '') : 'Today at camp';
-    var currentMemory = Faith.memory().find(function (m) { return m.ref === v.ref && m.text === v.text; });
-    var memoryLine = f.memoryDue ? (f.memoryDue + ' review' + (f.memoryDue === 1 ? '' : 's') + ' ready') : (f.memoryTotal ? 'Keep the trail warm' : 'Begin your Memory Trail');
-    return '<section class="faith-camp-brief">' +
-      '<div class="faith-camp-head"><div><span class="kicker sage">Today at Camp</span><p class="small">' + esc(road) + '</p></div><button class="faith-text-link" data-route="faith">Faith</button></div>' +
-      '<button class="faith-scripture-feature" data-route="scripture-passage/' + esc((window.ScriptureLibrary && ScriptureLibrary.byRef(v.ref) || {}).id || '') + '">' +
-        '<span class="faith-scripture-icon">' + icon('book') + '</span><span><small>Today’s Scripture</small><strong>' + esc(v.ref) + '</strong><em>' + esc(v.text) + '</em></span><i>' + icon('chev') + '</i>' +
-      '</button>' +
-      '<div class="faith-camp-grid">' +
-        '<button class="faith-mini" data-route="' + (currentMemory ? 'memory-item/' + esc(currentMemory.id) + '/' + esc(Faith.memoryMode(currentMemory)) : 'memory') + '"><span>' + icon('journey') + '</span><small>Memory Trail</small><strong>' + esc(memoryLine) + '</strong></button>' +
-        '<button class="faith-mini" data-route="prayers"><span>' + icon('quill') + '</span><small>Prayer</small><strong>' + esc(partnerPrayer ? '1 from ' + Store.partnerName() : (f.prayersOngoing + ' ongoing')) + '</strong></button>' +
-      '</div>' +
-      '<button class="faith-evening-link" data-route="reflection"><span>' + icon('flag') + '</span><span><small>Evening Reflection</small><strong>Close your day at camp</strong></span><i>' + icon('chev') + '</i></button>' +
-    '</section>';
-  }
-
-  function sabbathHomeCard() {
-    var v = Store.verse(), d = Store.day(), t = Store.totals();
-    var facts = [];
-    if (d.steps) facts.push(d.steps.toLocaleString() + ' steps');
-    if ((d.meals || []).length) facts.push((d.meals || []).length + ' meals');
-    if ((d.workouts || []).length) facts.push((d.workouts || []).length + ' session' + ((d.workouts || []).length === 1 ? '' : 's'));
-    if (t.protein) facts.push(t.protein + ' g protein');
-    return '<article class="card pad accent">' +
-      '<div class="kicker gold" style="margin-bottom:9px">Sabbath mode</div>' +
-      '<p class="lede">Today is not a score to close.</p>' +
-      '<p class="small" style="margin-top:9px">Rest, worship, Scripture, gratitude and an unhurried walk may belong here. Health data can still be logged, but InSync will not turn it into pressure.</p>' +
-      (facts.length ? '<p class="small" style="margin-top:12px">Already recorded: ' + esc(facts.join(' · ')) + '.</p>' : '') +
-      '<div class="btnrow" style="margin-top:15px"><button class="btn" data-route="faith">Faith Hub</button><button class="btn ghost" data-route="reflection">Gratitude & reflection</button></div>' +
-    '</article>';
-  }
-
   function expeditionCard() {
     var r = route();
     if (!r) return noExpeditionCard();
@@ -207,12 +171,9 @@
       (hasData ? '' :
         '<div class="streakline"><i></i><span>Day one &middot; ' + timeWord() + '</span></div>');
 
-    var sabbath = window.Faith && Faith.isSabbath && Faith.isSabbath();
-    var body = sabbath
-      ? sabbathHomeCard() + faithBriefCard() + expeditionCard() + partnerCard()
-      : (hasData
-          ? ledgerCard() + nextStepCard() + faithBriefCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
-          : dayOneCard() + faithBriefCard());
+    var body = hasData
+      ? ledgerCard() + nextStepCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
+      : dayOneCard();
     body += '<button class="btn ghost block" data-route="calendar">History &amp; calendar</button>';
 
     return UI.screen({
@@ -242,22 +203,6 @@
       '</div>' +
       '<p class="small" style="margin-top:14px">The coach needs a fortnight before it proposes targets. Until then these are starting numbers, not yours.</p>' +
     '</article>';
-  }
-
-  function alongRoadCard(routeId, legIndex) {
-    if (!window.Faith || !routeId) return '';
-    var w = Faith.waypoint(routeId, legIndex);
-    if (!w) return '';
-    var note = Faith.waypointNote(routeId, legIndex);
-    return '<section class="along-road">' +
-      '<div class="along-road-head"><span class="kicker sage">Along the Road</span><span class="small">Consider on this leg</span></div>' +
-      '<div class="along-road-passage"><div><strong>' + esc(w.ref) + '</strong><p>' + esc(w.text) + '</p></div><span class="along-road-mark">' + icon('place') + '</span></div>' +
-      '<div class="along-road-actions">' +
-        '<button data-route="scripture-passage/' + esc(w.passageId || '') + '"><span>' + icon('book') + '</span>Read</button>' +
-        '<button data-route="waypoint-reflection"><span>' + icon('quill') + '</span>' + (note ? 'Reflection' : 'Reflect') + '</button>' +
-        '<button data-action="faith-add-waypoint" data-passage-id="' + esc(w.passageId || '') + '"><span>' + icon('plus') + '</span>Memory</button>' +
-      '</div>' +
-    '</section>';
   }
 
   // ---------------- Journey ----------------
@@ -365,7 +310,7 @@
       tab: 'journey', rest: 470, restMeasure: true,
       art: art, photoPosition: 'center 44%', overlay: overlay,
       body:
-        progress + legCard + (complete ? '' : alongRoadCard(e.routeId, e.legIndex)) +
+        progress + legCard +
         '<div class="rulehead"><span class="kicker sage">Route map</span><span></span><span class="note">' + r.legs.length + ' legs</span></div>' +
         '<article class="card journey-map">' + mapRows + '</article>' +
         nextRoad + passport +
@@ -395,18 +340,6 @@
   /* Coach. One scrolling screen; the top changes after dark, and the
      conversation is real when a key is set. Every figure here is computed. */
   function coach() {
-    if (window.Faith && Faith.isSabbath && Faith.isSabbath()) {
-      var sv = Store.verse();
-      return UI.screen({
-        tab: null, restMeasure: true, art: 'assets/art/coach-desk.webp', photoPos: 'center 34%',
-        overlay: '<div class="eyebrow">' + esc(dayPart()) + '</div><p class="verse" style="font-size:25px">Sabbath mode is on. Coach will not turn today into a list to close.</p>',
-        body:
-          '<article class="card pad accent"><div class="kicker gold" style="margin-bottom:9px">A slower day</div>' +
-            '<p class="lede">' + esc(sv.text) + '</p><p class="small" style="margin-top:8px">' + esc(sv.ref) + '</p>' +
-            '<div class="btnrow" style="margin-top:15px"><button class="btn" data-route="faith">Open Faith</button><button class="btn ghost" data-route="reflection">Reflect</button></div></article>' +
-          askBlock()
-      });
-    }
     var n = coachSays(), t = Store.totals(), tg = Store.state().targets;
     var d = Store.day(), evening = Store.timeOfDay() === 'night';
     var gaps = [
@@ -472,7 +405,6 @@
           '<div class="btnrow" style="margin-top:16px">' +
             '<button class="btn" data-route="' + n.route + '">' + esc(n.action) + '</button>' +
             writeBtn +
-            '<button class="btn ghost auto" data-route="faith">Faith Hub</button>' +
           '</div>' +
           (n.written ? aiWhyBlock('daily-next-step') : '') +
           (Cloud.hasClaude() ? '' : '<p class="small" style="margin-top:13px">Written from simple rules. Add a Claude key in Settings and the coach writes it in its own words.</p>') +
@@ -744,6 +676,39 @@
   }
 
   // ---------------- Train ----------------
+  function readinessCard(key) {
+    if (!window.Training) return '';
+    key = key || Store.todayKey();
+    if (key !== Store.todayKey()) return '';
+    var r = Training.readiness(key), rec = Training.readinessRecommendation(key);
+    function chips(kind, options, current) {
+      return '<div class="readiness-chips">' + options.map(function (o) {
+        return '<button class="ob-chip' + (String(current) === String(o[0]) ? ' on' : '') + '" data-action="set-readiness" data-kind="' + kind + '" data-value="' + o[0] + '">' + o[1] + '</button>';
+      }).join('') + '</div>';
+    }
+    return '<article class="card readiness-card">' +
+      '<div class="cardhead"><div class="title"><i></i>Readiness</div><div class="meta">10 seconds</div></div>' +
+      '<div class="pad-x readiness-body">' +
+        '<div class="readiness-row"><div><strong>Energy</strong><span>How charged do you feel?</span></div>' + chips('energy', [['low','Low'],['normal','Normal'],['high','High']], r.energy) + '</div>' +
+        '<div class="readiness-row"><div><strong>Soreness</strong><span>How much are you carrying?</span></div>' + chips('soreness', [['none','None'],['some','Some'],['a-lot','A lot']], r.soreness) + '</div>' +
+        '<div class="readiness-row"><div><strong>Pain</strong><span>Different from ordinary training soreness.</span></div>' + chips('pain', [['false','No'],['true','Yes']], r.pain ? 'true' : 'false') + '</div>' +
+        '<div class="readiness-callout ' + esc(rec.kind) + '"><strong>' + esc(rec.label) + '</strong><span>' + esc(rec.detail) + '</span></div>' +
+        (Training.readinessComplete(key) && rec.mode === 'lighter'
+          ? '<div class="btnrow"><button class="btn sm" data-action="begin" data-session-mode="lighter">Use lighter session</button><button class="btn ghost sm" data-action="begin" data-session-mode="planned">Keep planned</button></div>'
+          : '') +
+      '</div></article>';
+  }
+
+  function deloadCard() {
+    if (!window.Training) return '';
+    var d = Training.deloadStatus(), active = Training.isDeloadWeek(Store.todayKey()), p = Training.profile();
+    if (active) return '<article class="card pad deload-card"><div class="kicker sage">Recovery week active</div><p class="lede" style="margin:8px 0 5px">Working sets are reduced by one this week.</p><p class="small" style="margin:0 0 13px">Load progression is held. Nothing else about the plan is silently changed.</p><button class="btn ghost sm" data-action="cancel-deload">Return to normal volume</button></article>';
+    if (!d.suggested) return '';
+    var dismissed = p.deloadDismissedAt && (Date.now() - Date.parse(p.deloadDismissedAt) < 3 * 86400000);
+    if (dismissed) return '';
+    return '<article class="card pad deload-card"><div class="kicker gold">Recovery signal</div><p class="lede" style="margin:8px 0 5px">' + esc(d.label) + '</p><p class="small" style="margin:0 0 13px">' + esc(d.detail) + ' Recent sessions: ' + d.recentSessions + ' · hard-set rate: ' + Math.round(d.hardSetRate * 100) + '%.</p><div class="btnrow"><button class="btn sm" data-action="accept-deload">Use lighter sessions this week</button><button class="btn ghost sm" data-action="dismiss-deload">Not now</button></div></article>';
+  }
+
   function train() {
     var d = Store.day(), done = d.workouts.length > 0;
     var S = Store.state();
@@ -783,6 +748,7 @@
             }))
       : [];
 
+    var equipmentMismatch = !!(window.Training && machines.some(function (m) { return !Training.equipmentAllows(m); }));
     var todayTrainingStatus = Store.trainingStatus(Store.todayKey());
     var headline = done
       ? 'Session done. That is the day carried.'
@@ -798,6 +764,8 @@
       scrim: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
       overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
+        readinessCard(Store.todayKey()) +
+        deloadCard() +
         dailyWalkCard(Store.todayKey(), 'train') +
         '<article class="card" data-rest-anchor>' +
           '<div class="cardhead">' +
@@ -874,7 +842,7 @@
                   '</button>';
                 }).join('') +
                 '<div class="pad-x" style="padding-bottom:15px;padding-top:13px">' +
-                  '<button class="btn block" data-action="begin">Start the session</button>' +
+                  (equipmentMismatch ? '<button class="btn block" data-action="write-plan">Rewrite for ' + esc(Training.gymLabel(Training.profile().gymType)) + '</button><p class="small" style="margin:10px 0 0">The old week is preserved until the replacement passes validation.</p>' : '<button class="btn block" data-action="begin" data-session-mode="' + (window.Training && Training.isDeloadWeek(Store.todayKey()) ? 'lighter' : 'planned') + '">Start the session</button>') +
                 '</div>' +
               '</article>'
             : '<button class="btn block" data-action="start-session">Log a session</button>') +
@@ -1906,7 +1874,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p3b · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p4 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2071,8 +2039,17 @@
           aiPreferenceRow('Directness', 'How plainly Coach names a gap.', 'directness', [['gentle','Gentle'],['direct','Direct'],['firm','Firm']], (S.aiPrefs||{}).directness) +
           aiPreferenceRow('Meal complexity', 'How ambitious generated home cooking should be.', 'mealComplexity', [['simple','Simple'],['practical','Practical'],['adventurous','Adventurous']], (S.aiPrefs||{}).mealComplexity) +
           aiPreferenceRow('Training style', 'How readily Coach proposes progression when the log supports it.', 'trainingStyle', [['conservative','Conservative'],['balanced','Balanced'],['progressive','Progressive']], (S.aiPrefs||{}).trainingStyle) +
-          aiPreferenceRow('Faith emphasis', 'How often optional coaching language brings the Christian frame forward.', 'faithEmphasis', [['light','Light'],['integrated','Integrated'],['explicit','Explicit']], (S.aiPrefs||{}).faithEmphasis) +
-          '<p class="small pad-x" style="padding-bottom:15px">One Coach, multiple internal skills: Daily Coach, Trainer, Nutrition Planner, Faith Companion, Weekly Planner, Expedition Guide and Couple Encouragement. Each receives only its allowed context.</p>' +
+          '<p class="small pad-x" style="padding-bottom:15px">One Coach, multiple internal skills: Daily Coach, Trainer, Nutrition Planner, Weekly Planner, Expedition Guide and Couple Encouragement. Each receives only its allowed context.</p>' +
+        '</article>' +
+
+        '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Training setup</div><div class="meta">' + esc(window.Training ? Training.gymLabel(Training.profile().gymType) : 'Gym') + '</div></div>' +
+          preferenceRow('Where you train', 'Plans can only use movements supported by this equipment profile.', 'set-gym-type', [['planet-fitness','Planet Fitness'],['home','Home'],['full-gym','Full gym'],['custom','Custom']], (S.trainingProfile||{}).gymType) +
+          ((S.trainingProfile||{}).gymType === 'custom' ? '<div class="setpref"><div><div class="setname">Available equipment</div><div class="small">Choose every type the planner may use.</div></div><div class="setprefchips">' + ['Bodyweight','Dumbbell','Machine','Cable','Smith','Barbell'].map(function(eq){var on=((S.trainingProfile||{}).customEquipment||[]).indexOf(eq)>=0;return '<button class="ob-chip' + (on?' on':'') + '" data-action="toggle-training-equipment" data-value="' + eq + '">' + eq + '</button>';}).join('') + '</div></div>' : '') +
+          row('Advanced effort', 'Use Reps In Reserve instead of Easy / Right / Hard.', toggle('trainingProfile.advancedRIR', !!(S.trainingProfile||{}).advancedRIR)) +
+          row('Automatic rest timer', 'Starts after every logged set and survives phone lock.', toggle('trainingProfile.autoRest', (S.trainingProfile||{}).autoRest !== false)) +
+          preferenceRow('Default rest', 'Large compound patterns automatically use at least 2 minutes.', 'set-rest-default', [['60','1 min'],['90','1:30'],['120','2 min'],['180','3 min']], String((S.trainingProfile||{}).defaultRestSec || 90)) +
+          '<p class="small pad-x" style="padding-bottom:15px">Changing equipment does not silently rewrite the active week. If the current plan no longer fits, Train will ask you to rewrite it.</p>' +
         '</article>' +
 
         '<article class="card">' +
@@ -2127,7 +2104,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p3b</div></div>' +
+            '<div class="meta">Version 6.0.0-p4</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2803,7 +2780,7 @@
     '</article>';
 
     if (isToday && !workouts.length && scheduled && scheduled.name !== 'Walk') {
-      body += '<button class="btn block" data-action="begin">Start the session</button>';
+      body += '<button class="btn block" data-action="begin" data-session-mode="' + (window.Training && Training.isDeloadWeek(key) ? 'lighter' : 'planned') + '">Start the session</button>';
     }
 
     return UI.screen({
@@ -2825,6 +2802,9 @@
     if (!w || !w.seconds) return '';
     var mins = Math.floor(w.seconds / 60), secs = w.seconds % 60;
     var out = (mins ? mins + ' min' : '') + (secs ? (mins ? ' ' : '') + secs + ' sec' : '');
+    if (w.distanceMiles) out += ' · ' + Store.fmtDistance(w.distanceMiles, 2);
+    else if (w.speedMph) out += ' · ' + w.speedMph + ' mph';
+    if (w.inclinePct) out += ' · ' + w.inclinePct + '% incline';
     if (w.pace) out += ' · ' + esc(w.pace);
     if (w.elevation) out += ' · ' + esc(w.elevation);
     return out || 'Walk logged';
@@ -2836,9 +2816,27 @@
     var total = Math.max(0, Math.round((ms != null ? ms : (w.elapsedMs || 0)) / 1000));
     var mins = Math.floor(total / 60), secs = total % 60;
     var out = (mins ? mins + ' min' : '') + (secs ? (mins ? ' ' : '') + secs + ' sec' : '');
+    if (w.distanceMiles) out += ' · ' + Store.fmtDistance(w.distanceMiles, 2);
+    else if (w.speedMph) out += ' · ' + w.speedMph + ' mph';
+    if (w.inclinePct) out += ' · ' + w.inclinePct + '% incline';
     if (w.pace) out += ' · ' + esc(w.pace);
     if (w.elevation) out += ' · ' + esc(w.elevation);
     return out || 'No walk recorded';
+  }
+
+  function structuredWalkFields(w) {
+    w = w || {};
+    var distance = w.distanceMiles ? Store.distanceNum(w.distanceMiles, 2) : '';
+    return '<div class="walk-metrics-grid">' +
+      '<label class="field compact"><span class="field-label">Treadmill speed <em>mph</em></span><input class="field-input" data-walk-speed inputmode="decimal" value="' + esc(w.speedMph || '') + '" placeholder="3.5" /></label>' +
+      '<label class="field compact"><span class="field-label">Incline <em>%</em></span><input class="field-input" data-walk-incline inputmode="decimal" value="' + esc(w.inclinePct || '') + '" placeholder="5" /></label>' +
+      '<label class="field compact"><span class="field-label">Distance <em>' + esc(Store.state().units.distance) + '</em></span><input class="field-input" data-walk-distance inputmode="decimal" value="' + esc(distance) + '" placeholder="optional" /></label>' +
+      '<label class="field compact"><span class="field-label">Elevation gained <em>ft</em></span><input class="field-input" data-walk-elevation-ft inputmode="decimal" value="' + esc(w.elevationFt || '') + '" placeholder="optional" /></label>' +
+    '</div>' +
+    '<details class="walk-notes"><summary>Notes / pace details</summary><div class="walk-metrics-grid">' +
+      '<label class="field compact"><span class="field-label">Pace note</span><input class="field-input" data-walk-pace value="' + esc(w.pace || '') + '" placeholder="16:00 /mi" /></label>' +
+      '<label class="field compact"><span class="field-label">Terrain / elevation note</span><input class="field-input" data-walk-elevation value="' + esc(w.elevation || '') + '" placeholder="hills, trail, treadmill" /></label>' +
+    '</div></details>';
   }
 
   /* One walk clock for the whole day. It deliberately appears on lift days,
@@ -2853,7 +2851,7 @@
     var w = Store.dailyWalk ? Store.dailyWalk(key) : { startedAt: 0, elapsedMs: 0, pace: '', elevation: '' };
     var ms = Store.dailyWalkElapsedMs ? Store.dailyWalkElapsedMs(key) : (w.elapsedMs || 0);
     var running = !!w.startedAt;
-    var hasWalk = ms > 0 || !!w.stoppedAt || !!w.pace || !!w.elevation;
+    var hasWalk = ms > 0 || !!w.stoppedAt || !!w.pace || !!w.elevation || !!w.speedMph || !!w.distanceMiles || !!w.elevationFt;
     var today = Store.todayKey();
     var isToday = key === today;
     var activeSession = Store.session ? Store.session() : null;
@@ -2878,10 +2876,7 @@
           '<div class="walk-details historical">' +
             '<label class="field compact"><span class="field-label">Duration <em>minutes</em></span>' +
               '<input class="field-input" data-walk-minutes inputmode="decimal" value="' + esc(String(mins)) + '" placeholder="30" /></label>' +
-            '<label class="field compact"><span class="field-label">Pace / speed</span>' +
-              '<input class="field-input" data-walk-pace value="' + esc(w.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
-            '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
-              '<input class="field-input" data-walk-elevation value="' + esc(w.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
+            structuredWalkFields(w) +
             '<div class="btnrow">' +
               '<button class="btn ghost sm" data-action="walk-manual-save" data-walk-date="' + esc(key) + '">Save correction</button>' +
               (hasWalk ? '<button class="btn ghost sm danger" data-action="walk-reset" data-walk-date="' + esc(key) + '">Clear walk</button>' : '') +
@@ -2908,10 +2903,7 @@
           : '<button class="btn block" data-action="walk-start" data-walk-date="' + esc(key) + '">' + (hasWalk ? 'Resume walk' : 'Start walk') + '</button>') +
         (hasWalk && !running
           ? '<div class="walk-details">' +
-              '<label class="field compact"><span class="field-label">Pace / speed</span>' +
-                '<input class="field-input" data-walk-pace value="' + esc(w.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
-              '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
-                '<input class="field-input" data-walk-elevation value="' + esc(w.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
+              structuredWalkFields(w) +
               '<div class="btnrow">' +
                 '<button class="btn ghost sm" data-action="walk-save" data-walk-date="' + esc(key) + '">Save walk details</button>' +
                 '<button class="btn ghost sm danger" data-action="walk-reset" data-walk-date="' + esc(key) + '">Reset walk</button>' +
@@ -2936,6 +2928,7 @@
     var elapsed = Math.max(1, Math.round((Date.now() - sn.startedAt) / 60000));
     var open = location.hash.split('/')[1];
     var walkCard = dailyWalkCard(sn.date || Store.todayKey(), 'session');
+    var restTimer = (sn.restTimer && sn.restTimer.endsAt) ? '<article class="card rest-timer" data-rest-timer><div class="cardhead"><div class="title"><i></i>Rest</div><div class="meta">' + (sn.mode === 'lighter' ? 'lighter session' : 'between sets') + '</div></div><div class="rest-timer-body"><strong data-rest-clock>' + walkClockText(Store.restRemainingMs ? Store.restRemainingMs() : 0) + '</strong><div class="btnrow"><button class="btn ghost sm" data-action="rest-add">+30 sec</button><button class="btn ghost sm" data-action="rest-skip">Skip</button></div></div></article>' : '';
 
     var body = sn.items.map(function (it, idx) {
       var complete = it.sets.length >= it.targetSets;
@@ -2965,19 +2958,23 @@
                       '<span class="setno">' + (si + 1) + '</span>' +
                       '<span class="setval">' + Store.fmtLift(st.weight) + '</span>' +
                       '<span class="setval">' + st.reps + ' reps</span>' +
+                      '<span class="set-effort">' + (st.rir != null ? ('RIR ' + st.rir) : (st.effort ? esc(st.effort.charAt(0).toUpperCase() + st.effort.slice(1)) : '')) + '</span>' +
                       '<button class="linkbtn danger" data-action="drop-set" data-i="' + idx + '" data-s="' + si + '">Remove</button>' +
                     '</div>';
                   }).join('') + '</div>'
                 : '<p class="small" style="margin:0 0 12px">Nothing logged on this yet.' +
                     (last ? ' Last time: ' + Store.fmtLift(last.weight) + ' \u00d7 ' + last.reps + '.' : '') + '</p>') +
 
-              (prog ? '<div style="border-top:1px solid var(--rule);padding:12px 0;margin-top:3px"><div class="kicker sage">Progression</div><p class="small" style="margin:6px 0 0">' + esc(prog.detail) + '</p></div>' : '') +
+              (prog ? '<div class="progression-box"><div class="kicker sage">Progression</div><p class="small" style="margin:6px 0 0">' + esc(prog.detail) + '</p>' + ((prog.evidence||[]).length ? '<details><summary>Why this?</summary><p class="small">' + prog.evidence.map(esc).join(' · ') + '</p></details>' : '') + '</div>' : '') +
               (!it.sets.length && !it.warmup ? '<button class="btn ghost block" style="margin-bottom:12px" data-route="swap-exercise/' + idx + '">Swap exercise</button>' : '') +
               '<div class="setentry">' +
                 '<label class="field compact"><span class="field-label">Weight <em>' + Store.state().units.weight + '</em></span>' +
                   '<input class="field-input" data-set="w" data-i="' + idx + '" inputmode="decimal" value="' + (prev ? Store.liftNum(prev.weight) : '') + '" /></label>' +
                 '<label class="field compact"><span class="field-label">Reps</span>' +
                   '<input class="field-input" data-set="r" data-i="' + idx + '" inputmode="numeric" value="' + (prev ? prev.reps : (String(it.targetReps).match(/\d+/) || [''])[0]) + '" /></label>' +
+                ((S.trainingProfile||{}).advancedRIR
+                  ? '<label class="field compact"><span class="field-label">Reps in reserve</span><select class="field-input" data-set="rir" data-i="' + idx + '">' + [0,1,2,3,4,5].map(function(v){return '<option value="' + v + '"' + (prev && prev.rir === v ? ' selected' : (v===2 && (!prev || prev.rir==null) ? ' selected' : '')) + '>' + v + '</option>';}).join('') + '</select></label>'
+                  : '<label class="field compact"><span class="field-label">Effort</span><select class="field-input" data-set="effort" data-i="' + idx + '"><option value="easy"' + (prev && prev.effort==='easy'?' selected':'') + '>Easy</option><option value="right"' + (!prev || !prev.effort || prev.effort==='right'?' selected':'') + '>Right</option><option value="hard"' + (prev && prev.effort==='hard'?' selected':'') + '>Hard</option></select></label>') +
               '</div>' +
               '<div class="btnrow" style="margin-top:11px">' +
                 '<button class="btn sm" data-action="add-set" data-i="' + idx + '">Log the set</button>' +
@@ -2993,9 +2990,9 @@
       header: { back: 'train', title: sn.name + ' day' },
       art: 'assets/art/train-banner.webp', photoHeight: '300px', photoPosition: 'center 40%',
       rest: 240,
-      overlay: '<div class="eyebrow">In progress \u00b7 ' + elapsed + ' min</div>' +
+      overlay: '<div class="eyebrow">In progress \u00b7 ' + elapsed + ' min' + (sn.mode === 'lighter' ? ' \u00b7 lighter volume' : '') + '</div>' +
         '<p class="verse" style="font-size:25px">' + doneCount + ' of ' + sn.items.length + ' finished.</p>',
-      body: walkCard + body +
+      body: walkCard + restTimer + body +
         '<article class="card pad">' +
           '<label class="field" style="margin:0"><span class="field-label">Machine taken? Add another</span>' +
             '<select class="field-input" data-sessionadd>' +
@@ -3491,269 +3488,93 @@
     return bits.join(' \u00b7 ');
   }
 
-
-  // ---------------- Faith ----------------
-  function faithDayName(day) {
-    return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][Math.max(0,Math.min(6,+day||0))];
-  }
-
-  function faithArt() {
-    var r = route(), l = leg();
-    return (l && l.art) || (r && r.banner) || ('assets/art/camp-' + Store.timeOfDay() + '.webp');
-  }
-
-  function faithMenuRow(routeName, iconName, title, subtitle, meta) {
-    return '<button class="faith-menu-row" data-route="' + esc(routeName) + '">' +
-      '<span class="faith-menu-icon">' + icon(iconName) + '</span>' +
-      '<span class="faith-menu-copy"><strong>' + esc(title) + '</strong><small>' + esc(subtitle) + '</small></span>' +
-      (meta ? '<span class="faith-menu-meta">' + esc(meta) + '</span>' : '') + '<i>' + icon('chev') + '</i></button>';
-  }
-
-  function faithHub() {
-    var v = Store.verse(), f = window.Faith ? Faith.summary() : {}, r = route(), e = Store.state().expedition;
-    var currentMemory = Faith.memory().find(function (m) { return m.ref === v.ref && m.text === v.text; });
-    var partnerPrayer = Faith.partnerSharedPrayer();
-    var road = r ? r.name + (leg() ? ' · Camp ' + (e.legIndex + 1) : '') : 'Daily Camp';
-    var passage = window.ScriptureLibrary && ScriptureLibrary.byRef(v.ref);
-    var partnerBlock = '';
-    if (partnerPrayer) {
-      var prayed = Faith.prayedForPartner(partnerPrayer.id);
-      partnerBlock = '<section class="faith-shared-request"><span class="kicker sage">From ' + esc(Store.partnerName()) + '</span><p>' + esc(partnerPrayer.text) + '</p>' +
-        (prayed ? '<button class="btn ghost sm" disabled>✓ I prayed for this</button>' : '<button class="btn sm" data-action="faith-prayer-ack" data-prayer-id="' + esc(partnerPrayer.id) + '">I prayed for this</button>') + '</section>';
-    }
-    return UI.screen({
-      tab:null, rest:405, restMeasure:true, art:faithArt(), photoPosition:'center 43%',
-      header:{back:'home',title:'Faith'},
-      overlay:'<div class="eyebrow">' + esc(road) + '</div><p class="verse">Grow in faith as you walk the road.</p><p class="attrib" style="text-transform:none;letter-spacing:0">Faith is part of the journey, not a separate score.</p>',
-      body:
-        '<section class="faith-today-panel">' +
-          '<div class="faith-today-head"><span class="kicker gold">Today</span><span class="small">' + esc(v.ref) + '</span></div>' +
-          '<p class="faith-today-verse">' + esc(v.text) + '</p>' +
-          '<div class="faith-today-actions"><button data-route="scripture-passage/' + esc(passage ? passage.id : '') + '">' + icon('book') + '<span>Read</span></button>' +
-          (currentMemory ? '<button data-route="memory-item/' + esc(currentMemory.id) + '/' + esc(Faith.memoryMode(currentMemory)) + '">' + icon('journey') + '<span>Practice</span></button>' : '<button data-action="faith-add-today">' + icon('plus') + '<span>Memory</span></button>') +
-          '<button data-route="reflection">' + icon('quill') + '<span>Reflect</span></button></div>' +
-        '</section>' +
-        partnerBlock +
-        '<section class="faith-menu">' +
-          faithMenuRow('scripture','book','Bible','Read verified Scripture inside the journey','KJV') +
-          faithMenuRow('memory','journey','Memory Trail','Learn and memorize Scripture',f.memoryDue ? f.memoryDue + ' ready' : (f.memoryTotal ? f.memoryTotal + ' verses' : 'Start')) +
-          faithMenuRow('prayers','quill','Prayer','Your prayer life and shared requests',f.prayersOngoing + ' ongoing') +
-          faithMenuRow('reflection','flag','Journal','Reflections, gratitude, and the road behind you',f.gratitudeCount ? f.gratitudeCount + ' gratitude' : '') +
-          faithMenuRow('rule-of-life','place','Rhythm','Sabbath and your Rule of Life',Faith.isSabbath() ? 'Sabbath today' : '') +
-        '</section>' +
-        '<p class="faith-boundary">Private by default · Shared by choice · Never competitive</p>'
-    });
-  }
-
-  function scriptureLibraryScreen() {
-    var lib = window.ScriptureLibrary, v = Store.verse();
-    if (!lib) return UI.screen({tab:null,rest:280,art:faithArt(),header:{back:'faith',title:'Bible'},overlay:'<p class="verse">Scripture Library is unavailable.</p>',body:'<button class="btn ghost block" data-route="faith">Back to Faith</button>'});
-    var catalog = lib.catalog(), books = lib.books(), today = lib.byRef(v.ref);
-    var featured = ['ephesians-4-1-6','romans-8-28'].map(function (id) { return lib.get(id); }).filter(Boolean);
-    var bookRows = books.map(function (book) {
-      var chapters = lib.chapters(book), count = catalog.filter(function (p) { return p.book === book; }).length;
-      return '<div class="scripture-book-row"><div><strong>' + esc(book) + '</strong><small>' + esc(chapters.join(', ')) + '</small></div><span>' + count + ' passage' + (count === 1 ? '' : 's') + '</span></div>';
-    }).join('');
-    return UI.screen({
-      tab:null,rest:340,restMeasure:true,art:faithArt(),photoPosition:'center 44%',header:{back:'faith',title:'Bible'},
-      overlay:'<div class="eyebrow">King James Version</div><p class="verse">Read Scripture without leaving the road.</p><p class="attrib" style="text-transform:none;letter-spacing:0">Only verified text stored in InSync is shown.</p>',
-      body:
-        '<section class="scripture-featured">' + (today ? '<button data-route="scripture-passage/' + esc(today.id) + '"><span class="kicker gold">Today’s passage</span><strong>' + esc(today.ref) + '</strong><p>' + esc(v.text) + '</p><i>' + icon('chev') + '</i></button>' : '') + '</section>' +
-        '<div class="rulehead"><span class="kicker sage">Along the trail</span><span></span></div>' +
-        featured.map(function (p) { return '<button class="scripture-passage-row" data-route="scripture-passage/' + esc(p.id) + '"><span><small>' + esc(p.book + ' ' + p.chapter) + '</small><strong>' + esc(p.ref) + '</strong><em>' + esc(p.label) + '</em></span><i>' + icon('chev') + '</i></button>'; }).join('') +
-        '<details class="scripture-index"><summary>Browse the verified in-app Scripture index</summary><div>' + bookRows + '</div></details>'
-    });
-  }
-
-  function scripturePassageScreen() {
-    var parts = (location.hash || '').replace(/^#/,'').split('/'), id = decodeURIComponent(parts[1] || ''), lib = window.ScriptureLibrary;
-    var p = lib && (lib.get(id) || lib.byRef(Store.verse().ref));
-    if (!p) return UI.screen({tab:null,rest:260,art:faithArt(),header:{back:'scripture',title:'Bible'},overlay:'<p class="verse">That passage is not available.</p>',body:'<button class="btn ghost block" data-route="scripture">Back to Bible</button>'});
-    var mem = Faith.memory().find(function (m) { return m.ref === p.ref && m.text === lib.text(p); });
-    var lines = p.verses.map(function (x) { return '<p class="faith-verse-line"><sup>' + esc(x.verse) + '</sup>' + esc(x.text) + '</p>'; }).join('');
-    return UI.screen({
-      tab:null,rest:290,restMeasure:true,art:faithArt(),photoPosition:'center 45%',header:{back:'scripture',title:p.ref,right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">' + esc(lib.translation) + '</div><p class="verse">' + esc(p.label || p.ref) + '</p>',
-      body:
-        '<article class="faith-reading"><div class="faith-reading-ref">' + esc(p.ref) + '</div>' + lines + '</article>' +
-        '<div class="faith-reading-actions">' +
-          '<button data-action="faith-scripture-listen" data-passage-id="' + esc(p.id) + '">' + icon('book') + '<span>Listen</span></button>' +
-          (mem ? '<button data-route="memory-item/' + esc(mem.id) + '/' + esc(Faith.memoryMode(mem)) + '">' + icon('journey') + '<span>Practice</span></button>' : '<button data-action="faith-add-passage" data-passage-id="' + esc(p.id) + '">' + icon('plus') + '<span>Add to Memory</span></button>') +
-          '<button data-route="reflection">' + icon('quill') + '<span>Journal</span></button>' +
-        '</div>'
-    });
-  }
-
-  function scriptureMemory() {
-    var v = Store.verse(), items = Faith.memory().slice();
-    items.sort(function (a,b) {
-      var ad = Faith.memoryStatus(a) === 'Review due' ? 0 : 1, bd = Faith.memoryStatus(b) === 'Review due' ? 0 : 1;
-      return ad !== bd ? ad-bd : String(b.createdAt||'').localeCompare(String(a.createdAt||''));
-    });
-    var already = items.find(function (m) { return m.ref === v.ref && m.text === v.text; });
-    var rows = items.length ? items.map(function (m) {
-      var st = Faith.memoryStatus(m), mode = Faith.memoryMode(m), due = m.reviewDue ? new Date(m.reviewDue + 'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
-      return '<button class="memory-trail-row" data-route="memory-item/' + esc(m.id) + '/' + esc(mode) + '"><span class="memory-trail-marker">' + icon('journey') + '</span><span><small>' + esc(st) + '</small><strong>' + esc(m.ref) + '</strong><em>' + (st === 'Review due' ? 'Ready to revisit' : (due ? 'Next ' + esc(due) : 'Continue learning')) + '</em></span><i>' + icon('chev') + '</i></button>';
-    }).join('') : '<section class="faith-empty"><span>' + icon('journey') + '</span><strong>Your Memory Trail begins with one passage.</strong><p>Add today’s Scripture or choose a passage from the Bible.</p></section>';
-    return UI.screen({
-      tab:null,rest:350,restMeasure:true,art:faithArt(),photoPosition:'center 45%',header:{back:'faith',title:'Memory Trail',right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">Scripture carried with you</div><p class="verse">Learn it. Practice it. Keep it close.</p>',
-      body:
-        '<section class="memory-today"><span class="kicker gold">Today · ' + esc(v.ref) + '</span><p>' + esc(v.text) + '</p>' +
-          (already ? '<button class="btn sm" data-route="memory-item/' + esc(already.id) + '/' + esc(Faith.memoryMode(already)) + '">Continue</button>' : '<button class="btn sm" data-action="faith-add-today">Add to Memory Trail</button>') + '</section>' +
-        '<div class="memory-mode-preview"><span>Tap to Reveal</span><span>Word Bank</span><span>First Letters</span><span>Type It</span><span>Speak</span></div>' +
-        '<div class="rulehead"><span class="kicker sage">Your trail</span><span></span><span class="note">' + items.length + ' passages</span></div>' + rows
-    });
-  }
-
-  function memoryItemScreen() {
-    var parts = (location.hash || '').replace(/^#/,'').split('/'), id = decodeURIComponent(parts[1] || ''), mode = decodeURIComponent(parts[2] || '');
-    var m = Faith.memoryItem(id);
-    if (!m) return UI.screen({tab:null,rest:260,blur:true,header:{back:'memory',title:'Memory Trail',right:'<div style="width:34px"></div>'},art:faithArt(),overlay:'<p class="verse">That passage is not on your Memory Trail.</p>',body:'<button class="btn ghost block" data-route="memory">Back to Memory Trail</button>'});
-    var modes = ['read','reveal','word-bank','letters','type','speak'];
-    if (modes.indexOf(mode) < 0) mode = Faith.memoryMode(m);
-    var status = Faith.memoryStatus(m), due = status === 'Review due', recommended = Faith.memoryMode(m), prompt = '', controls = '';
-    var modeNav = '<div class="memory-mode-nav">' + modes.map(function (x) {
-      var label = {'read':'Read','reveal':'Reveal','word-bank':'Word Bank','letters':'First Letters','type':'Type It','speak':'Speak'}[x];
-      return '<button data-route="memory-item/' + esc(m.id) + '/' + x + '"' + (x === mode ? ' aria-current="true"' : '') + '>' + label + '</button>';
-    }).join('') + '</div>';
-    if (mode === 'read') {
-      prompt = '<div class="memory-practice-copy"><p>' + esc(m.text) + '</p></div><p class="small">Read it slowly. Notice the shape and movement of the passage.</p>';
-      controls = '<div class="btnrow"><button class="btn" data-action="faith-memory-advance" data-memory-id="' + esc(m.id) + '">I read it</button><button class="btn ghost" data-action="faith-scripture-speak-text" data-text="' + esc(m.text) + '">Listen</button></div>';
-    } else if (mode === 'reveal') {
-      var segs = Faith.revealSegments(m.text);
-      prompt = '<div class="memory-reveal-list">' + segs.map(function (seg) { return '<button data-action="faith-reveal-segment" data-reveal="' + esc(seg) + '"><span>Tap to reveal</span></button>'; }).join('') + '</div><p class="small">Reveal one section at a time, then say it again without looking.</p>';
-      controls = '<button class="btn block" data-route="memory-item/' + esc(m.id) + '/word-bank">Move to Word Bank</button>';
-    } else if (mode === 'word-bank') {
-      var bank = Faith.wordBank(m.text, Math.max(1, Math.min(5, (+m.reviews || 0) + 2)));
-      prompt = '<div class="memory-bank-passage" data-bank-host>' + bank.tokens.map(function (t) { return t.type === 'text' ? '<span>' + esc(t.text) + '</span>' : '<span>' + esc(t.lead) + '<b class="memory-blank" data-answer="' + esc(t.answer) + '">_____</b>' + esc(t.tail) + '</span>'; }).join(' ') + '</div>' +
-        '<div class="memory-word-bank">' + bank.answers.map(function (w) { return '<button data-action="faith-bank-word" data-word="' + esc(w) + '">' + esc(w) + '</button>'; }).join('') + '</div><p class="small" data-bank-feedback>' + bank.blanks + ' words are hidden. Tap the next word in order.</p>';
-      controls = '<button class="btn block" data-route="memory-item/' + esc(m.id) + '/letters">Try First Letters</button>';
-    } else if (mode === 'letters') {
-      prompt = '<div class="memory-practice-copy letters"><p>' + esc(Faith.firstLetters(m.text)) + '</p></div><p class="small">Use only the first letter of each word to rebuild the passage.</p>';
-      controls = '<button class="btn block" data-route="memory-item/' + esc(m.id) + '/type">Type it from memory</button>';
-    } else if (mode === 'type') {
-      prompt = '<p class="small" style="margin-bottom:10px">Type the passage from memory. Punctuation and capitalization do not count against you.</p><textarea id="memory-type" class="reflect" rows="6" placeholder="Type the passage…"></textarea><div id="memory-result" class="small" style="margin-top:9px"></div>';
-      controls = '<button class="btn block" data-action="faith-memory-check" data-memory-id="' + esc(m.id) + '">Check my recall</button>';
-    } else {
-      prompt = '<section class="memory-speak"><span>' + icon('quill') + '</span><strong>Recite it before you reveal it.</strong><p>' + (due ? 'This passage is ready for review.' : 'Say it aloud, then check yourself honestly.') + '</p></section>' +
-        '<details class="memory-reveal-text"><summary>Reveal passage</summary><p>' + esc(m.text) + '</p></details>';
-      controls = '<div class="btnrow"><button class="btn ghost sm" data-action="faith-memory-review" data-rating="again" data-memory-id="' + esc(m.id) + '">Again</button><button class="btn ghost sm" data-action="faith-memory-review" data-rating="hard" data-memory-id="' + esc(m.id) + '">Hard</button><button class="btn sm" data-action="faith-memory-review" data-rating="good" data-memory-id="' + esc(m.id) + '">Got it</button><button class="btn ghost sm" data-action="faith-memory-review" data-rating="easy" data-memory-id="' + esc(m.id) + '">Easy</button></div>';
-    }
-    var next = m.reviewDue ? new Date(m.reviewDue + 'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) : '';
-    return UI.screen({
-      tab:null,rest:300,restMeasure:true,art:faithArt(),photoPosition:'center 45%',header:{back:'memory',title:m.ref,right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">' + esc(status) + (recommended === mode ? ' · Recommended' : '') + '</div><p class="verse">' + esc(m.ref) + '</p>' + (next ? '<p class="versewhy">Next review ' + esc(next) + '</p>' : ''),
-      body:modeNav + '<article class="memory-practice"' + (mode === 'word-bank' ? ' data-word-bank-practice' : '') + '>' + prompt + '<div class="memory-controls">' + controls + '</div></article>' + '<button class="btn ghost danger block" data-action="faith-memory-remove" data-memory-id="' + esc(m.id) + '">Remove from Memory Trail</button>'
-    });
-  }
-
-  function prayerJournal() {
-    var all = Faith.prayers().slice().reverse(), ongoing = all.filter(function (p) { return p.status === 'ongoing'; }), answered = all.filter(function (p) { return p.status === 'answered'; }), partnerPrayer = Faith.partnerSharedPrayer();
-    function ongoingRow(p) {
-      var shared = Store.state().faith.sharedPrayerId === p.id, ack = Faith.partnerAckForMine(p.id);
-      return '<section class="prayer-row" data-prayer-card="' + esc(p.id) + '"><div class="prayer-row-head"><span class="kicker' + (shared ? ' gold' : ' sage') + '">' + esc(p.category) + '</span><span class="small">' + (shared ? 'Shared with ' + esc(Store.partnerName()) : 'Private') + '</span></div><p>' + esc(p.text) + '</p>' +
-        (ack ? '<span class="prayer-ack">✓ ' + esc(Store.partnerName()) + ' prayed for this</span>' : '') +
-        '<details><summary>Update or mark answered</summary><textarea class="reflect" rows="2" data-prayer-answer placeholder="Optional: what happened?"></textarea><div class="btnrow"><button class="btn sm" data-action="faith-prayer-answer" data-prayer-id="' + esc(p.id) + '">Mark answered</button>' + (shared ? '<button class="btn ghost sm" data-action="faith-prayer-unshare" data-prayer-id="' + esc(p.id) + '">Make private</button>' : '<button class="btn ghost sm" data-action="faith-prayer-share" data-prayer-id="' + esc(p.id) + '">Share request</button>') + '</div></details></section>';
-    }
-    function answeredRow(p) { return '<section class="prayer-row answered"><div class="prayer-row-head"><span class="kicker sage">Answered</span><span class="small">' + esc(p.category) + '</span></div><p>' + esc(p.text) + '</p>' + (p.answer ? '<blockquote>' + esc(p.answer) + '</blockquote>' : '') + '<button class="faith-text-link" data-action="faith-prayer-reopen" data-prayer-id="' + esc(p.id) + '">Reopen prayer</button></section>'; }
-    var shared = partnerPrayer ? '<section class="faith-shared-request prayer-shared"><span class="kicker sage">From ' + esc(Store.partnerName()) + '</span><p>' + esc(partnerPrayer.text) + '</p>' + (Faith.prayedForPartner(partnerPrayer.id) ? '<button class="btn ghost sm" disabled>✓ I prayed for this</button>' : '<button class="btn sm" data-action="faith-prayer-ack" data-prayer-id="' + esc(partnerPrayer.id) + '">I prayed for this</button>') + '</section>' : '';
-    return UI.screen({
-      tab:null,rest:330,restMeasure:true,art:'assets/art/campfire.webp',photoPosition:'center 52%',header:{back:'faith',title:'Prayer',right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">Prayer at Camp</div><p class="verse">Bring what’s on your heart.</p><p class="attrib" style="text-transform:none;letter-spacing:0">Private unless you choose to share one request.</p>',
-      body:shared + '<section class="prayer-compose"><span class="kicker gold">New Prayer</span><textarea id="faith-prayer-text" class="reflect" rows="4" placeholder="What do you want to bring before God?"></textarea><div class="prayer-compose-foot"><select id="faith-prayer-category" class="field-input plain">' + Faith.categories.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') + '</select><button class="btn sm" data-action="faith-prayer-add">Save privately</button></div></section>' +
-        '<div class="rulehead"><span class="kicker sage">Praying now</span><span></span><span class="note">' + ongoing.length + '</span></div>' + (ongoing.length ? ongoing.map(ongoingRow).join('') : '<section class="faith-empty"><strong>No ongoing prayers.</strong><p>The journal is here when something belongs on your heart.</p></section>') +
-        (answered.length ? '<div class="rulehead"><span class="kicker">Answered</span><span></span><span class="note">' + answered.length + '</span></div>' + answered.map(answeredRow).join('') : '')
-    });
-  }
-
-  function ruleOfLifeScreen() {
-    var r = Faith.ruleOfLife(), sab = Store.state().faith.sabbath || {enabled:true,day:0};
-    var fields = [['worship','Worship','How will gathered worship fit your week?'],['scripture','Scripture','When will you make room for the Word?'],['prayer','Prayer','What prayer rhythm is sustainable?'],['rest','Rest','Where will you deliberately stop?'],['exercise','Body stewardship','How will you care for your body?'],['mealPrep','Meal preparation','When will you prepare food calmly?'],['relationship','Relationship / family','What time needs protecting for people you love?']];
-    return UI.screen({
-      tab:null,rest:325,restMeasure:true,art:'assets/art/camp-sunset.webp',photoPosition:'center 45%',header:{back:'faith',title:'Rhythm',right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">Rule of Life</div><p class="verse">Build a rhythm that helps you stay faithful on the road.</p>',
-      body:
-        '<section class="rhythm-sabbath"><div><span class="kicker gold">Sabbath</span><strong>' + (sab.enabled ? faithDayName(sab.day) : 'Off') + '</strong><p>Rest should remove pressure, not become another performance requirement.</p></div><button class="faith-text-link" data-action="faith-sabbath-toggle">' + (sab.enabled ? 'Turn off' : 'Turn on') + '</button><div class="rhythm-days">' + [0,1,2,3,4,5,6].map(function (d) { return '<button data-action="faith-sabbath-day" data-day="' + d + '"' + (sab.enabled && sab.day === d ? ' aria-current="true"' : '') + '>' + faithDayName(d).slice(0,3) + '</button>'; }).join('') + '</div></section>' +
-        '<div class="rulehead"><span class="kicker sage">Your weekly rhythm</span><span></span><span class="note">' + Faith.ruleConfiguredCount() + ' shaped</span></div>' +
-        '<section class="rhythm-fields">' + fields.map(function (f) { return '<label><span><strong>' + esc(f[1]) + '</strong><small>' + esc(f[2]) + '</small></span><textarea class="reflect" rows="2" data-set="faith.ruleOfLife.' + esc(f[0]) + '" placeholder="A simple weekly rhythm…">' + esc(r[f[0]] || '') + '</textarea></label>'; }).join('') + '</section>'
-    });
-  }
-
-  function waypointReflectionScreen() {
-    var e = Store.state().expedition, r = route(), l = leg();
-    if (!r || !l) return UI.screen({tab:null,rest:260,art:faithArt(),header:{back:'journey',title:'Along the Road'},overlay:'<p class="verse">There is no active waypoint.</p>',body:'<button class="btn ghost block" data-route="journey">Back to Journey</button>'});
-    var w = Faith.waypoint(e.routeId,e.legIndex), note = Faith.waypointNote(e.routeId,e.legIndex);
-    return UI.screen({
-      tab:null,rest:345,restMeasure:true,art:l.art || r.banner || faithArt(),photoPosition:'center 45%',header:{back:'journey',title:'Along the Road',right:'<div style="width:34px"></div>'},
-      overlay:'<div class="eyebrow">' + esc(l.from + ' → ' + l.to) + '</div><p class="verse">' + esc(w.ref) + '</p><p class="versewhy">' + esc(w.text) + '</p>',
-      body:'<section class="waypoint-journal"><span class="kicker sage">Journal at this waypoint</span><p>Write what this part of the road is bringing to the surface. This stays private.</p><textarea id="waypoint-note" class="reflect" rows="7" placeholder="What are you noticing, learning, or praying through?">' + esc(note) + '</textarea><button class="btn block" data-action="faith-waypoint-save">Save reflection</button></section>' +
-        '<div class="btnrow"><button class="btn ghost" data-route="scripture-passage/' + esc(w.passageId || '') + '">Read passage</button><button class="btn ghost" data-action="faith-add-waypoint" data-passage-id="' + esc(w.passageId || '') + '">Add to Memory Trail</button></div>'
-    });
-  }
-
   function reflection() {
     var v = Store.verse();
     var d = Store.day();
     var facts = dayFacts(Store.todayKey());
     var written = (d.reflection || '').trim();
-    var gratitude = window.Faith && Faith.gratitude ? Faith.gratitude(Store.todayKey()) : '';
     var nights = Object.keys(Store.state().days).sort().reverse()
-      .filter(function (k) { return k !== Store.todayKey() && ((Store.state().days[k].reflection || '').trim() || (window.Faith && Faith.gratitude && Faith.gratitude(k))); });
-    var past = nights.slice(0, 5).map(function (k) { return { key: k, d: Store.state().days[k], gratitude: window.Faith && Faith.gratitude ? Faith.gratitude(k) : '' }; });
+      .filter(function (k) { return k !== Store.todayKey(); });
+    var past = nights.slice(0, 6).map(function (k) { return { key: k, d: Store.state().days[k] }; });
 
     var count = Object.keys(Store.state().days).filter(function (k) {
       return (Store.state().days[k].reflection || '').trim();
     }).length;
     var savedLabel = written
       ? (d.reflectionAt ? 'Saved ' + esc(d.reflectionAt) : 'Saved')
-      : 'Open page';
+      : 'Nothing saved tonight';
 
     return UI.screen({
-      tab: null, rest: 345, restMeasure: true,
-      art: 'assets/art/camp-night.webp', photoPosition: 'center 52%',
-      header: { back: 'home', title: 'Close Camp', right: '<button class="headlink" data-route="faith">Faith</button>' },
+      tab: null, rest: 330,
+      art: 'assets/art/camp-night.webp',
+      header: { back: true, title: 'Reflection', right: '<div style="width:34px"></div>' },
       overlay:
-        '<div class="eyebrow">Evening at Camp</div>' +
-        '<p class="verse">Take a moment to notice the day before you leave it behind.</p>' +
-        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + esc(v.ref) + ' · carried with you today</p>',
+        '<div class="eyebrow">This morning\u2019s verse</div>' +
+        '<p class="verse">' + esc(v.text) + '</p>' +
+        '<cite class="cite">' + esc(v.ref) + '</cite>' +
+        (v.why ? '<p class="versewhy">' + esc(v.why) + '</p>' : ''),
       body:
-        '<section class="close-camp">' +
-          '<div class="close-camp-prompt"><span>' + icon('flag') + '</span><div><strong>Where did you notice God today?</strong><small>What happened, what stood out, or what are you still carrying?</small></div></div>' +
-          '<textarea id="reflect" class="reflect close-camp-text" rows="7" placeholder="Write as much or as little as you need…">' + esc(d.reflection || '') + '</textarea>' +
-          '<div class="close-camp-prompt"><span>' + icon('heart') + '</span><div><strong>What are you grateful for?</strong><small>One thing is enough.</small></div></div>' +
-          '<textarea id="gratitude" class="reflect" rows="3" placeholder="Today I’m thankful for…">' + esc(gratitude) + '</textarea>' +
-          '<div class="close-camp-prompt carry"><span>' + icon('journey') + '</span><div><strong>What are you carrying into tomorrow?</strong><small>You can leave it in the reflection above, or simply hold the question here.</small></div></div>' +
-          '<div class="close-camp-foot"><span class="small">' + savedLabel + ' · <span id="wordcount">' + (written ? written.split(/\s+/).length + ' words' : 'Blank page') + '</span></span><button class="btn" data-action="save-reflection">Close the day</button></div>' +
-        '</section>' +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">' +
+            '<span class="kicker">Tonight</span>' +
+            '<span class="note" id="wordcount">' + (written ? written.split(/\s+/).length + ' words' : 'Blank page') + '</span>' +
+          '</div>' +
+          '<textarea id="reflect" class="reflect" rows="6" placeholder="What happened today?">' + esc(d.reflection || '') + '</textarea>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px">' +
+            '<span class="small">' + savedLabel + '</span>' +
+            '<button class="btn sm" style="flex:none;padding:0 18px" data-action="save-reflection">Close the day</button>' +
+          '</div>' +
+        '</article>' +
 
-        '<section class="close-camp-scripture">' +
-          '<span class="kicker sage">Scripture carried today</span>' +
-          '<blockquote>' + esc(v.text) + '</blockquote>' +
-          '<cite>' + esc(v.ref) + '</cite>' +
-        '</section>' +
-
+        /* Attached, not asserted: only what the day actually holds. */
         (facts.length
-          ? '<details class="close-camp-facts"><summary>Today’s trail record</summary><div class="close-camp-fact-grid">' +
-              facts.map(function (f) {
-                return '<div><span>' + esc(f.label) + '</span><strong>' + esc(String(f.value)) + '</strong></div>';
-              }).join('') +
-            '</div></details>'
-          : '') +
+          ? '<article class="card pad">' +
+              '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:13px">' +
+                '<span class="kicker faint">Attached to this entry</span>' +
+                '<span class="small">' + Store.points() + ' of 10</span>' +
+              '</div>' +
+              '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 18px">' +
+                facts.map(function (f) {
+                  return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">' +
+                    '<span class="small">' + esc(f.label) + '</span>' +
+                    '<span style="font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right">' + esc(String(f.value)) + '</span>' +
+                  '</div>';
+                }).join('') +
+              '</div>' +
+            '</article>'
+          : '<article class="card pad">' +
+              '<div class="kicker faint" style="margin-bottom:10px">Attached to this entry</div>' +
+              '<p class="note">Nothing logged today, so the page stands on its own.</p>' +
+            '</article>') +
 
         (past.length
-          ? '<div class="rulehead"><span class="kicker">Earlier nights on the trail</span><span></span><span class="note">' + count + ' written</span></div>' +
-            '<section class="journal-night-list">' + past.map(function (p) {
+          ? '<div class="rulehead"><span class="kicker">' + plural(nights.length, 'night') + ' on the trail</span><span></span>' +
+              '<span class="note">' + count + ' written</span></div>' +
+            past.map(function (p) {
               var txt = (p.d.reflection || '').trim();
               var when = new Date(p.key + 'T12:00:00')
                 .toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-              return '<button class="journal-night" data-route="day-history/' + esc(p.key) + '">' +
-                '<span><small>' + esc(when) + '</small><strong>' + esc(Store.verse(p.key).ref) + '</strong>' +
-                '<em>' + esc(txt ? (txt.length > 115 ? txt.slice(0,115) + '…' : txt) : (p.gratitude || 'A quiet night at camp.')) + '</em></span><i>' + icon('chev') + '</i></button>';
-            }).join('') + '</section>'
+              var line = factLine(p.key);
+              return '<article class="card pad">' +
+                '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px">' +
+                  '<span class="small" style="letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">' + esc(when) + '</span>' +
+                  '<span class="small" style="flex:none">' + esc(Store.verse(p.key).ref) + '</span>' +
+                '</div>' +
+                (txt
+                  ? '<p style="font-family:var(--serif);font-size:16px;line-height:1.55;margin:0;color:#D6CDBA;text-wrap:pretty">' +
+                      esc(txt.length > 150 ? txt.slice(0, 150) + '\u2026' : txt) + '</p>'
+                  : '<p style="font-family:var(--serif);font-style:italic;font-size:15.5px;line-height:1.5;margin:0;color:var(--faint)">' +
+                      'Nothing written. ' + (line ? 'The numbers are still here if you want them.' : 'The page stayed blank.') + '</p>') +
+                (line
+                  ? '<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--rule)">' +
+                      '<span class="small" style="font-variant-numeric:tabular-nums">' + line + '</span></div>'
+                  : '') +
+              '</article>';
+            }).join('')
           : '')
     });
   }
+
 
 
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
@@ -4346,7 +4167,6 @@
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,
     records: records, badges: badges, reflection: reflection,
-    faith: faithHub, memory: scriptureMemory, memoryItem: memoryItemScreen, scripture: scriptureLibraryScreen, scripturePassage: scripturePassageScreen, waypointReflection: waypointReflectionScreen, prayers: prayerJournal, ruleOfLife: ruleOfLifeScreen,
     trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,
     route: route, leg: leg, verse: Store.verse

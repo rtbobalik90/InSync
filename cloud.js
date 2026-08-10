@@ -196,7 +196,8 @@
 
     var s = Store.state(), freq = s.frequency || 4;
     var avoided = window.Insights && Insights.avoidedExerciseIds ? Insights.avoidedExerciseIds() : [];
-    var menu = Exercises.all.filter(function (e) { return avoided.indexOf(e.id) < 0; }).map(function (e) {
+    var availableTraining = window.Training && Training.availableExercises ? Training.availableExercises() : Exercises.all;
+    var menu = availableTraining.filter(function (e) { return avoided.indexOf(e.id) < 0; }).map(function (e) {
       return e.id + ' — ' + e.name + ' (' + e.group + ', ' + e.equipment + ')';
     }).join('\n');
 
@@ -231,7 +232,7 @@
       'Goal: ' + String(s.goal || '').replace(/-/g, ' ') + '\n' +
       'Gym days a week: ' + freq + '\n' +
       'Body: ' + body + '\n' +
-      'Gym: Planet Fitness — machines and dumbbells, no barbell, no squat rack.\n\n' +
+      'Gym / equipment: ' + (window.Training ? Training.gymLabel(Training.profile().gymType) + ' — ' + Training.profile().equipment.join(', ') : 'configured equipment') + '.\n\n' +
       history + '\n\n' +
       (avoided.length ? 'Do not prescribe these movements; they were swapped out because the user disliked them or found them uncomfortable: ' + avoided.join(', ') + '.\n\n' : '') +
       'Available movements (use these ids exactly, nothing else):\n' + menu + '\n\n' +
@@ -307,7 +308,8 @@
          one of the user's gym-frequency days on a walk-only placeholder. */
       if (/walk|cardio/i.test(name)) return null;
       var ids = (Array.isArray(d.ex) ? d.ex : []).filter(function (id, n, arr) {
-        return Exercises.get(id) && avoidedIds.indexOf(id) < 0 && arr.indexOf(id) === n;
+        var ex = Exercises.get(id);
+        return ex && avoidedIds.indexOf(id) < 0 && arr.indexOf(id) === n && (!window.Training || Training.equipmentAllows(ex));
       });
       if (ids.length < 3 || ids.length > 5) return null;
       out.push({ day: day, name: name, ex: ids });

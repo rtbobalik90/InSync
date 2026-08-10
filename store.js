@@ -36,7 +36,7 @@
     /* No expedition is chosen on a fresh install. The two of them pick the
        first one together, so nothing here may name a route. legStart is the day
        the current leg opened — the miles walked on it are derived from it. */
-    expedition: { routeId: '', legIndex: 0, legStart: '', legStartSteps: 0, walked: [], next: '' },
+    expedition: { routeId: '', legIndex: 0, legStart: '', legStartSteps: 0, legStartWalkMiles: 0, walked: [], next: '' },
     /* Empty until pairing. Nothing may assume a name, on either phone. */
     partner: { name: '', initials: '' },
     partnerLegMiles: 0,
@@ -79,6 +79,9 @@
     mealFavoriteAt: {},
     mealDislikedMeals: [],
     exercisePrefs: { dislikedIds: [], discomfortIds: [], swapLog: [] },
+    /* Training 2.0 stays deterministic: equipment, readiness, rest behavior and
+       advanced effort logging live in local state and never depend on AI. */
+    trainingProfile: { gymType: 'planet-fitness', customEquipment: [], advancedRIR: false, autoRest: true, defaultRestSec: 90, deloadWeekOf: '', deloadDismissedAt: '' },
     /* Phase 2 exposes safe AI preferences rather than the raw master prompt.
        These shape presentation only; the Intelligence Constitution always wins. */
     aiPrefs: { tone: 'grounded', directness: 'direct', mealComplexity: 'practical', trainingStyle: 'balanced', faithEmphasis: 'integrated' },
@@ -225,7 +228,7 @@
 
 
   function blankSessionWalk() {
-    return { startedAt: 0, elapsedMs: 0, stoppedAt: 0, pace: '', elevation: '' };
+    return { startedAt: 0, elapsedMs: 0, stoppedAt: 0, pace: '', elevation: '', speedMph: 0, inclinePct: 0, distanceMiles: 0, elevationFt: 0 };
   }
   function sanitizeSessionWalk(v) {
     var out = blankSessionWalk();
@@ -235,6 +238,10 @@
     out.stoppedAt = Math.round(finiteOr(v.stoppedAt, 0, 0, Number.MAX_SAFE_INTEGER));
     out.pace = shortText(v.pace, 80).trim();
     out.elevation = shortText(v.elevation, 80).trim();
+    out.speedMph = Math.max(0, finiteOr(v.speedMph, 0, 0, 30));
+    out.inclinePct = Math.max(0, finiteOr(v.inclinePct, 0, 0, 40));
+    out.distanceMiles = Math.max(0, finiteOr(v.distanceMiles, 0, 0, 200));
+    out.elevationFt = Math.max(0, finiteOr(v.elevationFt, 0, 0, 50000));
     return out;
   }
   function sanitizeWorkoutWalk(v) {
@@ -242,8 +249,12 @@
     var seconds = Math.round(finiteOr(v.seconds, 0, 0, 86400));
     var pace = shortText(v.pace, 80).trim();
     var elevation = shortText(v.elevation, 80).trim();
-    if (!seconds && !pace && !elevation) return null;
-    return { seconds: seconds, pace: pace, elevation: elevation };
+    var speedMph = Math.max(0, finiteOr(v.speedMph, 0, 0, 30));
+    var inclinePct = Math.max(0, finiteOr(v.inclinePct, 0, 0, 40));
+    var distanceMiles = Math.max(0, finiteOr(v.distanceMiles, 0, 0, 200));
+    var elevationFt = Math.max(0, finiteOr(v.elevationFt, 0, 0, 50000));
+    if (!seconds && !pace && !elevation && !speedMph && !inclinePct && !distanceMiles && !elevationFt) return null;
+    return { seconds: seconds, pace: pace, elevation: elevation, speedMph: speedMph, inclinePct: inclinePct, distanceMiles: distanceMiles, elevationFt: elevationFt };
   }
   function validDateKey(v) {
     var x = String(v || '');
@@ -336,6 +347,11 @@
           e.weight = Math.max(0, finiteOr(e.weight, 0, 0, 5000));
           e.reps = Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000)));
           e.sets = Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000)));
+          e.effort = ['easy','right','hard'].indexOf(e.effort) >= 0 ? e.effort : '';
+          e.rir = e.rir == null ? null : Math.round(finiteOr(e.rir, null, 0, 5));
+          e.workingSets = Array.isArray(e.workingSets) ? e.workingSets.filter(plainObject).slice(0,30).map(function (set) {
+            return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))), effort: ['easy','right','hard'].indexOf(set.effort) >= 0 ? set.effort : '', rir: set.rir == null ? null : Math.round(finiteOr(set.rir, null, 0, 5)) };
+          }) : [];
           return e;
         }) : [];
         w.walk = sanitizeWorkoutWalk(w.walk);
@@ -357,6 +373,12 @@
       d.sleepHr = d.sleepHr == null ? null : finiteOr(d.sleepHr, null, 0, 24);
       d.reflection = shortText(d.reflection, 50000);
       d.noteToPartner = shortText(d.noteToPartner, 5000);
+      if (!plainObject(d.readiness)) d.readiness = {};
+      d.readiness.energy = ['low','normal','high'].indexOf(d.readiness.energy) >= 0 ? d.readiness.energy : '';
+      d.readiness.soreness = ['none','some','a-lot'].indexOf(d.readiness.soreness) >= 0 ? d.readiness.soreness : '';
+      d.readiness.pain = d.readiness.pain === true;
+      d.readiness.note = shortText(d.readiness.note, 240).trim();
+      d.readiness.at = validTimestamp(d.readiness.at);
       if (d.scoreBasis && !validScoreBasis(d.scoreBasis)) delete d.scoreBasis;
     });
 
@@ -375,6 +397,7 @@
     S.expedition.legIndex = Math.max(0, Math.round(finiteOr(S.expedition.legIndex, 0, 0, 10000)));
     S.expedition.legStart = validDateKey(S.expedition.legStart) ? String(S.expedition.legStart) : '';
     S.expedition.legStartSteps = Math.max(0, Math.round(finiteOr(S.expedition.legStartSteps, 0, 0, 500000)));
+    S.expedition.legStartWalkMiles = Math.max(0, finiteOr(S.expedition.legStartWalkMiles, 0, 0, 200));
     S.expedition.walked = Array.isArray(S.expedition.walked) ? S.expedition.walked.filter(function (x) { return typeof x === 'string'; }).slice(0, 1000) : [];
     S.expedition.next = shortText(S.expedition.next, 100);
 
@@ -620,6 +643,15 @@
     S.exercisePrefs.swapLog = Array.isArray(S.exercisePrefs.swapLog) ? S.exercisePrefs.swapLog.filter(plainObject).slice(-80).map(function (x) {
       return { date: validDateKey(x.date) ? String(x.date) : todayKey(), fromId: shortText(x.fromId, 120), toId: shortText(x.toId, 120), reason: ['occupied','discomfort','dislike'].indexOf(x.reason) >= 0 ? x.reason : 'occupied' };
     }) : [];
+    if (!plainObject(S.trainingProfile)) S.trainingProfile = clone(DEFAULT.trainingProfile);
+    S.trainingProfile.gymType = ['planet-fitness','home','full-gym','custom'].indexOf(S.trainingProfile.gymType) >= 0 ? S.trainingProfile.gymType : DEFAULT.trainingProfile.gymType;
+    var allowedTrainingEquipment = ['Bodyweight','Dumbbell','Machine','Cable','Smith','Barbell'];
+    S.trainingProfile.customEquipment = Array.isArray(S.trainingProfile.customEquipment) ? S.trainingProfile.customEquipment.map(function (x) { return shortText(x, 40).trim(); }).filter(function (x, i, a) { return allowedTrainingEquipment.indexOf(x) >= 0 && a.indexOf(x) === i; }) : [];
+    S.trainingProfile.advancedRIR = !!S.trainingProfile.advancedRIR;
+    S.trainingProfile.autoRest = S.trainingProfile.autoRest !== false;
+    S.trainingProfile.defaultRestSec = Math.max(30, Math.min(300, Math.round(finiteOr(S.trainingProfile.defaultRestSec, 90, 30, 300))));
+    S.trainingProfile.deloadWeekOf = validDateKey(S.trainingProfile.deloadWeekOf) ? String(S.trainingProfile.deloadWeekOf) : '';
+    S.trainingProfile.deloadDismissedAt = validTimestamp(S.trainingProfile.deloadDismissedAt);
     /* Faith Foundation. These fields are normalized separately from days so
        private spiritual history cannot accidentally become ordinary shared
        activity. */
@@ -834,7 +866,10 @@
           name: shortText(x.name, 160) || 'Exercise',
           weight: Math.max(0, finiteOr(x.weight, 0, 0, 5000)),
           reps: Math.max(0, Math.round(finiteOr(x.reps, 0, 0, 10000))),
-          sets: Math.max(0, Math.round(finiteOr(x.sets, 0, 0, 1000)))
+          sets: Math.max(0, Math.round(finiteOr(x.sets, 0, 0, 1000))),
+          effort: ['easy','right','hard'].indexOf(x.effort) >= 0 ? x.effort : '',
+          rir: x.rir == null ? null : Math.round(finiteOr(x.rir, null, 0, 5)),
+          workingSets: Array.isArray(x.workingSets) ? x.workingSets.filter(plainObject).slice(0,30).map(function (set) { return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))), effort: ['easy','right','hard'].indexOf(set.effort) >= 0 ? set.effort : '', rir: set.rir == null ? null : Math.round(finiteOr(set.rir, null, 0, 5)) }; }) : []
         };
       }) : [];
       S.lastFinish.walk = sanitizeWorkoutWalk(S.lastFinish.walk);
@@ -860,10 +895,18 @@
       S.session.items = S.session.items.filter(plainObject).map(function (it) {
         it.id = shortText(it.id, 120); it.name = shortText(it.name, 160) || 'Exercise';
         it.sets = Array.isArray(it.sets) ? it.sets.filter(plainObject).map(function (set) {
-          return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))) };
+          return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))), effort: ['easy','right','hard'].indexOf(set.effort) >= 0 ? set.effort : '', rir: set.rir == null ? null : Math.round(finiteOr(set.rir, null, 0, 5)) };
         }) : [];
+        it.targetSets = Math.max(1, Math.min(12, Math.round(finiteOr(it.targetSets, 3, 1, 12))));
+        it.targetReps = shortText(it.targetReps,40) || '10';
+        it.warmup = !!it.warmup;
         return it;
       });
+      S.session.mode = S.session.mode === 'lighter' ? 'lighter' : 'planned';
+      S.session.readiness = plainObject(S.session.readiness) ? S.session.readiness : {};
+      if (!plainObject(S.session.restTimer)) S.session.restTimer = { endsAt:0, durationSec:0 };
+      S.session.restTimer.endsAt = Math.round(finiteOr(S.session.restTimer.endsAt, 0, 0, Number.MAX_SAFE_INTEGER));
+      S.session.restTimer.durationSec = Math.max(0, Math.min(600, Math.round(finiteOr(S.session.restTimer.durationSec, 0, 0, 600))));
     }
 
     if (!plainObject(S.connections)) S.connections = clone(DEFAULT.connections);
@@ -882,6 +925,7 @@
     normalizeStateShape();
     if (!S.expedition) S.expedition = clone(DEFAULT.expedition);
     if (typeof S.expedition.legStartSteps !== 'number') S.expedition.legStartSteps = 0;
+    if (typeof S.expedition.legStartWalkMiles !== 'number') S.expedition.legStartWalkMiles = 0;
     if (!S.partnerLoggedHistory) S.partnerLoggedHistory = {};
     if (!S.notifs) S.notifs = clone(DEFAULT.notifs);
     delete S.notifs.highfive;
@@ -1348,7 +1392,10 @@
       name: shortText(w.name, 120) || 'Session',
       minutes: Math.max(0, Math.round(finiteOr(w.minutes, 0, 0, 1440))),
       exercises: Array.isArray(w.exercises) ? w.exercises.filter(plainObject).map(function (e) {
-        return { id: shortText(e.id, 120), name: shortText(e.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(e.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000))), sets: Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000))) };
+        var workingSets = Array.isArray(e.workingSets) ? e.workingSets.filter(plainObject).slice(0,30).map(function (set) {
+          return { weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))), effort: ['easy','right','hard'].indexOf(set.effort) >= 0 ? set.effort : '', rir: set.rir == null ? null : Math.round(finiteOr(set.rir, null, 0, 5)) };
+        }) : [];
+        return { id: shortText(e.id, 120), name: shortText(e.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(e.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000))), sets: Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000))), effort: ['easy','right','hard'].indexOf(e.effort) >= 0 ? e.effort : '', rir: e.rir == null ? null : Math.round(finiteOr(e.rir, null, 0, 5)), workingSets: workingSets };
       }) : [],
       walk: sanitizeWorkoutWalk(w.walk)
     };
@@ -1358,19 +1405,28 @@
 
   /* An in-progress session. Held in the store rather than memory so locking
      the phone between sets does not lose the work. */
-  function startSession(planName, items) {
+  function startSession(planName, items, options) {
+    options = plainObject(options) ? options : {};
+    var mode = options.mode === 'lighter' ? 'lighter' : 'planned';
+    var ready = plainObject(day(todayKey()).readiness) ? clone(day(todayKey()).readiness) : {};
     S.session = {
       date: todayKey(),
       name: planName || 'Session',
+      mode: mode,
+      readiness: ready,
       startedAt: Date.now(),
       scoreBasis: clone(makeScoreBasis(todayKey())),
       walk: clone(dailyWalk(todayKey())),
+      restTimer: { endsAt: 0, durationSec: 0 },
       items: items.map(function (e) {
+        var warmup = e.group === 'Warm-up';
+        var targetSets = e.sets || 3;
+        if (mode === 'lighter' && !warmup) targetSets = Math.max(1, targetSets - 1);
         return {
           id: e.id, name: e.name, gif: e.gif || null,
           equipment: e.equipment || '',
-          targetSets: e.sets || 3, targetReps: e.reps || '10',
-          warmup: e.group === 'Warm-up',
+          targetSets: targetSets, targetReps: e.reps || '10',
+          warmup: warmup,
           sets: []
         };
       })
@@ -1438,12 +1494,16 @@
     var d = day(key); d.walk = sanitizeSessionWalk(d.walk);
     if (patch.pace != null) d.walk.pace = shortText(String(patch.pace), 80).trim();
     if (patch.elevation != null) d.walk.elevation = shortText(String(patch.elevation), 80).trim();
+    if (patch.speedMph != null) d.walk.speedMph = Math.max(0, finiteOr(patch.speedMph, 0, 0, 30));
+    if (patch.inclinePct != null) d.walk.inclinePct = Math.max(0, finiteOr(patch.inclinePct, 0, 0, 40));
+    if (patch.distanceMiles != null) d.walk.distanceMiles = Math.max(0, finiteOr(patch.distanceMiles, 0, 0, 200));
+    if (patch.elevationFt != null) d.walk.elevationFt = Math.max(0, finiteOr(patch.elevationFt, 0, 0, 50000));
     if (patch.elapsedMs != null && !d.walk.startedAt) d.walk.elapsedMs = Math.round(finiteOr(patch.elapsedMs, d.walk.elapsedMs, 0, 86400000));
-    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation) ensureScoreBasis(key);
+    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation || d.walk.speedMph || d.walk.distanceMiles || d.walk.elevationFt) ensureScoreBasis(key);
     mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
-  function setDailyWalkManual(key, minutes, pace, elevation) {
+  function setDailyWalkManual(key, minutes, pace, elevation, structured) {
     key = key || todayKey();
     if (!validDateKey(key) || key > todayKey()) return false;
     var mins = finiteOr(minutes, null, 0, 1440);
@@ -1453,8 +1513,13 @@
     d.walk.elapsedMs = Math.round(mins * 60000);
     d.walk.pace = shortText(String(pace || ''), 80).trim();
     d.walk.elevation = shortText(String(elevation || ''), 80).trim();
+    structured = plainObject(structured) ? structured : {};
+    d.walk.speedMph = Math.max(0, finiteOr(structured.speedMph, d.walk.speedMph || 0, 0, 30));
+    d.walk.inclinePct = Math.max(0, finiteOr(structured.inclinePct, d.walk.inclinePct || 0, 0, 40));
+    d.walk.distanceMiles = Math.max(0, finiteOr(structured.distanceMiles, d.walk.distanceMiles || 0, 0, 200));
+    d.walk.elevationFt = Math.max(0, finiteOr(structured.elevationFt, d.walk.elevationFt || 0, 0, 50000));
     d.walk.stoppedAt = d.walk.elapsedMs ? Date.now() : 0;
-    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation) ensureScoreBasis(key);
+    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation || d.walk.speedMph || d.walk.distanceMiles || d.walk.elevationFt) ensureScoreBasis(key);
     mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
@@ -1480,10 +1545,40 @@
     var s = S.session; if (!s || !s.items[itemIndex] || !plainObject(set)) return;
     s.items[itemIndex].sets.push({
       weight: Math.max(0, finiteOr(set.weight, 0, 0, 5000)),
-      reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000)))
+      reps: Math.max(0, Math.round(finiteOr(set.reps, 0, 0, 10000))),
+      effort: ['easy','right','hard'].indexOf(set.effort) >= 0 ? set.effort : '',
+      rir: set.rir == null ? null : Math.round(finiteOr(set.rir, null, 0, 5))
     });
     save(); emit();
   }
+  function setReadiness(patch, key) {
+    key = key || todayKey();
+    if (!validDateKey(key) || key > todayKey() || !plainObject(patch)) return false;
+    var d = day(key), current = plainObject(d.readiness) ? d.readiness : {};
+    if (patch.energy != null) current.energy = ['low','normal','high'].indexOf(patch.energy) >= 0 ? patch.energy : '';
+    if (patch.soreness != null) current.soreness = ['none','some','a-lot'].indexOf(patch.soreness) >= 0 ? patch.soreness : '';
+    if (patch.pain != null) current.pain = patch.pain === true || patch.pain === 'true';
+    if (patch.note != null) current.note = shortText(String(patch.note), 240).trim();
+    current.at = new Date().toISOString(); d.readiness = current;
+    save(); emit(); return true;
+  }
+  function startRestTimer(seconds) {
+    var s=S.session; if(!s) return false;
+    seconds=Math.max(0,Math.min(600,Math.round(finiteOr(seconds,0,0,600))));
+    s.restTimer={durationSec:seconds,endsAt:seconds?Date.now()+seconds*1000:0};
+    save(); emit(); return true;
+  }
+  function addRestTime(seconds) {
+    var s=S.session; if(!s) return false;
+    if(!plainObject(s.restTimer)) s.restTimer={durationSec:0,endsAt:0};
+    seconds=Math.max(-600,Math.min(600,Math.round(finiteOr(seconds,0,-600,600))));
+    var base=s.restTimer.endsAt>Date.now()?s.restTimer.endsAt:Date.now();
+    s.restTimer.endsAt=Math.max(0,base+seconds*1000);
+    s.restTimer.durationSec=Math.max(0,Math.round((s.restTimer.endsAt-Date.now())/1000));
+    save(); emit(); return true;
+  }
+  function clearRestTimer() { var s=S.session;if(!s)return false;s.restTimer={durationSec:0,endsAt:0};save();emit();return true; }
+  function restRemainingMs() { var s=S.session;if(!s||!plainObject(s.restTimer)||!s.restTimer.endsAt)return 0;return Math.max(0,s.restTimer.endsAt-Date.now()); }
   function dropSet(itemIndex, setIndex) {
     var s = S.session; if (!s || !s.items[itemIndex]) return;
     s.items[itemIndex].sets.splice(setIndex, 1);
@@ -1529,14 +1624,19 @@
         if (!top || set.weight > top.weight) top = set;
       });
       if (top && (!best || top.weight > best.weight)) best = { name: i.name, weight: top.weight, reps: top.reps };
-      return { id: i.id || '', name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length };
+      var lastSet = i.sets.length ? i.sets[i.sets.length - 1] : null;
+      return { id: i.id || '', name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length, effort: lastSet ? (lastSet.effort || '') : '', rir: lastSet && lastSet.rir != null ? lastSet.rir : null, workingSets: clone(i.sets) };
     });
 
     var dayWalk = dailyWalk(key);
     var walk = sanitizeWorkoutWalk({
       seconds: Math.round(dailyWalkElapsedMs(key) / 1000),
       pace: dayWalk.pace,
-      elevation: dayWalk.elevation
+      elevation: dayWalk.elevation,
+      speedMph: dayWalk.speedMph,
+      inclinePct: dayWalk.inclinePct,
+      distanceMiles: dayWalk.distanceMiles,
+      elevationFt: dayWalk.elevationFt
     });
     d.workouts.push({ name: s.name, minutes: minutes, exercises: exercises, walk: walk });
     S.session = null;
@@ -1678,22 +1778,32 @@
 
   /* One definition of distance from steps, so no two screens disagree. */
   function miles(steps) { return (steps || 0) / 2000; }
+  function walkDistanceMilesForDay(key) {
+    var d=S.days[key]||{}, w=sanitizeSessionWalk(d.walk), elapsed=Math.max(0,w.elapsedMs+(w.startedAt?Date.now()-w.startedAt:0));
+    var estimated=w.speedMph>0&&elapsed>0 ? w.speedMph*(elapsed/3600000) : 0;
+    return Math.max(w.distanceMiles||0, estimated);
+  }
 
-  /* Miles on this leg are not a counter someone has to remember to increment:
-     they are the steps logged since the leg opened, converted once. The partner figure is
-     derived on the partner device the same way and synced across. */
+  /* Expedition distance uses the best available walking source for each day.
+     Structured treadmill/manual distance never stacks on top of step-derived
+     miles, which prevents the same walk from being counted twice. */
   function legMine() {
     var start = S.expedition.legStart;
     if (!start) return 0;
-    var baseline = Math.max(0, +(S.expedition.legStartSteps || 0));
-    var totalSteps = 0;
+    var baselineSteps = Math.max(0, +(S.expedition.legStartSteps || 0));
+    var baselineWalk = Math.max(0, +(S.expedition.legStartWalkMiles || 0));
+    var totalMiles = 0;
     Object.keys(S.days).forEach(function (k) {
       if (k < start) return;
-      var steps = Math.max(0, +(S.days[k].steps || 0));
-      if (k === start) steps = Math.max(0, steps - baseline);
-      totalSteps += steps;
+      var stepMiles = miles(Math.max(0, +(S.days[k].steps || 0)));
+      var walkMiles = walkDistanceMilesForDay(k);
+      if (k === start) {
+        stepMiles = Math.max(0, stepMiles - miles(baselineSteps));
+        walkMiles = Math.max(0, walkMiles - baselineWalk);
+      }
+      totalMiles += Math.max(stepMiles, walkMiles);
     });
-    return +miles(totalSteps).toFixed(1);
+    return +totalMiles.toFixed(1);
   }
 
   function legHers() { return +(+(S.partnerLegMiles || 0)).toFixed(1); }
@@ -1721,6 +1831,7 @@
     e.legIndex = e.legIndex + 1;
     e.legStart = todayKey();
     e.legStartSteps = Math.max(0, +(day(todayKey()).steps || 0));
+    e.legStartWalkMiles = walkDistanceMilesForDay(todayKey());
     S.partnerLegMiles = 0;
     save(); emit();
     return true;
@@ -1750,6 +1861,7 @@
     e.legStart = start;
     var startDay = S.days[start];
     e.legStartSteps = Math.max(0, +(startDay && startDay.steps || 0));
+    e.legStartWalkMiles = walkDistanceMilesForDay(start);
     S.partnerLegMiles = 0;
     save(); emit();
     return true;
@@ -1843,6 +1955,7 @@
     e.legIndex = 0;
     e.legStart = todayKey();
     e.legStartSteps = Math.max(0, +(day(todayKey()).steps || 0));
+    e.legStartWalkMiles = walkDistanceMilesForDay(todayKey());
     e.next = '';
     S.partnerLegMiles = 0;
     S.invite = null;
@@ -1879,6 +1992,15 @@
     if (mi == null) return '\u2014';
     var km = S.units.distance === 'km';
     return (km ? mi * PER_KM : mi).toFixed(dp == null ? 1 : dp) + ' ' + S.units.distance;
+  }
+  function distanceNum(mi, dp) {
+    if (mi == null || mi === '') return null;
+    var n = S.units.distance === 'km' ? (+mi * PER_KM) : +mi;
+    return +(n.toFixed(dp == null ? 2 : dp));
+  }
+  function distanceToMiles(value) {
+    var n=+value; if(!isFinite(n)) return null;
+    return S.units.distance === 'km' ? +(n / PER_KM).toFixed(4) : n;
   }
   function energyNum(kcal) {
     if (kcal == null || kcal === '') return null;
@@ -2166,7 +2288,8 @@
     totals: totals, streak: streak, daysIn: daysIn, logged: logged,
     points: points, pointRows: pointRows, timeOfDay: timeOfDay, nextStep: nextStep,
     addMeal: addMeal, findMeal: findMeal, updateMeal: updateMeal, removeMeal: removeMeal, addWorkout: addWorkout, setSteps: setSteps, setMorning: setMorning,
-    startSession: startSession, session: session, logSet: logSet, dropSet: dropSet,
+    startSession: startSession, session: session, logSet: logSet, dropSet: dropSet, setReadiness: setReadiness,
+    startRestTimer: startRestTimer, addRestTime: addRestTime, clearRestTimer: clearRestTimer, restRemainingMs: restRemainingMs,
     dailyWalk: dailyWalk, dailyWalkElapsedMs: dailyWalkElapsedMs, startDailyWalk: startDailyWalk, stopDailyWalk: stopDailyWalk,
     updateDailyWalk: updateDailyWalk, setDailyWalkManual: setDailyWalkManual, resetDailyWalk: resetDailyWalk,
     sessionWalkElapsedMs: sessionWalkElapsedMs, startSessionWalk: startSessionWalk,
@@ -2186,7 +2309,7 @@
     secret: secret, setSecret: setSecret, lastSaveError: function () { return lastSaveError; },
     loadError: function () { return loadError; }, loadWarning: function () { return loadWarning; }, corruptRaw: function () { return corruptRaw; },
     exportState: exportState, importState: importState,
-    fmtWeight: fmtWeight, fmtDistance: fmtDistance, fmtEnergy: fmtEnergy, energyNum: energyNum, energyToKcal: energyToKcal,
+    fmtWeight: fmtWeight, fmtDistance: fmtDistance, distanceNum: distanceNum, distanceToMiles: distanceToMiles, fmtEnergy: fmtEnergy, energyNum: energyNum, energyToKcal: energyToKcal,
     fmtLift: fmtLift, liftNum: liftNum, fmtClimb: fmtClimb,
     weightNum: weightNum, weightToLb: weightToLb,
     recentWeights: recentWeights,

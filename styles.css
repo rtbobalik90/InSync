@@ -1306,3 +1306,21 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 
 @media (max-width:360px){.faith-camp-grid{grid-template-columns:1fr}.faith-reading-actions{grid-template-columns:1fr}.prayer-compose-foot{align-items:stretch;flex-direction:column}.close-camp-foot{align-items:stretch;flex-direction:column}.close-camp-foot .btn{width:100%}}
 .scripture-featured>button{appearance:none;border:0;background:transparent;color:inherit;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) 16px;gap:4px 12px;padding:0;width:100%}.scripture-featured>button .kicker,.scripture-featured>button strong,.scripture-featured>button p{grid-column:1}.scripture-featured>button i{grid-column:2;grid-row:1/4;width:15px;align-self:center;color:var(--faint)}.scripture-passage-row em{font-style:normal;color:var(--muted);font-size:10.5px}.scripture-book-row{display:flex;justify-content:space-between;gap:10px;align-items:center}.scripture-book-row small{display:block;color:var(--faint);font-size:9px}.scripture-book-row>span{color:var(--faint);font-size:9px}.faith-verse-line{font:400 18px/1.58 var(--serif);color:#E3DAC6}.faith-reading-ref{font:500 24px/1.2 var(--serif)}.memory-practice-copy p{margin:0;font:inherit}.memory-mode-preview{grid-template-columns:repeat(5,minmax(0,1fr))}.memory-mode-preview span{min-width:0;padding-left:3px;padding-right:3px}
+
+/* ---- Training 2.0 ------------------------------------------------------ */
+.readiness-card .readiness-body{padding-top:8px;padding-bottom:15px}
+.readiness-row{padding:12px 0;border-bottom:1px solid var(--rule)}
+.readiness-row>div:first-child{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:9px}
+.readiness-row strong{font-family:var(--serif);font-size:17px;font-weight:500}
+.readiness-row span{font-size:12px;color:var(--muted)}
+.readiness-chips{display:flex;gap:7px;flex-wrap:wrap}
+.readiness-callout{margin:13px 0 0;padding:12px 13px;border:1px solid var(--rule);border-radius:12px;background:rgba(255,255,255,.025)}
+.readiness-callout strong,.readiness-callout span{display:block}.readiness-callout strong{font-family:var(--serif);font-weight:500;font-size:17px;margin-bottom:4px}.readiness-callout span{font-size:12.5px;line-height:1.45;color:var(--muted)}
+.readiness-callout.ready{border-color:rgba(151,174,119,.38)}.readiness-callout.lighter,.readiness-callout.caution{border-color:rgba(196,154,91,.42)}
+.deload-card{border-color:rgba(196,154,91,.3)}
+.walk-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.walk-notes{margin-top:10px;border-top:1px solid var(--rule);padding-top:9px}.walk-notes summary{font-size:12px;color:var(--muted);cursor:pointer}.walk-notes[open] summary{margin-bottom:8px}
+.rest-timer{position:relative;overflow:hidden}.rest-timer-body{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 16px 15px}.rest-timer-body strong{font-family:var(--serif);font-size:34px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:.02em}.rest-timer.ready .rest-timer-body strong{color:var(--sage)}
+.set-effort{font-size:11px;color:var(--sage);text-transform:uppercase;letter-spacing:.04em;min-width:48px;text-align:right}
+.progression-box{border-top:1px solid var(--rule);padding:12px 0;margin-top:3px}.progression-box details{margin-top:8px}.progression-box summary{font-size:12px;color:var(--muted);cursor:pointer}.progression-box details p{margin:6px 0 0!important}
+@media(max-width:390px){.walk-metrics-grid{grid-template-columns:1fr}.rest-timer-body{align-items:flex-start;flex-direction:column}.readiness-row>div:first-child{display:block}.readiness-row>div:first-child span{display:block;margin-top:3px}}

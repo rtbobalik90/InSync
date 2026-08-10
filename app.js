@@ -23,12 +23,32 @@
 
   var lastRenderedKey = '';
   var sessionWalkTicker = null;
+  var sessionRestTicker = null;
 
   function formatSessionWalkClock(ms) {
     var total = Math.max(0, Math.floor((ms || 0) / 1000));
     var h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
     return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
   }
+  function formatRestClock(ms) {
+    var total=Math.max(0,Math.ceil((ms||0)/1000)), m=Math.floor(total/60), sec=total%60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+  function bindSessionRestClock() {
+    if (sessionRestTicker) { clearInterval(sessionRestTicker); sessionRestTicker=null; }
+    var clock=app.querySelector('[data-rest-clock]');
+    if(!clock) return;
+    function tick(){
+      if(!clock.isConnected){ if(sessionRestTicker)clearInterval(sessionRestTicker);sessionRestTicker=null;return; }
+      var ms=Store.restRemainingMs?Store.restRemainingMs():0;
+      clock.textContent=ms>0?formatRestClock(ms):'READY';
+      var host=clock.closest('[data-rest-timer]'); if(host) host.classList.toggle('ready',ms<=0);
+      if(ms<=0&&sessionRestTicker){clearInterval(sessionRestTicker);sessionRestTicker=null;}
+    }
+    tick();
+    if((Store.restRemainingMs?Store.restRemainingMs():0)>0) sessionRestTicker=setInterval(tick,250);
+  }
+
   function bindSessionWalkClock() {
     if (sessionWalkTicker) { clearInterval(sessionWalkTicker); sessionWalkTicker = null; }
     var clock = app.querySelector('[data-walk-clock]');
@@ -86,7 +106,7 @@
     if (!Store.state().onboarded) { app.innerHTML = ''; lastRenderedKey = ''; return; }
 
     // Opening a verse surface is the evidence for the verse-reading badge.
-    if (['home','reflection','faith','memory','memory-item','scripture','scripture-passage','waypoint-reflection'].indexOf(root) >= 0 && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
+    if ((root === 'home' || root === 'reflection') && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
 
     if (TABS.indexOf(root) >= 0) html = Screens[root]();
     else if (root === 'coach') html = Screens.coach();
@@ -101,14 +121,6 @@
     else if (root === 'earned') html = Screens.earnedMoment();
     else if (root === 'handshake') html = Screens.handshake();
     else if (root === 'reflection') html = Screens.reflection();
-    else if (root === 'faith') html = Screens.faith();
-    else if (root === 'memory') html = Screens.memory();
-    else if (root === 'memory-item') html = Screens.memoryItem();
-    else if (root === 'scripture') html = Screens.scripture();
-    else if (root === 'scripture-passage') html = Screens.scripturePassage();
-    else if (root === 'waypoint-reflection') html = Screens.waypointReflection();
-    else if (root === 'prayers') html = Screens.prayers();
-    else if (root === 'rule-of-life') html = Screens.ruleOfLife();
     else if (root === 'trends') html = Screens.trends();
     else if (root === 'planner') html = Screens.planner();
     else if (root === 'weekly-review') html = Screens.weeklyReview();
@@ -134,6 +146,7 @@
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
     bindSessionWalkClock();
+    bindSessionRestClock();
     maybeBadge(key);
 
     /* Every photo screen measures where its sheet rests. A constant cannot
@@ -669,20 +682,17 @@
 
     /* ---- Session ---- */
     if (action === 'begin') {
-      var S0 = Store.state(), plan0 = S0.plan || [];
-      var DOWs = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      var todayName0 = DOWs[new Date().getDay()];
-      var tp = null;
-      for (var pp = 0; pp < plan0.length; pp++) if (plan0[pp].day === todayName0) tp = plan0[pp];
-      if (!tp) return;
-      var items = tp.ex && tp.ex.length ? Exercises.expand(tp.ex) : [];
-      // A warm-up opens the session, drawn from the bodyweight set.
-      var warm = Exercises.byGroup().filter(function (g) { return g.name === 'Warm-up'; })[0];
-      if (warm && warm.items.length) {
-        var pick = warm.items[new Date().getDate() % warm.items.length];
-        items = [pick].concat(items);
+      var tp = Store.planFor ? Store.planFor(Store.todayKey()) : null;
+      if (!tp || !tp.ex || !tp.ex.length) return;
+      var items = Exercises.expand(tp.ex);
+      if (window.Training && items.some(function (x) { return !Training.equipmentAllows(x); })) {
+        alert('This plan includes equipment that is not in your current gym profile. Rewrite the training week from Train before starting it.');
+        return;
       }
-      Store.startSession(tp.name, items);
+      var warm = window.Training && Training.warmupFor ? Training.warmupFor(items) : [];
+      items = warm.concat(items);
+      var mode = el.getAttribute('data-session-mode') || (window.Training && Training.isDeloadWeek && Training.isDeloadWeek(Store.todayKey()) ? 'lighter' : 'planned');
+      Store.startSession(tp.name, items, { mode: mode });
       location.hash = '#session';
       return;
     }
@@ -698,9 +708,17 @@
       var walkHost = el.closest('[data-walk-card]') || app;
       var paceEl = walkHost.querySelector('[data-walk-pace]');
       var elevationEl = walkHost.querySelector('[data-walk-elevation]');
+      var speedEl = walkHost.querySelector('[data-walk-speed]');
+      var inclineEl = walkHost.querySelector('[data-walk-incline]');
+      var distanceEl = walkHost.querySelector('[data-walk-distance]');
+      var elevationFtEl = walkHost.querySelector('[data-walk-elevation-ft]');
+      var typedDistance = parseFloat(distanceEl && distanceEl.value);
       Store.updateDailyWalk({
-        pace: paceEl ? paceEl.value : '',
-        elevation: elevationEl ? elevationEl.value : ''
+        pace: paceEl ? paceEl.value : '', elevation: elevationEl ? elevationEl.value : '',
+        speedMph: parseFloat(speedEl && speedEl.value) || 0,
+        inclinePct: parseFloat(inclineEl && inclineEl.value) || 0,
+        distanceMiles: isFinite(typedDistance) ? Store.distanceToMiles(typedDistance) : 0,
+        elevationFt: parseFloat(elevationFtEl && elevationFtEl.value) || 0
       }, el.getAttribute('data-walk-date') || Store.todayKey());
       return;
     }
@@ -709,10 +727,19 @@
       var manualMinutes = manualHost.querySelector('[data-walk-minutes]');
       var manualPace = manualHost.querySelector('[data-walk-pace]');
       var manualElevation = manualHost.querySelector('[data-walk-elevation]');
-      var manualValue = parseFloat(manualMinutes && manualMinutes.value);
+      var manualSpeed = manualHost.querySelector('[data-walk-speed]');
+      var manualIncline = manualHost.querySelector('[data-walk-incline]');
+      var manualDistance = manualHost.querySelector('[data-walk-distance]');
+      var manualElevationFt = manualHost.querySelector('[data-walk-elevation-ft]');
+      var manualValue = parseFloat(manualMinutes && manualMinutes.value), typedManualDistance=parseFloat(manualDistance && manualDistance.value);
       if (!isFinite(manualValue) || manualValue < 0 || manualValue > 1440) { alert('Enter a walk duration from 0 to 1,440 minutes.'); return; }
       Store.setDailyWalkManual(el.getAttribute('data-walk-date') || Store.todayKey(), manualValue,
-        manualPace ? manualPace.value : '', manualElevation ? manualElevation.value : '');
+        manualPace ? manualPace.value : '', manualElevation ? manualElevation.value : '', {
+          speedMph: parseFloat(manualSpeed && manualSpeed.value) || 0,
+          inclinePct: parseFloat(manualIncline && manualIncline.value) || 0,
+          distanceMiles: isFinite(typedManualDistance) ? Store.distanceToMiles(typedManualDistance) : 0,
+          elevationFt: parseFloat(manualElevationFt && manualElevationFt.value) || 0
+        });
       return;
     }
     if (action === 'walk-reset') {
@@ -725,13 +752,43 @@
       var host = document.querySelector('.app');
       var wEl = host.querySelector('[data-set="w"][data-i="' + i1 + '"]');
       var rEl = host.querySelector('[data-set="r"][data-i="' + i1 + '"]');
+      var effortEl = host.querySelector('[data-set="effort"][data-i="' + i1 + '"]');
+      var rirEl = host.querySelector('[data-set="rir"][data-i="' + i1 + '"]');
       var rawW = parseFloat(wEl && wEl.value), rawR = parseInt(rEl && rEl.value, 10);
       if ((isFinite(rawW) && rawW < 0) || (isFinite(rawR) && rawR < 0)) { alert('Weight and reps cannot be negative.'); return; }
       var w = Store.weightToLb(isFinite(rawW) ? rawW : 0);
       var r = isFinite(rawR) ? rawR : 0;
       if (!w && !r) return;
-      Store.logSet(i1, { weight: w, reps: r });
+      var activeBefore=Store.session(), itemBefore=activeBefore&&activeBefore.items[i1];
+      Store.logSet(i1, { weight: w, reps: r, effort: effortEl ? effortEl.value : '', rir: rirEl ? parseInt(rirEl.value,10) : null });
+      if (window.Training && Training.profile().autoRest && itemBefore) Store.startRestTimer(Training.restSecondsFor(itemBefore.id || itemBefore.name));
       return;
+    }
+    if (action === 'set-readiness') {
+      var rk=el.getAttribute('data-kind'), rv=el.getAttribute('data-value'), patch={};
+      if(rk==='pain') patch.pain=rv==='true'; else patch[rk]=rv;
+      Store.setReadiness(patch, Store.todayKey()); return;
+    }
+    if (action === 'rest-add') { Store.addRestTime(30); return; }
+    if (action === 'rest-skip') { Store.clearRestTimer(); return; }
+    if (action === 'set-gym-type') {
+      var tprefs=Object.assign({},Store.state().trainingProfile||{}); tprefs.gymType=el.getAttribute('data-value'); Store.set('trainingProfile',tprefs); return;
+    }
+    if (action === 'toggle-training-equipment') {
+      var eprefs=Object.assign({},Store.state().trainingProfile||{}), eq=el.getAttribute('data-value'), list=Array.isArray(eprefs.customEquipment)?eprefs.customEquipment.slice():[], at=list.indexOf(eq);
+      if(at>=0) list.splice(at,1); else list.push(eq); eprefs.customEquipment=list; Store.set('trainingProfile',eprefs); return;
+    }
+    if (action === 'set-rest-default') {
+      var rprefs=Object.assign({},Store.state().trainingProfile||{}); rprefs.defaultRestSec=Math.max(30,Math.min(300,+(el.getAttribute('data-value')||90))); Store.set('trainingProfile',rprefs); return;
+    }
+    if (action === 'accept-deload') {
+      var dprefs=Object.assign({},Store.state().trainingProfile||{}); dprefs.deloadWeekOf=Store.weekStart(Store.todayKey()); dprefs.deloadDismissedAt=''; Store.set('trainingProfile',dprefs); return;
+    }
+    if (action === 'dismiss-deload') {
+      var dnprefs=Object.assign({},Store.state().trainingProfile||{}); dnprefs.deloadDismissedAt=new Date().toISOString(); Store.set('trainingProfile',dnprefs); return;
+    }
+    if (action === 'cancel-deload') {
+      var cuprefs=Object.assign({},Store.state().trainingProfile||{}); cuprefs.deloadWeekOf=''; Store.set('trainingProfile',cuprefs); return;
     }
     if (action === 'drop-set') {
       Store.dropSet(+el.getAttribute('data-i'), +el.getAttribute('data-s'));
@@ -769,11 +826,15 @@
       var finishWalkHost = app.querySelector('[data-walk-card]');
       var finishPace = finishWalkHost && finishWalkHost.querySelector('[data-walk-pace]');
       var finishElevation = finishWalkHost && finishWalkHost.querySelector('[data-walk-elevation]');
-      if (activeSession && (finishPace || finishElevation)) {
-        Store.updateDailyWalk({
-          pace: finishPace ? finishPace.value : '',
-          elevation: finishElevation ? finishElevation.value : ''
-        }, activeSession.date || Store.todayKey());
+      var finishSpeed = finishWalkHost && finishWalkHost.querySelector('[data-walk-speed]');
+      var finishIncline = finishWalkHost && finishWalkHost.querySelector('[data-walk-incline]');
+      var finishDistance = finishWalkHost && finishWalkHost.querySelector('[data-walk-distance]');
+      var finishElevationFt = finishWalkHost && finishWalkHost.querySelector('[data-walk-elevation-ft]');
+      if (activeSession && (finishPace || finishElevation || finishSpeed || finishDistance)) {
+        var fd=parseFloat(finishDistance&&finishDistance.value);
+        Store.updateDailyWalk({ pace: finishPace ? finishPace.value : '', elevation: finishElevation ? finishElevation.value : '',
+          speedMph: parseFloat(finishSpeed&&finishSpeed.value)||0, inclinePct: parseFloat(finishIncline&&finishIncline.value)||0,
+          distanceMiles: isFinite(fd)?Store.distanceToMiles(fd):0, elevationFt: parseFloat(finishElevationFt&&finishElevationFt.value)||0 }, activeSession.date || Store.todayKey());
       }
       var res = Store.finishSession();
       if (!res) return;
@@ -931,7 +992,7 @@
     }
     if (action === 'set-ai-pref') {
       var prefKey = el.getAttribute('data-pref'), prefValue = el.getAttribute('data-value');
-      if (['tone','directness','mealComplexity','trainingStyle','faithEmphasis'].indexOf(prefKey) >= 0) Store.set('aiPrefs.' + prefKey, prefValue);
+      if (['tone','directness','mealComplexity','trainingStyle'].indexOf(prefKey) >= 0) Store.set('aiPrefs.' + prefKey, prefValue);
       return;
     }
     if (action === 'accept-proposal') { Store.acceptProposal(); return; }
@@ -978,150 +1039,10 @@
       location.hash = '#together';
       return;
     }
-    /* ---- Faith woven into the journey ---- */
-    if (action === 'faith-add-passage' || action === 'faith-add-waypoint') {
-      if (!window.Faith || !window.ScriptureLibrary) return;
-      var passage = ScriptureLibrary.get(el.getAttribute('data-passage-id'));
-      var passageMemory = passage ? Faith.addPassage(passage) : null;
-      if (passageMemory) location.hash = '#memory-item/' + encodeURIComponent(passageMemory.id) + '/' + encodeURIComponent(Faith.memoryMode(passageMemory));
-      return;
-    }
-    if (action === 'faith-scripture-listen') {
-      if (!window.ScriptureLibrary || !window.speechSynthesis) return;
-      var listenPassage = ScriptureLibrary.get(el.getAttribute('data-passage-id'));
-      if (!listenPassage) return;
-      window.speechSynthesis.cancel();
-      var listenUtterance = new SpeechSynthesisUtterance(ScriptureLibrary.text(listenPassage));
-      listenUtterance.rate = 0.92;
-      window.speechSynthesis.speak(listenUtterance);
-      return;
-    }
-    if (action === 'faith-scripture-speak-text') {
-      if (!window.speechSynthesis) return;
-      var speakText = el.getAttribute('data-text') || '';
-      if (!speakText) return;
-      window.speechSynthesis.cancel();
-      var speakUtterance = new SpeechSynthesisUtterance(speakText);
-      speakUtterance.rate = 0.92;
-      window.speechSynthesis.speak(speakUtterance);
-      return;
-    }
-    if (action === 'faith-reveal-segment') {
-      var revealText = el.getAttribute('data-reveal') || '';
-      if (!revealText) return;
-      el.textContent = revealText;
-      el.classList.add('revealed');
-      el.disabled = true;
-      return;
-    }
-    if (action === 'faith-bank-word') {
-      var word = (el.getAttribute('data-word') || '').trim();
-      var practice = el.closest('[data-word-bank-practice]');
-      if (!practice || !word) return;
-      var blanks = Array.prototype.slice.call(practice.querySelectorAll('.memory-blank:not([data-filled="true"])'));
-      var blank = blanks[0];
-      var feedback = practice.querySelector('[data-bank-feedback]');
-      if (!blank) { if (feedback) feedback.textContent = 'This pass is complete.'; return; }
-      var answer = (blank.getAttribute('data-answer') || '').toLowerCase();
-      if (word.toLowerCase() === answer) {
-        blank.textContent = word;
-        blank.setAttribute('data-filled','true');
-        el.disabled = true;
-        var left = practice.querySelectorAll('.memory-blank:not([data-filled="true"])').length;
-        if (feedback) feedback.textContent = left ? left + ' word' + (left === 1 ? '' : 's') + ' left.' : 'Pass complete. Read the verse once more from the top.';
-      } else if (feedback) feedback.textContent = 'Try another word.';
-      return;
-    }
-    if (action === 'faith-waypoint-save') {
-      if (!window.Faith) return;
-      var expedition = Store.state().expedition || {};
-      var waypointInput = document.getElementById('waypoint-note');
-      Faith.saveWaypointNote(expedition.routeId || '', expedition.legIndex || 0, waypointInput ? waypointInput.value : '');
-      var waypointLabel = el.textContent;
-      el.textContent = 'Saved';
-      setTimeout(function () { el.textContent = waypointLabel; }, 1200);
-      return;
-    }
-    /* ---- Faith Foundation ---- */
-    if (action === 'faith-add-today') {
-      var added = window.Faith && Faith.addVerse ? Faith.addVerse(Store.verse()) : null;
-      if (added) location.hash = '#memory-item/' + encodeURIComponent(added.id);
-      return;
-    }
-    if (action === 'faith-memory-advance') {
-      if (window.Faith) Faith.advanceMemory(el.getAttribute('data-memory-id')); return;
-    }
-    if (action === 'faith-memory-check') {
-      if (!window.Faith) return;
-      var memoryText = document.getElementById('memory-type');
-      var result = Faith.checkTyped(el.getAttribute('data-memory-id'), memoryText ? memoryText.value : '');
-      var resultEl = document.getElementById('memory-result');
-      if (resultEl) resultEl.textContent = result.ok
-        ? 'That is close enough to move to recitation.'
-        : Math.round(result.accuracy * 100) + '% matched. Keep the prompt and try again.';
-      if (result.ok) setTimeout(render, 450);
-      return;
-    }
-    if (action === 'faith-memory-review') {
-      if (window.Faith) Faith.reviewMemory(el.getAttribute('data-memory-id'), el.getAttribute('data-rating')); return;
-    }
-    if (action === 'faith-memory-remove') {
-      if (window.Faith && confirm('Remove this verse from the Memory Trail? The verse itself stays available in InSync.')) {
-        Faith.removeMemory(el.getAttribute('data-memory-id')); location.hash = '#memory';
-      }
-      return;
-    }
-    if (action === 'faith-prayer-add') {
-      if (!window.Faith) return;
-      var prayerText = document.getElementById('faith-prayer-text');
-      var prayerCategory = document.getElementById('faith-prayer-category');
-      var prayer = Faith.addPrayer(prayerText ? prayerText.value : '', prayerCategory ? prayerCategory.value : 'General');
-      if (prayer && prayerText) prayerText.value = '';
-      return;
-    }
-    if (action === 'faith-prayer-answer') {
-      if (!window.Faith) return;
-      var prayerHost = el.closest('[data-prayer-card]');
-      var answerEl = prayerHost && prayerHost.querySelector('[data-prayer-answer]');
-      Faith.markAnswered(el.getAttribute('data-prayer-id'), answerEl ? answerEl.value : '');
-      if (Cloud.hasGit()) Cloud.push(function () {});
-      return;
-    }
-    if (action === 'faith-prayer-reopen') {
-      if (window.Faith) Faith.reopenPrayer(el.getAttribute('data-prayer-id')); return;
-    }
-    if (action === 'faith-prayer-share') {
-      if (window.Faith && Faith.sharePrayer(el.getAttribute('data-prayer-id'))) {
-        if (Cloud.hasGit()) Cloud.push(function () {});
-      }
-      return;
-    }
-    if (action === 'faith-prayer-unshare') {
-      if (window.Faith) {
-        Faith.unsharePrayer(el.getAttribute('data-prayer-id'));
-        if (Cloud.hasGit()) Cloud.push(function () {});
-      }
-      return;
-    }
-    if (action === 'faith-prayer-ack') {
-      if (window.Faith && Faith.ackPartnerPrayer(el.getAttribute('data-prayer-id'))) {
-        if (Cloud.hasGit()) Cloud.push(function () {});
-      }
-      return;
-    }
-    if (action === 'faith-sabbath-toggle') {
-      if (window.Faith) Faith.setSabbath(!Store.state().faith.sabbath.enabled, Store.state().faith.sabbath.day); return;
-    }
-    if (action === 'faith-sabbath-day') {
-      if (window.Faith) Faith.setSabbath(true, +el.getAttribute('data-day')); return;
-    }
-
     if (action === 'save-reflection') {
       var ta = document.getElementById('reflect');
-      var ga = document.getElementById('gratitude');
-      if (ta) Store.saveReflection(ta.value);
-      if (ga && window.Faith && Faith.saveGratitude) Faith.saveGratitude(ga.value);
-      if (ta || ga) {
+      if (ta) {
+        Store.saveReflection(ta.value);
         var b2 = el, l2 = b2.textContent;
         b2.textContent = 'Saved';
         setTimeout(function () { b2.textContent = l2; }, 1400);
@@ -1135,7 +1056,6 @@
     /* The evening page saves itself when the user leaves the field. Losing an entry
        to a stray tap is not a thing a journal may do. */
     if (e.target.id === 'reflect') { Store.saveReflection(e.target.value); return; }
-    if (e.target.id === 'gratitude' && window.Faith && Faith.saveGratitude) { Faith.saveGratitude(e.target.value); return; }
     var el = e.target.closest('[data-set]');
     if (!el) return;
     if (el.hasAttribute('data-secret')) {
@@ -1334,7 +1254,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p3b', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p4', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

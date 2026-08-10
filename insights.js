@@ -77,6 +77,7 @@
     return (Store.records ? Store.records() : []).filter(function (r) { return String(r.name || '').toLowerCase() === key; })[0] || null;
   }
   function progressionFor(idOrName) {
+    if (window.Training && Training.progressionFor) return Training.progressionFor(idOrName);
     var ex = Exercises.get(idOrName) || Exercises.byName(idOrName);
     var name = ex ? ex.name : String(idOrName || '');
     var rec = recordFor(name), range = repRange(ex);
@@ -109,7 +110,7 @@
     var avoided = {};
     avoidedExerciseIds().forEach(function (id) { avoided[id] = true; });
     var list = Exercises.all.filter(function (x) {
-      return x.group === current.group && x.id !== current.id && !inSession[x.id] && !avoided[x.id];
+      return x.group === current.group && x.id !== current.id && !inSession[x.id] && !avoided[x.id] && (!window.Training || Training.equipmentAllows(x));
     });
     reason = String(reason || 'occupied');
     list.sort(function (a, b) {
