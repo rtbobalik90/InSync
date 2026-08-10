@@ -401,6 +401,32 @@ function withBadges() {
   eq(S.totals('2026-08-01').kcal,0,'totals remain callable after malformed import');
 }
 
+// 7c. New activity/reaction state remains semantically bounded after a backup restore.
+{
+  const {ctx}=base(); const S=ctx.Store, k=S.todayKey();
+  const validId='a:lizzie:'+k+':protein';
+  S.importState({
+    profile:{name:'Robert',startDate:k}, partner:{name:'Lizzie'}, days:{}, onboarded:true,
+    partnerData:{
+      name:'Lizzie',date:k,updated:'not-a-time',seenPartnerUpdated:'also-bad',
+      activity:[
+        {id:validId,date:k,type:'protein',text:'Protein target',createdAt:new Date().toISOString()},
+        {id:'nonsense',date:k,type:'protein',text:'Bad id'},
+        {id:'a:lizzie:2026-02-31:steps',date:k,type:'steps',text:'Impossible date'},
+        {id:'a:lizzie:'+k+':score',date:k,type:'evil',text:'Bad type'}
+      ],
+      reactions:{[validId]:'heart',nonsense:'fire'}
+    },
+    reactionsGiven:{[validId]:'clap',nonsense:'fire'}
+  });
+  eq(S.state().partnerData.updated,'','invalid partner update timestamp is discarded during backup normalization');
+  eq(S.state().partnerData.seenPartnerUpdated,'','invalid sync acknowledgement timestamp is discarded during backup normalization');
+  eq(S.state().partnerData.activity.length,1,'backup normalization keeps only valid bounded partner activity events');
+  eq(S.state().partnerData.activity[0].id,validId,'valid partner activity survives backup normalization');
+  eq(Object.keys(S.state().partnerData.reactions).join(','),validId,'backup normalization removes reactions for invalid activity ids');
+  eq(Object.keys(S.state().reactionsGiven).join(','),validId,'local reaction memory also requires a valid activity id');
+}
+
 // 10c. Partner payload input is bounded and must belong to the configured partner.
 {
   const {ctx}=withCloud(); const S=ctx.Store, C=ctx.Cloud, k=S.todayKey();
@@ -468,7 +494,7 @@ function withBadges() {
   S.state().lastArrival={routeId:'camino',legIndex:1,at:new Date().toISOString(),milesMine:3.2,milesHers:2.8};
   S.state().privacy.steps=false; S.day(k).steps=4000; S.save();
   let p=C.sharePayload();
-  eq(p.schema,5,'partner payload uses start-date-aware sync schema 5');
+  eq(p.schema,6,'partner payload uses current sync schema 6');
   eq(p.expedition.routeId,'camino','expedition route identity is core Together state even with Steps private');
   eq(p.expedition.legIndex,2,'expedition leg identity is core Together state even with Steps private');
   ok(!('legMiles' in p) && !('previousLegMiles' in p.expedition),'Steps privacy removes current and previous-leg mileage');
@@ -608,9 +634,11 @@ function withBadges() {
   ok(css.includes('@media (display-mode: standalone)') && css.includes('height: 100lvh'),'standalone PWA uses the full large viewport instead of the shorter dynamic viewport');
   ok(app.includes('navigator.standalone') && app.includes("classList.add('insync-standalone')"),'iOS standalone detection backs up the display-mode media query');
   ok(app.includes('window.visualViewport') && app.includes("addEventListener('resize', measureRest"),'sheet rest position is remeasured when the iOS viewport changes');
+  ok(app.includes('function applyUpdateWhenSafe()') && app.includes("document.querySelector('.modal-card')") && app.includes('Store.session && Store.session()') && app.includes("['home','settings'].indexOf(root)<0"),
+    'service-worker activation waits for a safe Home/Settings moment instead of reloading an active form or workout');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-7'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-11'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));
@@ -621,6 +649,17 @@ function withBadges() {
   const joined=prodJs.map(f=>fs.readFileSync(path.join(ROOT,f),'utf8')).join('\n');
   ok(!/\bdebugger;|console\.(?:log|debug|trace)\s*\(|\bTODO\b|\bFIXME\b/.test(joined),'production JavaScript contains no debugger/log/TODO leftovers');
   ok(!joined.includes("action === 'seed'") && !joined.includes('Store.seed('),'production build contains no destructive demo-data action');
+
+  const controlSources=[screensText,log,onboarding,fs.readFileSync(path.join(ROOT,'ui.js'),'utf8'),app].join('\n');
+  const literalActions=[...new Set(Array.from(controlSources.matchAll(/data-action=[\"']([a-zA-Z0-9_-]+)[\"']/g),m=>m[1]))];
+  const handledActions=new Set(Array.from(app.matchAll(/action\s*===\s*[\"']([a-zA-Z0-9_-]+)[\"']/g),m=>m[1]));
+  ok(literalActions.every(a=>handledActions.has(a)),'every literal production data-action is wired to a delegated handler');
+  ok(handledActions.has('allow-meal-again') && handledActions.has('allow-exercise-again'),'learned meal and movement dislikes can be explicitly allowed again');
+
+  const literalRoutes=[...new Set(Array.from(controlSources.matchAll(/data-route=[\"']([a-zA-Z0-9_-]+)/g),m=>m[1]))];
+  const tabMatch=app.match(/var TABS = \[([^\]]+)\]/), tabs=tabMatch ? Array.from(tabMatch[1].matchAll(/[\"']([a-zA-Z0-9_-]+)[\"']/g),m=>m[1]) : [];
+  const routed=new Set(tabs.concat(Array.from(app.matchAll(/root\s*===\s*[\"']([a-zA-Z0-9_-]+)[\"']/g),m=>m[1])));
+  ok(literalRoutes.every(r=>routed.has(r)),'every literal production data-route resolves to a rendered screen');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

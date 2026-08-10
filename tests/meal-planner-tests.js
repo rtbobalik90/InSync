@@ -50,6 +50,13 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   setClaudeResponse(fast); result=await plan(week);
   ok(!!result.err && /missed or rejected/i.test(result.err.message),'fast-food or chain-brand meals are rejected from generated weeks');
 
+  // A home-cooked chipotle-pepper recipe is legitimate food and must not be
+  // confused with the similarly named restaurant chain.
+  const pepper=weekPayload(week); pepper.meals[0].name='Home-cooked chipotle egg bowl';
+  pepper.meals[0].items=[{name:'Eggs',weight:'2 large'},{name:'Chipotle pepper',weight:'1 tsp'}];
+  setClaudeResponse(pepper); result=await plan(week);
+  ok(!result.err,'home-cooked chipotle-pepper food is not falsely blocked as fast food');
+
   // User taste preferences must actually reach the prompt and become a hard
   // filter, not just decorate the planner screen.
   S.set('mealPrefs',{cuisines:['Mexican','Indian'],proteins:['Chicken','Beef'],likes:'spicy, rice bowls',avoid:'mushrooms, olives'});
@@ -75,6 +82,12 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   ok(!!favoriteReturn,'a compatible favorite deliberately reappears in the generated week');
   eq(favoriteReturn && favoriteReturn.photoId,'','a repeated favorite starts as a new occurrence without reusing the old finished photo');
 
+  S.set('mealPrefs',{cuisines:[],proteins:[],likes:'',avoid:'mushrooms'});
+  S.set('mealFavorites',[{name:'Old mushroom favorite',slot:'Dinner',kcal:610,protein:40,carbs:58,fat:16,servings:1,prepMinutes:25,cuisine:'American',proteins:['Chicken'],items:[{name:'Chicken breast',weight:'6 oz'},{name:'Mushrooms',weight:'1 cup'}],instructions:['Cook.'],source:'favorite'}]);
+  setClaudeResponse(weekPayload(week)); result=await plan(week);
+  ok(!Object.values(result.map||{}).some(m=>m.name==='Old mushroom favorite'),'a newly avoided ingredient blocks an older favorite from being reintroduced');
+
+  S.set('mealPrefs',{cuisines:[],proteins:[],likes:'',avoid:''});
   S.set('mealDislikedMeals',['Breakfast 1']);
   setClaudeResponse(weekPayload(week)); result=await plan(week);
   ok(!!result.err && /missed or rejected/i.test(result.err.message),'thumbs-downed meal names cannot return in a generated week');

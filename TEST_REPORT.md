@@ -1,48 +1,84 @@
-# InSync 5.4.0 — Release Test Report
+# InSync 5.5.2 — Release Test Report
 
 ## Automated release gate
 
-The 5.4.0 working tree passed:
+The 5.5.2 working tree passed the complete automated suite before packaging:
 
-- **485 / 485** stabilization/regression checks
-- **23 / 23** GitHub two-phone sync/concurrency checks
-- **54 / 54** screen-render/malformed-state checks
-- **23 / 23** dedicated meal-planner checks
-- **585 / 585 total checks, 0 failures**
+- Stabilization / data-integrity / static-contract checks: **496 / 496**
+- Two-phone cloud sync / concurrency checks: **30 / 30**
+- Meal Planner checks: **25 / 25**
+- Weekly-rhythm completion-feature checks: **57 / 57**
+- Screen / malformed-state render checks: **68 / 68**
+- Workout Walk persistence / archive / UI-contract checks: **34 / 34**
+- Notification bell state / read-persistence checks: **10 / 10**
 
-## 5.4.0 meal-prep checks
+**Total: 720 / 720 passed, 0 failed.**
 
-The dedicated planner suite now proves:
+## What 5.5.2 specifically tests
 
-- a complete 28-slot home-cooked week is accepted;
-- incomplete 27-slot weeks are rejected atomically;
-- restaurant/fast-food chain meals are rejected;
-- cuisine and protein selections reach the Claude generation prompt;
-- like and avoid keywords reach the Claude generation prompt;
-- avoid keywords are enforced against returned ingredients;
-- saved favorites deliberately return in later generated weeks;
-- a reused favorite does not carry the previous occurrence's finished photo;
-- thumbs-downed meal names cannot return in generated weeks;
-- Breakfast, Lunch, Dinner and Snack remain permanent planner slots;
-- recipe detail exposes ingredients, cooking steps, finished-photo controls, Favorite and Not for me;
-- preference, generation, logging and photo actions all have production handlers.
+The new release coverage includes:
+- neutral / informational / action-required notification-bell states;
+- informational activity clearing only after the Notification Centre is opened;
+- unresolved action counts remaining visible until the underlying action is actually resolved;
+- persistent bounded informational read-state and accessible notification labels;
+- workout-walk initialization, Start, Stop, Resume accumulation and Reset;
+- a running walk surviving a full localStorage reload without losing elapsed time;
+- Store-level refusal to finish a workout while the walk is still live;
+- completed walk duration, pace/speed and elevation/incline being archived with the workout;
+- malformed imported walk duration/text being rejected or bounded;
+- the walk block rendering above the movement list, with live and stopped UI states;
+- all four walk actions resolving to real delegated handlers and the visible clock updating without Store rerenders;
+- batch-prep lunches and dinner leftovers;
+- Monday fresh-dinner anchoring;
+- preference-aware favorites and thumbs-down exclusions;
+- reversible meal and movement exclusion memory;
+- progression from actual lift history;
+- same-group exercise substitution and future-plan avoidance;
+- Monday–Sunday Training week behavior and step-completed walk days;
+- weekly review statistics and grounded Claude review structure;
+- exact weekly badge/favorite evidence;
+- exactly two measurable next-week goals;
+- staging and one-time activation of future training weeks;
+- complete date-history with nutrition, training, body, reflection, trail distance and photos;
+- proactive Coach pattern detection;
+- sync-health acknowledgement timestamps;
+- schema-6 activity and reactions;
+- invalid/prototype-polluting activity and reaction input rejection;
+- impossible calendar-date activity IDs;
+- malformed partner timestamps;
+- serialized GitHub writes and SHA-conflict retry behavior;
+- same-screen scroll retention and iPhone standalone viewport behavior;
+- safe service-worker update activation outside active edits/workouts/modals;
+- literal production actions/routes resolving to real handlers/screens.
 
-## Existing ship gates retained
+## Static/package gates
 
-The stabilization and screen suites continue to cover phone-local dates, state migration, safe storage/import, immutable historical score bases, weekly challenge math, expedition reconciliation, notification/privacy logic, explicit Back navigation, same-screen scroll preservation, iPhone standalone viewport behavior, service-worker cache/update behavior, JavaScript syntax, production action wiring, image/asset references and malformed-state rendering.
+The release also requires:
+- every production and test JavaScript file parses with Node;
+- manifest JSON parses;
+- CSS parses without stylesheet errors;
+- every production image decodes;
+- all 41 exercise demonstrations remain animated WebP;
+- zero zero-byte production files;
+- zero exact duplicate production image hashes;
+- all literal production asset references resolve;
+- no production `debugger`, debug console calls, TODO/FIXME leftovers or demo-data actions;
+- version agreement: app **5.5.2**, state **v10**, sync schema **6**, service-worker cache **insync-v10-11**.
 
-The GitHub suite continues to cover serialized writes, SHA-conflict retries, private-repository enforcement, automatic sync recovery, rolling messages/history and simultaneous two-phone updates.
+## Clean-room exact-ZIP gate
 
-## Hardware acceptance still required
+**PASS.** The release candidate ZIP was extracted into a fresh directory and the complete 720-check automated suite passed again with 0 failures. The clean-room static gate also passed: 126/126 production images decoded, 41/41 exercise demonstrations remained animated, all JavaScript parsed, manifest and CSS parsed, zero zero-byte files and zero duplicate production-image hashes.
 
-Before treating a newly deployed build as fully hardware-certified, confirm on the real iPhones:
+## Real-device acceptance boundary
 
-1. Settings shows **Version 5.4.0** on both devices.
-2. Both devices remain connected to the same private sync repository with their own tokens.
-3. Meal Planner preferences can be selected and survive an app close/reopen.
-4. Generate a full week and confirm no restaurant/fast-food/chain meals appear.
-5. Favorite one meal, generate a later week, and confirm a compatible favorite can recur.
-6. Mark a meal Not for me and confirm it does not return on a later generation.
-7. Add a finished photo, reopen the recipe, and confirm the photo remains.
-8. Log today's planned meal and confirm its copied photo appears on the logged meal.
-9. Create a complete backup and restore it on a test/reset device if practical, confirming meal-prep photos restore.
+Automated testing cannot substitute for the final physical-device checks on two iPhones. After deployment, verify:
+1. both phones display version 5.5.2;
+2. the dedicated private sync repository reports healthy on both;
+3. a chat message and reaction cross phone A → repo → phone B and back;
+4. a real photo can be captured, reopened, backed up and restored;
+5. Claude can generate a weekly review, meal week and future training week using the configured real key;
+6. iOS background/foreground resume catches up automatically;
+7. an available service-worker update waits for a safe screen rather than interrupting an active workout/edit;
+8. start a real Workout Walk, lock/background the iPhone for at least one minute, return and verify the timer catches up; then Stop, enter pace/elevation, finish the workout and reopen the day to verify those details persisted.
+
+Those are hardware/service acceptance checks. The packaged code has no unresolved automated release-gate failure.

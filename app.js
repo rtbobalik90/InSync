@@ -22,6 +22,30 @@
 
 
   var lastRenderedKey = '';
+  var sessionWalkTicker = null;
+
+  function formatSessionWalkClock(ms) {
+    var total = Math.max(0, Math.floor((ms || 0) / 1000));
+    var h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+    return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+  function bindSessionWalkClock() {
+    if (sessionWalkTicker) { clearInterval(sessionWalkTicker); sessionWalkTicker = null; }
+    var clock = app.querySelector('[data-walk-clock]');
+    var sn = Store.session && Store.session();
+    if (!clock || !sn || !sn.walk || !sn.walk.startedAt) return;
+    function tick() {
+      var currentSession = Store.session && Store.session();
+      if (!clock.isConnected || !currentSession || !currentSession.walk || !currentSession.walk.startedAt) {
+        if (sessionWalkTicker) clearInterval(sessionWalkTicker);
+        sessionWalkTicker = null;
+        return;
+      }
+      clock.textContent = formatSessionWalkClock(Store.sessionWalkElapsedMs ? Store.sessionWalkElapsedMs() : 0);
+    }
+    tick();
+    sessionWalkTicker = setInterval(tick, 1000);
+  }
 
   /* Store changes frequently re-render the current screen: toggling privacy,
      checking a shopping item, logging a set, receiving a background sync, etc.
@@ -76,6 +100,9 @@
     else if (root === 'reflection') html = Screens.reflection();
     else if (root === 'trends') html = Screens.trends();
     else if (root === 'planner') html = Screens.planner();
+    else if (root === 'weekly-review') html = Screens.weeklyReview();
+    else if (root === 'calendar') html = Screens.calendar();
+    else if (root === 'day-history') html = Screens.dayHistory();
     else if (root === 'planned-meal') html = Screens.plannedMeal();
     else if (root === 'cookbook') html = Screens.cookbook();
     else if (root === 'history') html = Screens.history();
@@ -83,6 +110,7 @@
     else if (root === 'capture') html = Screens.capture();
     else if (root === 'trainday') html = Screens.trainDay();
     else if (root === 'session') html = Screens.session();
+    else if (root === 'swap-exercise') html = Screens.swapExercise();
     else if (root === 'session-done') html = Screens.sessionDone();
     else if (root === 'exercises') html = Screens.exercises();
     else if (root === 'exercise') html = Screens.exercise();
@@ -94,6 +122,7 @@
     lastRenderedKey = key;
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
+    bindSessionWalkClock();
     maybeBadge(key);
 
     /* Every photo screen measures where its sheet rests. A constant cannot
@@ -235,6 +264,9 @@
 
     var route = el.getAttribute('data-route');
     if (route) {
+      // Opening the Notification Centre acknowledges informational items, but
+      // unresolved actions stay live until their underlying task is completed.
+      if (route === 'notifications' && window.Screens && Screens.markInformationalRead) Screens.markInformationalRead();
       // Opening Together is how her note stops being news.
       if (route === 'together') {
         var pd = Store.state().partnerData;
@@ -322,6 +354,42 @@
       return;
     }
 
+    if (action === 'generate-weekly-review') {
+      var reviewWeek = el.getAttribute('data-week') || Insights.reviewWeekKey(), oldReviewText = el.textContent;
+      el.disabled = true; el.textContent = 'Reading the week…';
+      Cloud.weeklyReview(reviewWeek, function (err, review) {
+        el.disabled = false; el.textContent = oldReviewText;
+        if (err) { alert(err.message); return; }
+        Insights.saveReview(reviewWeek, review); render();
+      });
+      return;
+    }
+    if (action === 'setup-next-week') {
+      var baseWeek = el.getAttribute('data-week') || Insights.reviewWeekKey(), nextWeek = Store.shift(baseWeek, 7);
+      var setupText = el.textContent; el.disabled = true; el.textContent = 'Planning meals…';
+      Cloud.planMealsWeek(nextWeek, function (mealErr, weekMap) {
+        if (mealErr) { el.disabled=false; el.textContent=setupText; alert(mealErr.message); return; }
+        el.textContent = 'Writing training…';
+        Cloud.writePlan(nextWeek, function (planErr) {
+          el.disabled=false; el.textContent=setupText;
+          if (planErr) { alert(planErr.message); return; }
+          var merged=Object.assign({},Store.state().mealPlan||{}), end=Store.shift(nextWeek,6);
+          Object.keys(merged).forEach(function(k){var d=k.slice(0,10); if(d>=nextWeek&&d<=end) delete merged[k];});
+          Object.keys(weekMap||{}).forEach(function(k){merged[k]=weekMap[k];});
+          Store.set('mealPlan',merged); Store.set('mealPlannerWeek',nextWeek); Store.set('shopTicked',{});
+          if (window.Insights && Insights.setNextWeekGoals) Insights.setNextWeekGoals(baseWeek);
+          render();
+        });
+      });
+      return;
+    }
+    if (action === 'react') {
+      if (!window.Insights) return;
+      if (!Insights.setReaction(el.getAttribute('data-event-id'), el.getAttribute('data-reaction'))) return;
+      if (window.Cloud && Cloud.push) Cloud.push(function () {});
+      return;
+    }
+
     // ---- training plan ---------------------------------------------------
     if (action === 'write-plan') {
       var was = el.textContent;
@@ -361,14 +429,40 @@
       Store.set('mealPrefs', mprefs);
       return;
     }
+    if (action === 'meal-prep-lunches') {
+      var lprefs = Object.assign({}, Store.state().mealPrefs || {});
+      lprefs.lunchPrepDays = Math.max(0, Math.min(5, +(el.getAttribute('data-count') || 0)));
+      Store.set('mealPrefs', lprefs); return;
+    }
+    if (action === 'meal-prep-leftovers') {
+      var dprefs = Object.assign({}, Store.state().mealPrefs || {});
+      dprefs.dinnerLeftovers = !dprefs.dinnerLeftovers;
+      if (dprefs.dinnerLeftovers && (!Array.isArray(dprefs.cookDays) || !dprefs.cookDays.length)) dprefs.cookDays = ['Mon','Wed','Fri'];
+      Store.set('mealPrefs', dprefs); return;
+    }
+    if (action === 'meal-prep-cookday') {
+      var cprefs = Object.assign({}, Store.state().mealPrefs || {}), day = el.getAttribute('data-day');
+      if (cprefs.dinnerLeftovers && day === 'Mon') return;
+      var days = Array.isArray(cprefs.cookDays) ? cprefs.cookDays.slice() : [], at = days.indexOf(day);
+      if (at >= 0) days.splice(at,1); else days.push(day);
+      cprefs.cookDays = days; Store.set('mealPrefs', cprefs); return;
+    }
+    if (action === 'allow-meal-again') {
+      var allowName = el.getAttribute('data-meal-name'), allowKey = mealNameKey(allowName);
+      if (!allowKey) return;
+      Store.set('mealDislikedMeals', (Store.state().mealDislikedMeals || []).filter(function (name) { return mealNameKey(name) !== allowKey; }));
+      return;
+    }
     if (action === 'favorite-planned-meal') {
       var favKey = el.getAttribute('data-plan-key'), favMeal = (Store.state().mealPlan || {})[favKey];
       if (!favMeal) return;
       var favorites = (Store.state().mealFavorites || []).slice(), fkey = mealNameKey(favMeal.name);
       var existing = favorites.findIndex(function (m) { return mealNameKey(m.name) === fkey; });
-      if (existing >= 0) favorites.splice(existing, 1);
-      else favorites.push(Object.assign({}, favMeal, { source: 'favorite' }));
+      var favoriteAt = Object.assign({}, Store.state().mealFavoriteAt || {});
+      if (existing >= 0) { favorites.splice(existing, 1); delete favoriteAt[fkey]; }
+      else { favorites.push(Object.assign({}, favMeal, { source: 'favorite' })); favoriteAt[fkey] = Store.todayKey(); }
       Store.set('mealFavorites', favorites.slice(-60));
+      Store.set('mealFavoriteAt', favoriteAt);
       if (existing < 0) {
         var dislikes = (Store.state().mealDislikedMeals || []).filter(function (n) { return mealNameKey(n) !== fkey; });
         Store.set('mealDislikedMeals', dislikes);
@@ -385,6 +479,7 @@
       delete badPlan[badKey];
       Store.set('mealDislikedMeals', bads.slice(-120));
       Store.set('mealFavorites', favs);
+      var favoriteDates = Object.assign({}, Store.state().mealFavoriteAt || {}); delete favoriteDates[bkey]; Store.set('mealFavoriteAt', favoriteDates);
       Store.set('mealPlan', badPlan);
       if (badMeal.photoId && window.Media) Media.del(badMeal.photoId, function () {});
       location.hash = '#planner';
@@ -563,6 +658,27 @@
       location.hash = '#session';
       return;
     }
+    if (action === 'walk-start') {
+      Store.startSessionWalk();
+      return;
+    }
+    if (action === 'walk-stop') {
+      Store.stopSessionWalk();
+      return;
+    }
+    if (action === 'walk-save') {
+      var paceEl = app.querySelector('[data-walk-pace]');
+      var elevationEl = app.querySelector('[data-walk-elevation]');
+      Store.updateSessionWalk({
+        pace: paceEl ? paceEl.value : '',
+        elevation: elevationEl ? elevationEl.value : ''
+      });
+      return;
+    }
+    if (action === 'walk-reset') {
+      if (confirm('Reset this workout walk? The timer and its pace/elevation details will be cleared.')) Store.resetSessionWalk();
+      return;
+    }
     if (action === 'add-set' || action === 'repeat-set') {
       var i1 = +el.getAttribute('data-i');
       var host = document.querySelector('.app');
@@ -585,6 +701,19 @@
       location.hash = '#session';
       return;
     }
+    if (action === 'swap-exercise') {
+      var swapIndex=+el.getAttribute('data-i'), newId=el.getAttribute('data-new-id'), reason=el.getAttribute('data-reason')||'occupied';
+      if (!window.Insights || !Insights.swapSessionItem(swapIndex,newId,reason)) { alert('That movement could not be swapped.'); return; }
+      location.hash='#session/'+swapIndex; return;
+    }
+    if (action === 'allow-exercise-again') {
+      var allowExercise = el.getAttribute('data-exercise-id');
+      if (!allowExercise || !Exercises.get(allowExercise)) return;
+      var ep = Object.assign({}, Store.state().exercisePrefs || {});
+      ep.dislikedIds = (Array.isArray(ep.dislikedIds) ? ep.dislikedIds : []).filter(function (id) { return id !== allowExercise; });
+      ep.discomfortIds = (Array.isArray(ep.discomfortIds) ? ep.discomfortIds : []).filter(function (id) { return id !== allowExercise; });
+      Store.set('exercisePrefs', ep); return;
+    }
     if (action === 'abandon-session') {
       if (confirm('Abandon this session? Nothing will be logged.')) {
         Store.abandonSession();
@@ -593,6 +722,21 @@
       return;
     }
     if (action === 'finish-session') {
+      var activeSession = Store.session && Store.session();
+      if (activeSession && activeSession.walk && activeSession.walk.startedAt) {
+        alert('Stop the workout walk first so InSync can save the correct time.');
+        return;
+      }
+      /* Treat typed walk details as committed when the workout is finished,
+         even if the user never tapped the optional Save details button. */
+      var finishPace = app.querySelector('[data-walk-pace]');
+      var finishElevation = app.querySelector('[data-walk-elevation]');
+      if (activeSession && activeSession.walk && (finishPace || finishElevation)) {
+        Store.updateSessionWalk({
+          pace: finishPace ? finishPace.value : activeSession.walk.pace,
+          elevation: finishElevation ? finishElevation.value : activeSession.walk.elevation
+        });
+      }
       var res = Store.finishSession();
       if (!res) return;
       Store.set('lastFinish', res);
@@ -913,6 +1057,12 @@
   if (Store.loadError && Store.loadError()) { showLoadRecovery(); return; }
 
   if (window.Media && Media.migrateMealPhotos) Media.migrateMealPhotos();
+  /* A plan written on Sunday night belongs to Monday, not to the week that
+     is still ending. Keep it staged until its Monday arrives, then promote it
+     before the first screen renders. The transition lives in Insights so the
+     release suite can exercise the exact state change directly. */
+  if (window.Insights && Insights.activateScheduledPlan) Insights.activateScheduledPlan();
+
   if (!Store.state().onboarded) Onboarding.start();
 
   render();
@@ -961,9 +1111,29 @@
     })();
   })();
 
+  window.InSyncRuntime = { version:'5.5.2', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').then(function (reg) { reg.update().catch(function () {}); }).catch(function () {});
-  }
+    var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
+    function applyUpdateWhenSafe() {
+      if (!hadController || reloadingForUpdate) return;
+      var root=base(routeKey()), modal=document.querySelector('.modal-card');
+      if (editing() || modal || (Store.session && Store.session()) || ['home','settings'].indexOf(root)<0) {
+        window.InSyncRuntime.updateStatus='update ready';
+        clearTimeout(updateReloadTimer); updateReloadTimer=setTimeout(applyUpdateWhenSafe,4000); return;
+      }
+      reloadingForUpdate=true; window.InSyncRuntime.updateStatus='updated'; location.reload();
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      window.InSyncRuntime.updateStatus='update ready';
+      applyUpdateWhenSafe();
+    });
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      function watch(worker) { if(!worker)return; window.InSyncRuntime.updateStatus='updating'; worker.addEventListener('statechange',function(){ if(worker.state==='activated') window.InSyncRuntime.updateStatus='current'; }); }
+      if (reg.installing) watch(reg.installing);
+      reg.addEventListener('updatefound',function(){watch(reg.installing);});
+      return reg.update().then(function(){ if(!reg.installing) window.InSyncRuntime.updateStatus='current'; });
+    }).catch(function () { window.InSyncRuntime.updateStatus='check failed'; });
+  } else window.InSyncRuntime.updateStatus='not available';
 
   /* Chat lives for the day. A question from Tuesday is not context on Friday. */
   function chatHistory() {

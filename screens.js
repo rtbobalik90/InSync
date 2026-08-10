@@ -293,8 +293,9 @@
         '<div class="streakline"><i></i><span>Day one &middot; ' + timeWord() + '</span></div>');
 
     var body = hasData
-      ? ledgerCard() + nextStepCard() + expeditionCard() + partnerCard()
+      ? ledgerCard() + nextStepCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
       : dayOneCard();
+    body += '<button class="btn ghost block" data-route="calendar">History &amp; calendar</button>';
 
     return UI.screen({
       tab: 'home', rest: 551, restMeasure: true, overlay: overlay, body: body,
@@ -425,6 +426,8 @@
               '<span class="note">' + esc(e.text) + '</span></div>';
           }).join('') +
         '</article>' +
+        coachPatternsCard() +
+        weeklyReviewTeaser(true) +
         askBlock() +
         chaptersBlock()
     });
@@ -688,20 +691,26 @@
     var todaysPlan = null;
     for (var p = 0; p < plan.length; p++) if (plan[p].day === todayName) todaysPlan = plan[p];
 
-    var week = [];
-    for (var i = 6; i >= 0; i--) {
-      var k = Store.shift(Store.todayKey(), -i);
-      var rec = Store.state().days[k];
+    var week = [], weekStartKey=Store.weekStart(Store.todayKey()), todayKey=Store.todayKey();
+    /* This strip is the real Monday–Sunday training week, not a rolling seven
+       days. A rolling window applied the new plan to dates from last week on
+       Mondays and could make old sessions look scheduled under the wrong plan. */
+    for (var i = 0; i < 7; i++) {
+      var k = Store.shift(weekStartKey, i);
       var dt = new Date(k + 'T12:00:00');
       var dayName = DOW[dt.getDay()];
       var scheduled = null;
       for (var q = 0; q < plan.length; q++) if (plan[q].day === dayName) scheduled = plan[q];
+      var isFuture=k>todayKey;
       week.push({
         letter: dayName.charAt(0),
         label: scheduled ? scheduled.name : 'Rest',
         key: k,
-        done: rec && rec.workouts ? rec.workouts.length > 0 : false,
-        today: i === 0
+        /* A scheduled walk is completed by its step requirement, not by
+           fabricating a workout record. Rest days are not counted toward the
+           weekly frequency. */
+        done: scheduled && !isFuture ? Store.trainingStatus(k).done : false,
+        today: k === todayKey, future:isFuture
       });
     }
     var sessions = week.filter(function (w) { return w.done; }).length;
@@ -715,11 +724,12 @@
             }))
       : [];
 
+    var todayTrainingStatus = Store.trainingStatus(Store.todayKey());
     var headline = done
       ? 'Session done. That is the day carried.'
       : todaysPlan
         ? (todaysPlan.name === 'Walk'
-            ? 'Walking day. ' + todaysPlan.detail + '.'
+            ? (todayTrainingStatus.done ? 'Walking day complete. The miles are in.' : 'Walking day. ' + todaysPlan.detail + '.')
             : todaysPlan.name + ' day. ' + machines.length + ' movements, about ' + (machines.length * 8) + ' minutes.')
         : 'Rest day. Nothing scheduled.';
 
@@ -786,6 +796,7 @@
                 '<div class="meta">' + machines.length + ' movement' + (machines.length === 1 ? '' : 's') + '</div></div>' +
                 machines.map(function (m, idx) {
                   var last = lastLift(m.name);
+                  var prog = window.Insights ? Insights.progressionFor(m.id || m.name) : null;
                   return '<button class="exrow"' + (m.id ? ' data-route="exercise/' + m.id + '"' : '') + '>' +
                     (m.gif
                       ? '<img class="exgif" src="' + UI.asset(m.gif) + '" alt="" loading="lazy" />'
@@ -794,6 +805,7 @@
                       '<span class="exname">' + esc(m.name) + '</span>' +
                       '<span class="note">' + m.sets + ' \u00d7 ' + esc(String(m.reps)) +
                         (last ? ' &middot; last ' + Store.fmtLift(last.weight) : '') + '</span>' +
+                      (prog ? '<span class="small" style="display:block;color:var(--sage);margin-top:4px">Next: ' + esc(prog.label) + '</span>' : '') +
                     '</span>' +
                     '<span class="exsets">' + esc(m.equipment || '') + '</span>' +
                   '</button>';
@@ -806,6 +818,7 @@
 
 
         planCard() +
+        (window.Insights && Insights.avoidedExerciseIds().length ? '<article class="card pad"><div class="kicker">Movement memory</div><p class="small" style="margin:8px 0 12px">These movements stay out of future coach plans because you marked them as a dislike or discomfort. Tap one if you want to allow it again.</p><div class="prefchips">' + Insights.avoidedExerciseIds().map(function (id) { var ex=Exercises.get(id); return ex ? '<button class="ob-chip" data-action="allow-exercise-again" data-exercise-id="' + esc(id) + '">↺ ' + esc(ex.name) + '</button>' : ''; }).join('') + '</div></article>' : '') +
         '<button class="btn ghost block" data-route="records">Records and progression</button>' +
         '<button class="btn ghost block" data-route="exercises">Exercise library</button>' +
         '<button class="btn ghost block" data-route="body">Body &mdash; weight, photos, sleep</button>'
@@ -860,18 +873,18 @@
     function add(key, item) { if (n[key] !== false) out.push(item); }
 
     if (S.invite && S.invite.from === 'partner' && !S.invite.accepted) {
-      add('invite', { g: 0, name: p + ' proposed an expedition',
+      add('invite', { id: 'action:invite:' + (S.invite.date || '') + ':' + (S.invite.routeName || ''), g: 0, name: p + ' proposed an expedition',
         note: S.invite.routeName || 'They picked the route', route: 'handshake', when: S.invite.date });
     }
     if (S.invite && S.invite.accepted && S.invite.decidedBy === 'partner') {
-      add('accept', { g: 1, name: p + ' accepted the expedition',
+      add('accept', { id: 'info:accept:' + (S.invite.updatedAt || S.invite.at || S.invite.date || '') + ':' + (S.invite.routeName || ''), g: 1, name: p + ' accepted the expedition',
         note: S.invite.routeName || 'The route is agreed', route: 'handshake', when: S.invite.date });
     }
     if (pd && pd.note && S.partnerNoteSeen !== ((pd.noteDate || pd.date) + '|' + pd.note)) {
-      add('note', { g: 0, name: p + ' left you a note', note: '“' + pd.note + '”', route: 'together', when: pd.date });
+      add('note', { id: 'action:note:' + ((pd.noteDate || pd.date) || '') + ':' + pd.note, g: 0, name: p + ' left you a note', note: '“' + pd.note + '”', route: 'together', when: pd.date });
     }
     if (S.proposal && !S.proposal.answered) {
-      out.push({ g: 0, name: 'The coach has a proposal',
+      out.push({ id: 'action:proposal:' + (S.proposal.date || '') + ':' + (S.proposal.summary || ''), g: 0, name: 'The coach has a proposal',
         note: S.proposal.summary || 'New targets to approve', route: 'settings', when: S.proposal.date });
     }
 
@@ -879,18 +892,18 @@
       var bits = [];
       if (pd.steps != null) bits.push(pd.steps.toLocaleString() + ' steps');
       if (pd.workouts) bits.push(pd.workouts + (pd.workouts === 1 ? ' workout' : ' workouts'));
-      out.push({ g: 1, name: p + ' synced today', note: bits.join(' · ') || 'Their shared totals are current',
+      out.push({ id: 'info:sync:' + pd.date, g: 1, name: p + ' synced today', note: bits.join(' · ') || 'Their shared totals are current',
         route: 'together', when: pd.date });
     }
     var lp = legProgress();
     if (lp && lp.complete) {
-      add('leg', { g: 1, name: 'A leg is complete', note: lp.label,
+      add('leg', { id: 'info:leg:' + (S.expedition.routeId || '') + ':' + (S.expedition.legIndex || 0), g: 1, name: 'A leg is complete', note: lp.label,
         route: 'together', when: Store.todayKey() });
     }
 
     var now = new Date(), sunday = now.getDay() === 0;
     if (sunday) {
-      add('challengeExpiring', { g: 1, name: 'The weekly challenge ends tonight',
+      add('challengeExpiring', { id: 'info:challenge:' + Store.todayKey(), g: 1, name: 'The weekly challenge ends tonight',
         note: 'Open Together for the current score.', route: 'together', when: Store.todayKey() });
     }
 
@@ -899,14 +912,32 @@
       earned.forEach(function (id) {
         var b = Badges.find(id);
         if (!b) return;
-        out.push({ g: 2, name: b.name + ' earned', note: b.condition, route: 'badges/' + b.cat, when: '' });
+        out.push({ id: 'quiet:badge:' + id, g: 2, name: b.name + ' earned', note: b.condition, route: 'badges/' + b.cat, when: '' });
       });
     }
     return out;
   }
 
-  function pendingCount() {
-    return notifItems().filter(function (i) { return i.g === 0; }).length;
+  function notificationStatus() {
+    var items = notifItems();
+    var seen = Store.state().notificationInfoSeen || [];
+    return {
+      action: items.filter(function (i) { return i.g === 0; }).length,
+      info: items.filter(function (i) { return i.g === 1 && i.id && seen.indexOf(i.id) < 0; }).length
+    };
+  }
+
+  function pendingCount() { return notificationStatus().action; }
+
+  function markInformationalRead() {
+    var current = (Store.state().notificationInfoSeen || []).slice();
+    var changed = false;
+    notifItems().forEach(function (i) {
+      if (i.g !== 1 || !i.id || current.indexOf(i.id) >= 0) return;
+      current.push(i.id); changed = true;
+    });
+    if (changed) Store.set('notificationInfoSeen', current.slice(-200));
+    return changed;
   }
 
   function notifications() {
@@ -1616,38 +1647,29 @@
 
   /* What has actually happened, newest first. Nothing invented. */
   function activityCard(S, p, pd) {
-    var items = [];
-    var today = Store.todayKey();
-
-    for (var i = 0; i < 5; i++) {
-      var k = Store.shift(today, -i);
-      var d = S.days[k];
-      if (!d) continue;
-      (d.workouts || []).forEach(function (w) {
-        items.push({ when: k, who: 'you', text: esc(w.name || 'Session') + ' logged' });
-      });
-      if (d.steps) items.push({ when: k, who: 'you', text: d.steps.toLocaleString() + ' steps' });
-      if (d.reflection) items.push({ when: k, who: 'you', text: 'Wrote the evening' });
-    }
-    if (pd) {
-      if (typeof pd.points === 'number') items.unshift({ when: pd.date, who: 'her', text: pd.points + ' of 10' });
-      if (pd.workouts) items.unshift({ when: pd.date, who: 'her', text: 'Session complete' });
-      if (pd.steps) items.unshift({ when: pd.date, who: 'her', text: pd.steps.toLocaleString() + ' steps' });
-    }
-    items = items.slice(0, 8);
-
+    var mine = window.Insights ? Insights.localActivity(7) : [];
+    var theirs = pd && Array.isArray(pd.activity) ? pd.activity.slice(-30) : [];
+    var given = window.Insights ? Insights.reactionsGiven() : {};
+    var received = pd && pd.reactions && typeof pd.reactions === 'object' ? pd.reactions : {};
+    var reactions = window.Insights ? Insights.reactions : [];
+    var items = mine.map(function (x) { return { mine:true, id:x.id, date:x.date, text:x.text, createdAt:x.createdAt||'' }; })
+      .concat(theirs.map(function (x) { return { mine:false, id:x.id, date:x.date, text:x.text, createdAt:x.createdAt||'' }; }));
+    items.sort(function (a,b) {
+      var ad=Date.parse(a.createdAt||a.date+'T12:00:00')||0, bd=Date.parse(b.createdAt||b.date+'T12:00:00')||0;
+      if (ad !== bd) return bd-ad;
+      return String(b.id).localeCompare(String(a.id));
+    });
+    items=items.slice(0,12);
+    function glyphFor(id) { var r=reactions.filter(function(x){return x.id===id;})[0]; return r ? r.glyph : ''; }
     return '<article class="card">' +
-      '<div class="cardhead"><div class="title"><i></i>What you have both been doing</div>' +
-        '<div class="meta">last 5 days</div></div>' +
-      (items.length
-        ? items.map(function (it) {
-            return '<div class="setrow">' +
-              '<div><div class="setname">' + it.text + '</div>' +
-                '<div class="small">' + (it.who === 'her' ? esc(p.name) : 'You') + ' &middot; ' + dateLabel(it.when) + '</div></div>' +
-            '</div>';
-          }).join('')
-        : '<p class="small pad-x" style="padding-top:14px;padding-bottom:4px">Nothing logged in the last five days.</p>') +
-      '<div style="height:11px"></div>' +
+      '<div class="cardhead"><div class="title"><i></i>Trail moments</div><div class="meta">last 7 days</div></div>' +
+      (items.length ? items.map(function (it) {
+        var reaction = it.mine ? received[it.id] : given[it.id];
+        return '<div class="activityrow"><div class="activitymain"><div class="setname">' + esc(it.text) + '</div><div class="small">' + (it.mine?'You':esc(p.name)) + ' · ' + dateLabel(it.date) + '</div></div>' +
+          (it.mine ? (reaction ? '<div class="activityreaction"><span>' + glyphFor(reaction) + '</span><small>' + esc(p.name) + ' reacted</small></div>' : '<span></span>') :
+            '<div class="reactionbar">' + reactions.map(function (r) { return '<button class="reactionbtn' + (reaction===r.id?' on':'') + '" aria-label="' + esc(r.label) + '" data-action="react" data-event-id="' + esc(it.id) + '" data-reaction="' + r.id + '">' + r.glyph + '</button>'; }).join('') + '</div>') +
+        '</div>';
+      }).join('') : '<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No shareable trail moments yet. They appear when either of you closes a target or completes training.</p>') +
     '</article>';
   }
 
@@ -1676,17 +1698,132 @@
     '</article>';
   }
 
+
+  function coachPatternCard() {
+    if (!window.Insights) return '';
+    var rows = Insights.patternInsights();
+    if (!rows.length) return '';
+    var x = rows[0];
+    return '<article class="card pad accent">' +
+      '<div class="kicker sage">Coach noticed</div>' +
+      '<p class="lede" style="margin:8px 0 7px">' + esc(x.title) + '</p>' +
+      '<p class="small" style="margin:0 0 13px">' + esc(x.text) + '</p>' +
+      '<button class="btn ghost block" data-route="' + esc(x.route) + '">Work on this</button>' +
+    '</article>';
+  }
+
+  function coachPatternsCard() {
+    if (!window.Insights) return '';
+    var rows = Insights.patternInsights();
+    return '<div class="rulehead"><span class="kicker sage">Patterns</span><span></span></div>' +
+      '<article class="card">' +
+      (rows.length ? rows.map(function (x) {
+        return '<button class="setrow" data-route="' + esc(x.route) + '"><div><div class="setname">' + esc(x.title) + '</div><div class="small">' + esc(x.text) + '</div></div><span class="chev">›</span></button>';
+      }).join('') : '<p class="small pad-x" style="padding-top:15px;padding-bottom:15px">The coach is still learning your patterns. A few consistently logged days are more useful than guesses.</p>') +
+      '</article>';
+  }
+
+  function weeklyGoalsCard() {
+    if (!window.Insights) return '';
+    var week=Store.weekStart(Store.todayKey()), goals=Insights.goalProgress(week);
+    if(!goals.length) return '';
+    return '<article class="card pad"><div class="kicker">This week’s goals</div>'+
+      goals.map(function(g){return '<div class="goalrow"><span>'+ (g.done?'✓ ':'') + esc(g.label)+'</span><b>'+g.value+'/'+g.target+'</b></div>';}).join('')+
+      '</article>';
+  }
+
+  function weeklyReviewTeaser(onCoach) {
+    if (!window.Insights) return '';
+    var week = Insights.reviewWeekKey();
+    if (!Insights.reviewReady(week)) return '';
+    var review = Insights.reviewFor(week), stats = Insights.weekStats(week);
+    return '<article class="card pad' + (onCoach ? '' : ' accent') + '">' +
+      '<div class="kicker' + (onCoach ? '' : ' sage') + '">Weekly review ready</div>' +
+      '<p class="lede" style="margin:8px 0 7px">' + (review ? esc(review.carry || review.summary) : stats.points + ' points · ' + stats.workouts + ' sessions · ' + stats.expeditionMiles + ' miles walked') + '</p>' +
+      '<p class="small" style="margin:0 0 13px">Close the week, notice the pattern, then set up training and meals for the next one.</p>' +
+      '<button class="btn ghost block" data-route="weekly-review">Open weekly review</button>' +
+    '</article>';
+  }
+
+  function weeklyReview() {
+    var week = window.Insights ? Insights.reviewWeekKey() : Store.shift(Store.weekStart(Store.todayKey()), -7);
+    var st = Insights.weekStats(week), review = Insights.reviewFor(week), next = Insights.nextWeekStatus(week);
+    var nextGoals = Insights.goalProgress(next.weekOf), suggestedGoals = Insights.suggestedGoals(next.weekOf);
+    var end = Store.shift(week, 6), label = dateLabel(week) + ' – ' + dateLabel(end);
+    var ready = Insights.reviewReady(week), hasClaude = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
+    var body = '<article class="card"><div class="cardhead"><div class="title"><i></i>Week in numbers</div><div class="meta">' + esc(label) + '</div></div>' +
+      '<div class="ledger">' +
+        '<div><div class="label">Points</div><div class="figure">' + st.points + '</div><div class="foot">of ' + (st.daysAvailable * 10) + ' available</div></div>' +
+        '<div><div class="label">Sessions</div><div class="figure">' + st.workouts + '</div><div class="foot">training</div></div>' +
+        '<div><div class="label">Miles</div><div class="figure">' + st.expeditionMiles + '</div><div class="foot">from steps</div></div>' +
+      '</div></article>' +
+      '<article class="card pad"><div class="kicker">Recorded averages</div>' +
+        '<div class="recipefacts" style="margin-top:12px">' +
+          '<div><span class="note">Calories</span><strong>' + st.avgCalories.toLocaleString() + '</strong></div>' +
+          '<div><span class="note">Protein</span><strong>' + st.avgProtein + ' g</strong></div>' +
+          '<div><span class="note">Steps</span><strong>' + st.avgSteps.toLocaleString() + '</strong></div>' +
+          '<div><span class="note">Logged days</span><strong>' + st.loggedDays + '</strong></div>' +
+        '</div>' +
+        '<p class="note" style="margin:10px 0 0">Nutrition averages use ' + st.nutritionDays + ' day' + (st.nutritionDays===1?'':'s') + ' with meals. Step average uses ' + st.stepDays + ' day' + (st.stepDays===1?'':'s') + ' with steps recorded.</p>' +
+        '<div class="setrow" style="padding-left:0;padding-right:0;margin-top:10px"><div><div class="setname">Badges earned</div><div class="small">' +
+          ((st.badgesEarned || []).length ? (window.Badges ? Badges.all().filter(function(b){ return st.badgesEarned.indexOf(b.id)>=0; }).map(function(b){ return esc(b.name); }).join(' · ') : (st.badgesEarned || []).length + ' this week') : 'None recorded this week') +
+        '</div></div><b>' + (st.badgesEarned || []).length + '</b></div>' +
+        '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Favorites added</div><div class="small">' + ((st.favoriteMealsAdded || []).length ? st.favoriteMealsAdded.map(esc).join(' · ') : 'None recorded this week') + '</div></div><b>' + (st.favoriteMealsAdded || []).length + '</b></div>' +
+        '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Cookbook total</div><div class="small">Recipes currently saved to bring back into future plans.</div></div><b>' + st.favorites + '</b></div>' +
+        (st.weightChange == null ? '' : '<p class="small" style="margin:13px 0 0">Weight moved ' + (st.weightChange > 0 ? '+' : '') + st.weightChange.toFixed(1) + ' lb between the first and last weigh-in that week.</p>') +
+      '</article>';
+    if (review) {
+      body += '<article class="card pad accent"><div class="kicker sage">Coach review</div><p class="lede" style="margin:9px 0 13px">' + esc(review.summary) + '</p>' +
+        (review.win ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Win</div><div class="small">' + esc(review.win) + '</div></div></div>' : '') +
+        (review.pattern ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Pattern</div><div class="small">' + esc(review.pattern) + '</div></div></div>' : '') +
+        (review.carry ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Carry forward</div><div class="small">' + esc(review.carry) + '</div></div></div>' : '') +
+      '</article>';
+    } else {
+      body += '<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:9px 0 14px">The numbers above are already final. The coach can turn them into a short review without inventing anything.</p>' +
+        (hasClaude && ready ? '<button class="btn block" data-action="generate-weekly-review" data-week="' + week + '">Write my weekly review</button>' :
+          !hasClaude ? '<button class="btn ghost block" data-route="settings">Connect Claude to write it</button>' : '<p class="note">The current week is still in progress.</p>') + '</article>';
+    }
+    body += '<article class="card pad"><div class="kicker sage">Next week</div><p class="lede" style="margin:9px 0 7px">' +
+      (next.training && next.meals ? 'Training and all 28 meal slots are ready.' : 'Set up the next week from the habits, preferences and progression InSync already knows.') + '</p>' +
+      '<p class="small" style="margin:0 0 14px">Training: ' + (next.training ? 'ready' : 'not written') + ' · Meals: ' + next.mealCount + ' of 28 planned.</p>' +
+      '<div style="border-top:1px solid var(--rule);padding-top:12px;margin-top:4px"><div class="kicker">Two goals</div>' +
+        (nextGoals.length ? nextGoals : suggestedGoals.map(function(g){return {label:g.label,value:0,target:g.target,done:false};})).map(function(g){ return '<div class="goalrow"><span>' + (g.done ? '✓ ' : '') + esc(g.label) + '</span><b>' + g.value + '/' + g.target + '</b></div>'; }).join('') + '</div>' +
+      (next.training && next.meals ? '<button class="btn ghost block" style="margin-top:14px" data-route="planner">Open next week</button>' : hasClaude ? '<button class="btn block" style="margin-top:14px" data-action="setup-next-week" data-week="' + week + '">Set up my next week</button>' : '<button class="btn ghost block" style="margin-top:14px" data-route="settings">Connect Claude to set it up</button>') +
+      '</article>';
+    return UI.screen({ tab:null, rest:300, blur:true, header:{back:'home',title:'Weekly review',right:'<div style="width:34px"></div>'},
+      art:'assets/art/coach-desk.webp', photoPosition:'center 34%', overlay:'<div class="eyebrow">' + esc(label) + '</div><p class="verse" style="font-size:25px">Look back once. Then move the week forward.</p>', body:body });
+  }
+
   // ---------------- Settings ----------------
+  function relativeWhen(ms) {
+    if (!ms) return 'not yet';
+    var mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    if (mins < 1440) return Math.round(mins / 60) + ' hr ago';
+    return Math.round(mins / 1440) + ' day' + (Math.round(mins / 1440) === 1 ? '' : 's') + ' ago';
+  }
+
   function syncLine(c, S) {
-    if (!Store.secret('githubToken') || !c.githubRepo) return 'Not connected. Set a GitHub token and a dedicated private sync repository.';
-    var successAt = Date.parse(c.lastSync || '') || 0, errorAt = Date.parse(c.lastSyncErrorAt || '') || 0;
-    if (c.lastSyncError && errorAt >= successAt) return 'Last sync attempt failed: ' + c.lastSyncError + ' InSync will retry automatically.';
-    if (!c.lastSync) return 'Never synced. Tap once and your shared totals go up; theirs come down once they have synced too.';
-    var mins = Math.max(0, Math.round((Date.now() - successAt) / 60000));
-    var when = mins < 1 ? 'just now' : mins < 60 ? mins + ' minutes ago' :
-      mins < 1440 ? Math.round(mins / 60) + ' hours ago' : Math.round(mins / 1440) + ' days ago';
-    var pd = S.partnerData;
-    return 'Last synced ' + when + '. ' + (pd ? 'Holding ' + pd.name + '’s ' + pd.date + '.' : 'Nothing from ' + Store.partnerName() + ' yet.');
+    if (!window.Insights) return 'Sync status unavailable.';
+    var h = Insights.syncHealth();
+    if (!h.connected) return 'Not connected. Set a GitHub token and a dedicated private sync repository.';
+    if (h.error) return h.error + ' InSync will retry automatically.';
+    return h.status + '. Last successful exchange ' + relativeWhen(h.lastSync) + '.';
+  }
+
+  function syncHealthPanel() {
+    if (!window.Insights) return '';
+    var h = Insights.syncHealth(), S = Store.state(), partner = Store.partnerName();
+    var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
+    var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
+    return '<div class="sync-health ' + esc(h.tone) + '">' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.2 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
+      '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
+      '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
+      (h.error ? '<p class="small" style="margin:10px 0 0;color:var(--rust)">' + esc(h.error) + '</p>' : '') +
+    '</div>';
   }
 
   var NOTIF_ROWS = [
@@ -1814,6 +1951,7 @@
             '</div>' +
           '</div>' +
           '<div class="pad-x" style="padding-bottom:15px">' +
+            syncHealthPanel() +
             '<button class="btn ghost block" data-action="sync-now">Sync now</button>' +
             '<p class="small" style="margin:11px 0 0">' + esc(syncLine(c, S)) + '</p>' +
           '</div>' +
@@ -1867,7 +2005,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.4.0</div></div>' +
+            '<div class="meta">Version 5.5.2</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2243,7 +2381,8 @@
                 '<span style="min-width:0;text-align:left">' +
                   '<span class="rowname">' + esc(r.w.name || 'Session') + '</span>' +
                   '<span class="note">' + dateLabel(r.key) + ' \u00b7 ' +
-                    (ex ? ex + ' machine' + (ex === 1 ? '' : 's') : 'no machines recorded') + '</span>' +
+                    (ex ? ex + ' machine' + (ex === 1 ? '' : 's') : 'no machines recorded') +
+                    (r.w.walk && r.w.walk.seconds ? ' \u00b7 walk ' + Math.max(1, Math.round(r.w.walk.seconds / 60)) + ' min' : '') + '</span>' +
                 '</span>' +
                 '<span class="rowright"><span class="num" style="font-size:18px">' + (r.w.minutes || 0) + '</span>' +
                   '<span class="foot">min</span></span>' +
@@ -2490,6 +2629,7 @@
         return '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>' + esc(w.name) + '</div>' +
             '<div class="meta">' + w.minutes + ' min</div></div>' +
+          (w.walk && w.walk.seconds ? '<div class="walk-history"><span>Workout walk</span><strong>' + walkSummaryText(w.walk) + '</strong></div>' : '') +
           ((w.exercises || []).length
             ? w.exercises.map(function (x) {
                 return '<div class="setrow pad-x" style="padding-top:12px;padding-bottom:12px">' +
@@ -2514,6 +2654,7 @@
           '<div class="meta">' + mv.length + ' movement' + (mv.length === 1 ? '' : 's') + '</div></div>' +
         mv.map(function (m, idx) {
           var last = lastLift(m.name);
+          var prog = window.Insights ? Insights.progressionFor(m.id || m.name) : null;
           return '<button class="exrow" data-route="exercise/' + m.id + '">' +
             (m.gif ? '<img class="exgif" src="' + UI.asset(m.gif) + '" alt="" loading="lazy" />'
                    : '<span class="exnum">' + (idx + 1) + '</span>') +
@@ -2521,6 +2662,7 @@
               '<span class="exname">' + esc(m.name) + '</span>' +
               '<span class="note">' + m.sets + ' \u00d7 ' + esc(String(m.reps)) +
                 (last ? ' \u00b7 last ' + Store.fmtLift(last.weight) : '') + '</span>' +
+              (prog ? '<span class="small" style="display:block;color:var(--sage);margin-top:4px">Next: ' + esc(prog.label) + '</span>' : '') +
             '</span>' +
             '<span class="exsets">' + esc(m.equipment || '') + '</span>' +
           '</button>';
@@ -2554,6 +2696,20 @@
     });
   }
 
+  function walkClockText(ms) {
+    var total = Math.max(0, Math.floor((ms || 0) / 1000));
+    var h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+    return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+  function walkSummaryText(w) {
+    if (!w || !w.seconds) return '';
+    var mins = Math.floor(w.seconds / 60), secs = w.seconds % 60;
+    var out = (mins ? mins + ' min' : '') + (secs ? (mins ? ' ' : '') + secs + ' sec' : '');
+    if (w.pace) out += ' · ' + esc(w.pace);
+    if (w.elevation) out += ' · ' + esc(w.elevation);
+    return out || 'Walk logged';
+  }
+
   /* ---- The session, as a list he ticks off ------------------------------- */
   /* The brief: "The workout is a list he ticks off, tapping into an exercise
      to log each set" and "one tap to repeat the last set". State lives in the
@@ -2567,11 +2723,47 @@
     var loggedAny = sn.items.some(function (i) { return i.sets.length; });
     var elapsed = Math.max(1, Math.round((Date.now() - sn.startedAt) / 60000));
     var open = location.hash.split('/')[1];
+    var walk = sn.walk || { startedAt: 0, elapsedMs: 0, pace: '', elevation: '' };
+    var walkMs = Store.sessionWalkElapsedMs ? Store.sessionWalkElapsedMs() : (walk.elapsedMs || 0);
+    var walkRunning = !!walk.startedAt;
+    var walkDone = !walkRunning && walkMs > 0;
+
+    var walkCard = '<article class="card walk-card">' +
+      '<div class="cardhead"><div class="title"><i></i>Workout walk</div>' +
+        '<div class="meta walk-state ' + (walkRunning ? 'live' : (walkDone ? 'done' : '')) + '">' +
+          (walkRunning ? 'LIVE' : (walkDone ? 'STOPPED' : 'READY')) + '</div></div>' +
+      '<div class="walk-body">' +
+        '<div class="walk-clock" data-walk-clock>' + walkClockText(walkMs) + '</div>' +
+        '<p class="small walk-copy">' +
+          (walkRunning
+            ? 'Keep moving. Lock the phone or open another InSync screen if you need to — the clock is tied to the saved start time.'
+            : walkDone
+              ? 'Walk stopped. Add the treadmill pace or outdoor pace and the incline/elevation you used, then keep lifting.'
+              : 'Start this when the walk begins. It keeps counting until you stop it, independently of the lifting clock.') +
+        '</p>' +
+        (walkRunning
+          ? '<button class="btn block walk-stop" data-action="walk-stop">Stop walk</button>'
+          : '<button class="btn block" data-action="walk-start">' + (walkDone ? 'Resume walk' : 'Start walk') + '</button>') +
+        (walkDone
+          ? '<div class="walk-details">' +
+              '<label class="field compact"><span class="field-label">Pace / speed</span>' +
+                '<input class="field-input" data-walk-pace value="' + esc(walk.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
+              '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
+                '<input class="field-input" data-walk-elevation value="' + esc(walk.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
+              '<div class="btnrow">' +
+                '<button class="btn ghost sm" data-action="walk-save">Save walk details</button>' +
+                '<button class="btn ghost sm danger" data-action="walk-reset">Reset walk</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
+      '</div>' +
+    '</article>';
 
     var body = sn.items.map(function (it, idx) {
       var complete = it.sets.length >= it.targetSets;
       var isOpen = String(idx) === open;
       var last = lastLift(it.name);
+      var prog = window.Insights ? Insights.progressionFor(it.id || it.name) : null;
       var prev = it.sets.length ? it.sets[it.sets.length - 1] : (last ? { weight: last.weight, reps: last.reps } : null);
 
       return '<article class="card' + (complete ? ' met' : '') + '">' +
@@ -2601,6 +2793,8 @@
                 : '<p class="small" style="margin:0 0 12px">Nothing logged on this yet.' +
                     (last ? ' Last time: ' + Store.fmtLift(last.weight) + ' \u00d7 ' + last.reps + '.' : '') + '</p>') +
 
+              (prog ? '<div style="border-top:1px solid var(--rule);padding:12px 0;margin-top:3px"><div class="kicker sage">Progression</div><p class="small" style="margin:6px 0 0">' + esc(prog.detail) + '</p></div>' : '') +
+              (!it.sets.length && !it.warmup ? '<button class="btn ghost block" style="margin-bottom:12px" data-route="swap-exercise/' + idx + '">Swap exercise</button>' : '') +
               '<div class="setentry">' +
                 '<label class="field compact"><span class="field-label">Weight <em>' + Store.state().units.weight + '</em></span>' +
                   '<input class="field-input" data-set="w" data-i="' + idx + '" inputmode="decimal" value="' + (prev ? Store.liftNum(prev.weight) : '') + '" /></label>' +
@@ -2623,7 +2817,7 @@
       rest: 240,
       overlay: '<div class="eyebrow">In progress \u00b7 ' + elapsed + ' min</div>' +
         '<p class="verse" style="font-size:25px">' + doneCount + ' of ' + sn.items.length + ' finished.</p>',
-      body: body +
+      body: walkCard + body +
         '<article class="card pad">' +
           '<label class="field" style="margin:0"><span class="field-label">Machine taken? Add another</span>' +
             '<select class="field-input" data-sessionadd>' +
@@ -2656,6 +2850,15 @@
       overlay: '<div class="eyebrow">' + esc(r.name) + ' day</div>' +
         '<p class="verse" style="font-size:27px">' + r.minutes + (r.minutes === 1 ? ' minute. ' : ' minutes. ') + Store.fmtLift(r.volume) + ' moved.</p>',
       body:
+        (r.walk && r.walk.seconds
+          ? '<article class="card walk-card done-summary">' +
+              '<div class="cardhead"><div class="title"><i></i>Workout walk</div><div class="meta">' + walkClockText(r.walk.seconds * 1000) + '</div></div>' +
+              '<div class="walk-facts">' +
+                '<div><span>Pace / speed</span><strong>' + esc(r.walk.pace || 'Not entered') + '</strong></div>' +
+                '<div><span>Elevation / incline</span><strong>' + esc(r.walk.elevation || 'Not entered') + '</strong></div>' +
+              '</div>' +
+            '</article>'
+          : '') +
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>What you lifted</div>' +
             '<div class="meta">' + r.exercises.length + ' movement' + (r.exercises.length === 1 ? '' : 's') + '</div></div>' +
@@ -2860,6 +3063,7 @@
             '</div>' +
             sparkline(r.series, 320, 64, r.isPr ? '#C6A15D' : '#8FA184') +
             (r.isPr ? '<div class="kicker" style="margin-top:11px">At your best right now</div>' : '') +
+            (prog ? '<p class="small" style="margin:9px 0 0;color:var(--sage)">' + esc(prog.detail) + '</p>' : '') +
           '</button>';
         }).join('') +
         '<button class="btn ghost block" data-route="workouts">Every session logged</button>' +
@@ -2871,6 +3075,87 @@
       overlay: '<div class="eyebrow">Progression</div><p class="verse" style="font-size:24px">' + esc(headline) + '</p>',
       body: body
     });
+  }
+
+  function swapExercise() {
+    var parts = location.hash.split('/'), idx = +parts[1], reason = parts[2] || '';
+    var sn = Store.session(), it = sn && sn.items && sn.items[idx];
+    if (!it) return UI.screen({ tab:null, header:{back:'session',title:'Swap exercise'}, rest:220, body:'<article class="card pad"><p class="note">That exercise is no longer in the active session.</p></article>' });
+    var reasonNames = { occupied:'Machine occupied', discomfort:'Does not feel right', dislike:'I do not like this movement' };
+    if (!reason) {
+      return UI.screen({ tab:null, rest:260, blur:true,
+        header:{back:'session/'+idx,title:'Swap exercise',right:'<div style="width:34px"></div>'},
+        art:'assets/art/train-banner.webp', photoPosition:'center 40%',
+        overlay:'<div class="eyebrow">' + esc(it.name) + '</div><p class="verse" style="font-size:24px">Why are you swapping it?</p>',
+        body:'<article class="card pad"><div style="display:grid;gap:9px">' +
+          '<button class="btn ghost block" data-route="swap-exercise/' + idx + '/occupied">Machine occupied</button>' +
+          '<button class="btn ghost block" data-route="swap-exercise/' + idx + '/discomfort">Does not feel right</button>' +
+          '<button class="btn ghost block" data-route="swap-exercise/' + idx + '/dislike">I do not like this movement</button>' +
+          '</div><p class="small" style="margin:14px 0 0">Occupied changes only today. “Does not feel right” and “I do not like it” teach the coach to keep this movement out of future written plans.</p></article>' });
+    }
+    var opts = window.Insights ? Insights.swapOptions(idx, reason) : [];
+    return UI.screen({ tab:null, rest:290, blur:true,
+      header:{back:'swap-exercise/'+idx,title:'Choose replacement',right:'<div style="width:34px"></div>'},
+      art:'assets/art/train-banner.webp', photoPosition:'center 40%',
+      overlay:'<div class="eyebrow">' + esc(reasonNames[reason] || 'Swap') + '</div><p class="verse" style="font-size:24px">Same training purpose. Different movement.</p>',
+      body:'<article class="card">' + (opts.length ? opts.map(function (x) {
+        var pr = Insights.progressionFor(x.id);
+        return '<button class="exrow" data-action="swap-exercise" data-i="' + idx + '" data-new-id="' + esc(x.id) + '" data-reason="' + esc(reason) + '">' +
+          (x.gif ? '<img class="exgif" src="' + UI.asset(x.gif) + '" alt="" loading="lazy" />' : '') +
+          '<span style="min-width:0;text-align:left"><span class="exname">' + esc(x.name) + '</span><span class="note">' + esc(x.equipment || '') + ' · ' + x.sets + ' × ' + esc(String(x.reps)) + '</span>' +
+          (pr ? '<span class="small" style="display:block;margin-top:4px;color:var(--sage)">' + esc(pr.label) + '</span>' : '') + '</span><span class="exsets">Use</span></button>';
+      }).join('') : '<div class="empty"><p class="note">No clean substitute from the same movement group is available in this session. Skip it or choose another exercise from the session picker.</p></div>') + '<div style="height:10px"></div></article>'
+    });
+  }
+
+
+  function monthShift(ym, delta) {
+    var m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+    var d = m ? new Date(+m[1], +m[2]-1 + delta, 1) : new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  function calendar() {
+    var part = location.hash.split('/')[1] || Store.todayKey().slice(0,7);
+    if (!/^\d{4}-\d{2}$/.test(part)) part = Store.todayKey().slice(0,7);
+    var y = +part.slice(0,4), m = +part.slice(5,7)-1, first = new Date(y,m,1), count = new Date(y,m+1,0).getDate();
+    var startPad = first.getDay(), cells = [], S = Store.state(), today = Store.todayKey(), startKey = Store.startKey();
+    for (var pad=0;pad<startPad;pad++) cells.push('<div class="calday blank"></div>');
+    var loggedDays=0, workoutCount=0, mealCount=0;
+    for (var n=1;n<=count;n++) {
+      var key = part + '-' + String(n).padStart(2,'0'), d=S.days[key], active=Store.activeOn(key), future=key>today;
+      var logged=!!d && Store.logged(key); if(logged) loggedDays++;
+      var w=d&&d.workouts?d.workouts.length:0, meals=d&&d.meals?d.meals.length:0; workoutCount+=w; mealCount+=meals;
+      var dayPhotos=(S.photos||[]).filter(function(ph){return ph&&ph.date===key;}).length;
+      var p=active&&!future?Store.points(key):0;
+      var marks=(meals?'●':'')+(w?'▲':'')+(d&&d.reflection?'✎':'')+(d&&d.weight!=null?'◆':'')+(dayPhotos?'▣':'');
+      if (key < startKey || future) cells.push('<div class="calday muted"><span>'+n+'</span></div>');
+      else cells.push('<button class="calday'+(logged?' logged':'')+(key===today?' today':'')+'" data-route="day-history/'+key+'"><span class="calnum">'+n+'</span>'+
+        (logged?'<strong>'+p+'</strong>':'<em>—</em>')+(marks?'<small>'+marks+'</small>':'')+'</button>');
+    }
+    while(cells.length%7) cells.push('<div class="calday blank"></div>');
+    var monthName=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    return UI.screen({tab:null,rest:260,blur:true,header:{back:'home',title:'History',right:'<div style="width:34px"></div>'},
+      art:'assets/art/coach-desk.webp', photoPosition:'center 42%',
+      overlay:'<div class="eyebrow">Your log</div><p class="verse" style="font-size:25px">'+esc(monthName)+'</p>',
+      body:'<article class="card pad"><div class="weeknav"><button class="btn ghost sm" data-route="calendar/'+monthShift(part,-1)+'">Previous</button><button class="btn ghost sm" data-route="calendar/'+Store.todayKey().slice(0,7)+'">This month</button><button class="btn ghost sm" data-route="calendar/'+monthShift(part,1)+'">Next</button></div>'+
+        '<div class="calendar-head">'+['S','M','T','W','T','F','S'].map(function(x){return '<span>'+x+'</span>';}).join('')+'</div><div class="calendar-grid">'+cells.join('')+'</div>'+
+        '<p class="small" style="margin:13px 0 0">● meal · ▲ training · ✎ reflection · ◆ weigh-in · ▣ progress photo. A number is the score for that day.</p></article>'+
+        '<article class="card"><div class="ledger"><div><div class="label">Logged</div><div class="figure">'+loggedDays+'</div><div class="foot">days</div></div><div><div class="label">Training</div><div class="figure">'+workoutCount+'</div><div class="foot">sessions</div></div><div><div class="label">Meals</div><div class="figure">'+mealCount+'</div><div class="foot">logged</div></div></div></article>'
+    });
+  }
+
+  function dayHistory() {
+    var key = location.hash.split('/')[1] || Store.todayKey(), x = window.Insights ? Insights.daySummary(key) : null;
+    if (!x || !x.active) return UI.screen({tab:null,rest:230,blur:true,header:{back:'calendar',title:'Day history'},art:'assets/art/coach-desk.webp',overlay:'<p class="verse">No InSync day exists here.</p>',body:'<article class="card pad"><button class="btn ghost block" data-route="calendar">Back to calendar</button></article>'});
+    var pretty=new Date(key+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    var rows=Store.pointRows(key), meals=x.meals||[], workouts=x.workouts||[], photos=x.photos||[];
+    var body='<article class="card"><div class="cardhead"><div class="title"><i></i>Score</div><div class="meta">'+x.points+' of 10</div></div>'+rows.map(function(r){return '<div class="setrow"><div><div class="setname">'+esc(r.label)+'</div><div class="small">'+r.value+' point'+(r.value===1?'':'s')+'</div></div><span class="tick">'+(r.done?icon('check'):'')+'</span></div>';}).join('')+'</article>';
+    body+='<div class="rulehead"><span class="kicker sage">Meals</span><span></span><span class="note">'+meals.length+'</span></div><article class="card">'+(meals.length?meals.map(function(meal){return '<button class="setrow" data-route="meal/'+esc(meal.id||'')+'"><div><div class="setname">'+esc(meal.slot||'Meal')+' · '+esc(meal.name)+'</div><div class="small">'+Math.round(+meal.kcal||0)+' kcal · '+Math.round(+meal.protein||0)+' g protein</div></div><span class="chev">›</span></button>';}).join(''):'<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No meals recorded.</p>')+'</article>';
+    body+='<div class="rulehead"><span class="kicker sage">Training &amp; movement</span><span></span></div><article class="card">'+(workouts.length?workouts.map(function(w){return '<div class="setrow"><div><div class="setname">'+esc(w.name)+'</div><div class="small">'+(w.minutes||0)+' min'+((w.exercises||[]).length?' · '+w.exercises.length+' movements':'')+'</div></div></div>';}).join(''):'<div class="setrow"><div><div class="setname">No training session</div></div></div>')+'<div class="setrow"><div><div class="setname">Steps</div><div class="small">'+x.steps.toLocaleString()+'</div></div></div><div class="setrow"><div><div class="setname">Trail distance</div><div class="small">'+Store.fmtDistance(x.trailMiles)+' from that day’s logged steps</div></div></div></article>';
+    body+='<article class="card pad"><div class="kicker">Body &amp; reflection</div><div class="recipefacts" style="margin-top:12px"><div><span class="note">Weight</span><strong>'+(x.weight==null?'—':Store.fmtWeight(x.weight))+'</strong></div><div><span class="note">Sleep</span><strong>'+(x.sleepHr==null?'—':x.sleepHr+' h')+'</strong></div><div><span class="note">Resting HR</span><strong>'+(x.restingHr==null?'—':x.restingHr+' bpm')+'</strong></div><div><span class="note">Verse</span><strong>'+(x.verseRead?'Read':'—')+'</strong></div></div>'+(x.reflection?'<div class="rulehead" style="margin-top:17px"><span class="kicker sage">Evening reflection</span><span></span></div><p class="small" style="white-space:pre-wrap">'+esc(x.reflection)+'</p>':'<p class="small" style="margin-top:14px">No evening reflection recorded.</p>')+'</article>';
+    if (photos.length) body+='<div class="rulehead"><span class="kicker sage">Progress photos</span><span></span><span class="note">'+photos.length+'</span></div><article class="card pad"><div class="photogrid">'+photos.map(function(ph){return '<div class="photoframe" data-photo="'+esc(ph.id)+'"></div>';}).join('')+'</div></article>';
+    return UI.screen({tab:null,rest:270,blur:true,header:{back:'calendar/'+key.slice(0,7),title:'Day history',right:'<div style="width:34px"></div>'},art:'assets/art/coach-desk.webp',photoPosition:'center 42%',overlay:'<div class="eyebrow">'+esc(pretty)+'</div><p class="verse" style="font-size:25px">'+x.points+' of 10 · '+x.totals.kcal.toLocaleString()+' kcal · '+x.totals.protein+' g protein</p>',body:body});
   }
 
   /* ---- Badges ----------------------------------------------------------- */
@@ -3452,6 +3737,7 @@
     // Shopping list is derived only from this displayed week's recipes.
     var shop = {};
     planned.forEach(function (p) {
+      if (p.meal.leftoverOf) return;
       var items = p.meal.items && p.meal.items.length ? p.meal.items : [{ name: p.meal.name, weight: '' }];
       items.forEach(function (it) {
         var name = String(it.name || '').trim();
@@ -3460,6 +3746,7 @@
         if (!shop[k]) shop[k] = { name: name, n: 0, amounts: [] };
         shop[k].n++;
         var amount = String(it.weight || '').trim();
+        if (amount && p.meal.batchSource && (+p.meal.servings || 1) > 1) amount += ' × ' + (+p.meal.servings || 1);
         if (amount && shop[k].amounts.indexOf(amount) < 0) shop[k].amounts.push(amount);
       });
     });
@@ -3484,7 +3771,8 @@
                 '<span class="pslabel">' + sl + '</span>' +
                 '<span class="psmeal">' + esc(m.name) + '</span>' +
                 '<span class="pskcal">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
-                  (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + '</span>' +
+                  (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') +
+                  (m.leftoverOf ? ' · LEFTOVER' : m.batchSource ? ' · BATCH PREP' : '') + '</span>' +
               '</button>'
             : '<button class="planslot" data-action="plan-slot" data-slot="' + key + '">' +
                 '<span class="pslabel">' + sl + '</span><span class="psempty">Choose a meal</span>' +
@@ -3494,6 +3782,7 @@
     }).join('');
 
     var prefs = S.mealPrefs || { cuisines: [], proteins: [], likes: '', avoid: '' };
+    var prep = window.Insights ? Insights.mealPrepPrefs() : { lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [] };
     var favoriteCount = (S.mealFavorites || []).length, dislikedCount = (S.mealDislikedMeals || []).length;
     function prefChips(values, selected, kind) {
       return '<div class="prefchips">' + values.map(function (v) {
@@ -3510,8 +3799,14 @@
         prefChips(PLAN_PROTEINS, prefs.proteins || [], 'proteins') +
         '<label class="preftext"><span>Things I like</span><input type="text" data-meal-pref-text="likes" value="' + esc(prefs.likes || '') + '" placeholder="spicy, rice bowls, garlic, crunchy…"></label>' +
         '<label class="preftext"><span>Things I do not like / avoid</span><input type="text" data-meal-pref-text="avoid" value="' + esc(prefs.avoid || '') + '" placeholder="mushrooms, olives, mayo…"></label>' +
+        '<div class="preflabel">Batch-prep lunches <span>cook once, repeat on weekdays</span></div>' +
+        '<div class="prefchips">' + [0,2,3,4,5].map(function (n) { return '<button class="ob-chip' + (prep.lunchPrepDays === n ? ' on' : '') + '" data-action="meal-prep-lunches" data-count="' + n + '">' + (n ? n + ' days' : 'Off') + '</button>'; }).join('') + '</div>' +
+        '<div class="preflabel">Dinner leftovers <span>cook on selected nights, reheat between</span></div>' +
+        '<div class="prefchips"><button class="ob-chip' + (prep.dinnerLeftovers ? ' on' : '') + '" data-action="meal-prep-leftovers">' + (prep.dinnerLeftovers ? 'On' : 'Off') + '</button></div>' +
+        (prep.dinnerLeftovers ? '<div class="preflabel">Cooking nights <span>Monday starts the week with a fresh batch</span></div><div class="prefchips">' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function (d) { return '<button class="ob-chip' + (prep.cookDays.indexOf(d) >= 0 ? ' on' : '') + '" data-action="meal-prep-cookday" data-day="' + d + '"' + (d === 'Mon' ? ' disabled aria-disabled="true"' : '') + '>' + d + '</button>'; }).join('') + '</div>' : '') +
         '<div class="prefmemory"><span>★ ' + favoriteCount + ' favorite' + (favoriteCount === 1 ? '' : 's') + '</span><span>Not for me: ' + dislikedCount + '</span></div>' +
-        '<p class="note" style="margin:10px 0 0">Favorites are deliberately brought back into future generated weeks when they fit these selections. Thumbs-downed meals stay out.</p>' +
+        (dislikedCount ? '<div class="preflabel" style="margin-top:14px">Not-for-me memory <span>tap to let a meal return</span></div><div class="prefchips">' + (S.mealDislikedMeals || []).slice(-12).map(function (name) { return '<button class="ob-chip" data-action="allow-meal-again" data-meal-name="' + esc(name) + '">↺ ' + esc(name) + '</button>'; }).join('') + '</div>' : '') +
+        '<p class="note" style="margin:10px 0 0">Favorites return when they fit. Thumbs-downed meals stay out until you allow them again. Batch prep changes servings and the shopping list so leftovers are not purchased twice.</p>' +
       '</article>';
 
     var canBuild = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
@@ -3603,6 +3898,8 @@
         '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
           (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + (m.cuisine ? ' · ' + esc(m.cuisine) : '') + '</p>',
       body:
+        (m.leftoverOf ? '<article class="card pad accent"><div class="kicker sage">Leftover meal</div><p class="lede" style="margin:8px 0 0">Already cooked as part of ' + esc(m.leftoverOf) + '. Reheat and log it — no second grocery run.</p></article>' :
+          m.batchSource ? '<article class="card pad accent"><div class="kicker sage">Batch prep</div><p class="lede" style="margin:8px 0 0">Cook ' + (m.servings || 1) + ' servings now. The extra portions are already placed into the week.</p></article>' : '') +
         '<article class="card pad">' +
           '<div class="kicker">Nutrition</div>' +
           '<div class="recipefacts">' +
@@ -3619,7 +3916,7 @@
           '<div class="kicker" style="margin-bottom:12px">Ingredients</div>' +
           (items.length
             ? '<div class="ingredientlist">' + items.map(function (it) {
-                return '<div class="ingredientrow"><span>' + esc(it.name) + '</span><span class="note">' + esc(it.weight || '') + '</span></div>';
+                return '<div class="ingredientrow"><span>' + esc(it.name) + '</span><span class="note">' + esc((it.weight || '') + (m.batchSource && (m.servings || 1) > 1 ? ' × ' + m.servings : '')) + '</span></div>';
               }).join('') + '</div>'
             : '<p class="note">No ingredient list is attached yet.</p>') +
         '</article>' +
@@ -3686,7 +3983,7 @@
   }
 
   window.Screens = {
-    notifications: notifications, pendingCount: pendingCount, meal: meal,
+    notifications: notifications, pendingCount: pendingCount, notificationStatus: notificationStatus, markInformationalRead: markInformationalRead, meal: meal,
     handshake: handshake, routeName: routeName, earnedMoment: earnedMoment,
     legCount: function () { var r = route(); return r ? r.legs.length : 0; },
     legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
@@ -3694,7 +3991,7 @@
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,
     records: records, badges: badges, reflection: reflection,
-    trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history,
+    trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,
     route: route, leg: leg, verse: Store.verse
   };

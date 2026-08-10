@@ -100,8 +100,9 @@
       'Sessions logged today: ' + d.workouts.length + '.',
       'Meals logged today: ' + d.meals.length + (d.meals.length ? ' (' + d.meals.map(function (m) { return m.slot; }).join(', ') + ')' : ''),
       'Weighed in today: ' + (d.weight != null ? 'yes, ' + d.weight + ' lb' : 'no') + '.',
-      'Goal: ' + s.goal.replace(/-/g, ' ') + '.'
-    ].join('\n');
+      'Goal: ' + s.goal.replace(/-/g, ' ') + '.',
+      (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns already visible in the log:\n' + Insights.patternsText() : ''
+    ].filter(Boolean).join('\n');
 
     claude([{
       role: 'user',
@@ -160,9 +161,13 @@
   /* The coach writes the week's training itself. It picks only from the
      library, so every movement it names has a GIF, a group and a prescription;
      anything it invents is rejected rather than rendered as a broken row. */
-  function writePlan(cb) {
+  function writePlan(weekOrCb, cb) {
+    var requestedWeek = typeof weekOrCb === 'string' ? weekOrCb : (Store.weekStart ? Store.weekStart() : Store.todayKey());
+    cb = typeof weekOrCb === 'function' ? weekOrCb : cb;
+    if (typeof cb !== 'function') cb = function () {};
     var s = Store.state(), freq = s.frequency || 4;
-    var menu = Exercises.all.map(function (e) {
+    var avoided = window.Insights && Insights.avoidedExerciseIds ? Insights.avoidedExerciseIds() : [];
+    var menu = Exercises.all.filter(function (e) { return avoided.indexOf(e.id) < 0; }).map(function (e) {
       return e.id + ' — ' + e.name + ' (' + e.group + ', ' + e.equipment + ')';
     }).join('\n');
 
@@ -179,10 +184,14 @@
       });
     }
     var lifted = Object.keys(lifts).map(function (n) { return n + ' at ' + lifts[n] + ' lb'; });
+    var progression = window.Insights && Insights.progressionFor ? Object.keys(lifts).slice(0, 12).map(function (n) {
+      var pr = Insights.progressionFor(n); return n + ': ' + (pr && pr.detail || 'repeat cleanly');
+    }) : [];
 
     var history = sessions.length
       ? 'Sessions in the last four weeks (' + sessions.length + '):\n' + sessions.slice(-14).join('\n') +
-        (lifted.length ? '\n\nBest lift on each machine so far:\n' + lifted.join('\n') : '')
+        (lifted.length ? '\n\nBest lift on each machine so far:\n' + lifted.join('\n') : '') +
+        (progression.length ? '\n\nProgression guidance from the log:\n' + progression.join('\n') : '')
       : 'No session has been logged yet. This is the first plan.';
 
     var h = +(s.profile.heightIn || 0);
@@ -191,12 +200,13 @@
     claude([{
       role: 'user',
       content:
-        'Write ' + me() + '\'s training week.\n\n' +
+        'Write ' + me() + '\'s training week for the Monday beginning ' + requestedWeek + '.\n\n' +
         'Goal: ' + String(s.goal || '').replace(/-/g, ' ') + '\n' +
         'Days a week: ' + freq + '\n' +
         'Body: ' + body + '\n' +
         'Gym: Planet Fitness — machines and dumbbells, no barbell, no squat rack.\n\n' +
         history + '\n\n' +
+        (avoided.length ? 'Do not prescribe these movements; they were swapped out because the user disliked them or found them uncomfortable: ' + avoided.join(', ') + '.\n\n' : '') +
         'Available movements (use these ids exactly, nothing else):\n' + menu + '\n\n' +
         'Rules:\n' +
         '- Exactly ' + freq + ' days. Use real weekday abbreviations: Mon Tue Wed Thu Fri Sat. Keep Sunday as the weekly recovery/rest day.\n' +
@@ -215,14 +225,16 @@
       var data;
       try { data = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]); }
       catch (e) { return cb(new Error('The coach did not return a plan.')); }
-      var plan = validatePlan(data.days, freq);
+      var plan = validatePlan(data.days, freq, avoided);
       if (!plan) return cb(new Error('The coach wrote a plan that could not be read.'));
-      Store.set('plan', plan);
-      Store.set('planMeta', {
-        writtenBy: 'coach',
-        weekOf: Store.weekStart ? Store.weekStart() : Store.todayKey(),
-        note: (data.note || '').trim()
-      });
+      var meta = { writtenBy:'coach', weekOf:requestedWeek, note:(data.note || '').trim() };
+      var currentWeek = Store.weekStart(Store.todayKey());
+      if (requestedWeek > currentWeek) {
+        Store.set('futurePlan', plan); Store.set('futurePlanMeta', meta);
+      } else {
+        Store.set('plan', plan); Store.set('planMeta', meta);
+        if (Store.state().futurePlanMeta && Store.state().futurePlanMeta.weekOf === requestedWeek) { Store.set('futurePlan', []); Store.set('futurePlanMeta', {}); }
+      }
       cb(null, plan);
     });
   }
@@ -231,7 +243,8 @@
 
   /* Nothing reaches the store until it is a real plan: real weekdays, no
      duplicate days, and every movement present in the library. */
-  function validatePlan(days, freq) {
+  function validatePlan(days, freq, avoidedIds) {
+    avoidedIds = Array.isArray(avoidedIds) ? avoidedIds : [];
     if (!Array.isArray(days) || days.length !== +freq) return null;
     var seen = {}, out = [];
     for (var i = 0; i < days.length; i++) {
@@ -246,7 +259,7 @@
         continue;
       }
       var ids = (Array.isArray(d.ex) ? d.ex : []).filter(function (id, n, arr) {
-        return Exercises.get(id) && arr.indexOf(id) === n;
+        return Exercises.get(id) && avoidedIds.indexOf(id) < 0 && arr.indexOf(id) === n;
       });
       if (ids.length < 3 || ids.length > 5) return null;
       out.push({ day: day, name: name, ex: ids });
@@ -296,6 +309,33 @@
         '\n\nWrite three sentences about the week. Name one pattern worth noticing and one thing to carry into next week. ' +
         'Use only these figures. Return only the sentences.'
     }], { system: VOICE, maxTokens: 260 }, cb);
+  }
+
+  function weeklyReview(weekOf, cb) {
+    if (!window.Insights || !Insights.weekStats) return cb(new Error('Weekly review is not available in this build.'));
+    var st = Insights.weekStats(weekOf);
+    var facts = [
+      'Week beginning ' + st.weekOf + '.',
+      st.loggedDays + ' logged day(s), ' + st.points + ' points, ' + st.workouts + ' training session(s).',
+      st.nutritionDays ? 'Nutrition-day averages across ' + st.nutritionDays + ' day(s): ' + st.avgCalories + ' kcal, ' + st.avgProtein + ' g protein.' : '',
+      st.stepDays ? 'Step average across ' + st.stepDays + ' day(s) with steps recorded: ' + st.avgSteps + '.' : '',
+      st.loggedDays ? 'Protein target met on ' + st.proteinMet + ' nutrition day(s); step target met on ' + st.stepsMet + ' day(s) with steps recorded.' : '',
+      'Walking distance represented by logged steps: ' + st.expeditionMiles + ' miles.',
+      'Badges newly recorded that week: ' + ((st.badgesEarned || []).length) + '.',
+      (st.favoriteMealsAdded && st.favoriteMealsAdded.length) ? 'Meals favorited that week: ' + st.favoriteMealsAdded.join(', ') + '.' : 'Meals favorited that week: none recorded.',
+      'Cookbook favorites currently saved: ' + (st.favorites || 0) + '.',
+      st.weightChange == null ? '' : 'Weight changed ' + (st.weightChange >= 0 ? '+' : '') + st.weightChange + ' lb between the first and last weigh-in that week.'
+    ].filter(Boolean).join('\n');
+    claude([{ role:'user', content:
+      'Review ' + me() + '\'s week from these facts only:\n\n' + facts +
+      '\n\nReturn ONLY JSON: {"summary":"2-3 grounded sentences","win":"one concrete win","pattern":"one pattern worth noticing","carry":"one specific focus for next week"}. ' +
+      'Do not invent a number or praise something the facts do not support.'
+    }], { system:VOICE, maxTokens:500 }, function(err,text){
+      if(err) return cb(err); var out;
+      try { out=extractJson(text); } catch(e) { return cb(new Error('The weekly review could not be read. Try again.')); }
+      if(!out || !cleanText(out.summary,1200) || !cleanText(out.carry,700)) return cb(new Error('The weekly review came back incomplete. Try again.'));
+      cb(null,{summary:cleanText(out.summary,1200),win:cleanText(out.win,500),pattern:cleanText(out.pattern,700),carry:cleanText(out.carry,700)});
+    });
   }
 
   // Free-text meal → structured macros.
@@ -535,13 +575,16 @@
       initials: cleanText(raw.initials, 4),
       date: date,
       startDate: validDateKey(raw.startDate) ? raw.startDate : '',
-      updated: cleanText(raw.updated, 40),
+      updated: (function(){ var u=cleanText(raw.updated,80); return u && !isNaN(Date.parse(u)) ? u : ''; })(),
       points: boundedNumber(raw.points, 0, 10, 0),
       streak: Math.round(boundedNumber(raw.streak, 0, 10000, 0)),
       earned: [],
       note: cleanText(raw.note, 2000),
       noteDate: validDateKey(raw.noteDate) ? raw.noteDate : date,
       messages: [],
+      activity: [],
+      reactions: {},
+      seenPartnerUpdated: '',
       history: { points: {}, logged: {} }
     };
     if (Array.isArray(raw.messages)) {
@@ -556,6 +599,24 @@
         out.messages.push({ id: mid, date: md, text: text, createdAt: created, sentAt: sent, displayTime: display });
       });
     }
+    if (Array.isArray(raw.activity)) {
+      raw.activity.slice(-40).forEach(function (a) {
+        if (!a || Object.prototype.toString.call(a) !== '[object Object]') return;
+        var id=cleanText(a.id,180), ad=validDateKey(a.date)?a.date:date, type=cleanText(a.type,30), text=cleanText(a.text,140), created=cleanText(a.createdAt,80);
+        if (created && isNaN(Date.parse(created))) created='';
+        var activityOk = window.Insights && Insights.validActivityId ? Insights.validActivityId(id) : /^a:[a-z0-9-]{1,80}:\d{4}-\d{2}-\d{2}:(score|protein|steps|workout:\d{1,3})$/.test(id);
+        if (activityOk && ['score','workout','protein','steps'].indexOf(type)>=0 && text) out.activity.push({id:id,date:ad,type:type,text:text,createdAt:created});
+      });
+    }
+    if (raw.reactions && Object.prototype.toString.call(raw.reactions) === '[object Object]') {
+      Object.keys(raw.reactions).slice(-240).forEach(function (id) {
+        var r=cleanText(raw.reactions[id],20);
+        var eventOk = window.Insights && Insights.validActivityId ? Insights.validActivityId(id) : /^a:[a-z0-9-]{1,80}:\d{4}-\d{2}-\d{2}:(score|protein|steps|workout:\d{1,3})$/.test(id);
+        if (eventOk && ['heart','clap','fire'].indexOf(r)>=0) out.reactions[id]=r;
+      });
+    }
+    var seen = cleanText(raw.seenPartnerUpdated,80);
+    if (seen && !isNaN(Date.parse(seen))) out.seenPartnerUpdated=seen;
     if (Array.isArray(raw.earned)) {
       raw.earned.slice(0, 200).forEach(function (id) {
         if (typeof id !== 'string') return;
@@ -634,7 +695,7 @@
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
-      schema: 5,
+      schema: 6,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
@@ -645,6 +706,9 @@
       earned: (s.earned || []).slice(),
       note: sharedNote.text,
       noteDate: sharedNote.date,
+      seenPartnerUpdated: s.partnerData && s.partnerData.updated ? cleanText(s.partnerData.updated,80) : '',
+      activity: window.Insights && Insights.localActivity ? Insights.localActivity(7) : [],
+      reactions: window.Insights && Insights.reactionsGiven ? Insights.reactionsGiven() : {},
       messages: (s.sentMessages || []).slice(-50).map(function (m) {
         return {
           id: cleanText(m.id, 120), date: validDateKey(m.date) ? m.date : k,
@@ -934,7 +998,10 @@
       proteins: Array.isArray(raw.proteins) ? raw.proteins.map(function (x) { return cleanText(x, 60); }).filter(Boolean).slice(0, 8) : [],
       instructions: steps,
       items: items,
-      source: 'coach'
+      source: cleanText(raw.source, 20) || 'coach',
+      batchId: cleanText(raw.batchId, 100),
+      leftoverOf: cleanText(raw.leftoverOf, 120),
+      batchSource: !!raw.batchSource
     };
   }
 
@@ -943,7 +1010,7 @@
   }
 
   var FAST_FOOD_TERMS = [
-    'mcdonald', 'burger king', 'wendy', 'taco bell', 'chipotle', 'chick-fil-a', 'chick fil a',
+    'mcdonald', 'burger king', 'wendy', 'taco bell', 'chipotle mexican grill', 'chick-fil-a', 'chick fil a',
     'kfc', 'popeyes', 'subway', 'domino', 'pizza hut', 'little caesars', 'five guys',
     'culver', 'panera', 'starbucks', 'dunkin', 'arbys', 'arby', 'sonic drive', 'takeout',
     'take-out', 'drive thru', 'drive-thru', 'restaurant meal', 'fast food', 'meal delivery'
@@ -957,8 +1024,11 @@
   }
   function conflictsWithAvoids(meal, avoids) {
     if (!avoids.length) return '';
-    var hay = [meal.name || ''].concat((meal.items || []).map(function (x) { return x.name || ''; })).join(' ').toLowerCase();
-    for (var i = 0; i < avoids.length; i++) if (hay.indexOf(avoids[i]) >= 0) return avoids[i];
+    function words(x) { return String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
+    var hay = ' ' + words([meal.name || ''].concat((meal.items || []).map(function (x) { return x.name || ''; })).join(' ')) + ' ';
+    for (var i = 0; i < avoids.length; i++) {
+      var term=words(avoids[i]); if (term && hay.indexOf(' '+term+' ') >= 0) return avoids[i];
+    }
     return '';
   }
 
@@ -976,6 +1046,8 @@
       if (selectedCuisines.length && m.cuisine && selectedCuisines.indexOf(m.cuisine) < 0) return false;
       if (selectedProteins.length && Array.isArray(m.proteins) && m.proteins.length &&
           !m.proteins.some(function (x) { return selectedProteins.indexOf(x) >= 0; })) return false;
+      if (conflictsWithAvoids(m, preferenceTerms(prefs.avoid))) return false;
+      if (!Array.isArray(m.items) || m.items.length < 2 || !Array.isArray(m.instructions) || !m.instructions.length) return false;
       return !fastFoodLike(m);
     }).slice(-2);
     var used = {};
@@ -989,6 +1061,72 @@
     });
     return map;
   }
+
+  function applyMealPrep(map, weekOf, prefs) {
+    if (!window.Insights || !Insights.mealPrepPrefs) return map;
+    var prep = Insights.mealPrepPrefs(), days = [];
+    for (var di = 0; di < 7; di++) days.push(Store.shift(weekOf, di));
+
+    /* Batch lunches are one recipe cooked once, then eaten across the requested
+       number of weekday lunches. The source keeps the grocery ingredients;
+       repeats keep the recipe for display but are marked leftoverOf so the
+       shopping list does not buy the same food four times. */
+    if (prep.lunchPrepDays > 1) {
+      var lunchDates = days.filter(function (d) {
+        var dow = new Date(d + 'T12:00:00').getDay(); return dow >= 1 && dow <= 5;
+      }).slice(0, prep.lunchPrepDays);
+      if (lunchDates.length > 1) {
+        var sourceKey = lunchDates[0] + '|Lunch', source = map[sourceKey];
+        if (source) {
+          var batchId = 'lunch-' + weekOf;
+          map[sourceKey] = Object.assign({}, source, {
+            servings: lunchDates.length, batchId: batchId, batchSource: true, leftoverOf: '', source: source.source || 'coach',
+            recipeNote: ('Prep ' + lunchDates.length + ' servings at once. ' + (source.recipeNote || '')).trim()
+          });
+          lunchDates.slice(1).forEach(function (d) {
+            map[d + '|Lunch'] = Object.assign({}, source, {
+              date: d, slot: 'Lunch', servings: 1, batchId: batchId, batchSource: false,
+              leftoverOf: sourceKey, source: 'prep', photoId: '',
+              recipeNote: 'Meal-prep serving from ' + lunchDates[0] + '. Reheat or serve cold as appropriate.'
+            });
+          });
+        }
+      }
+    }
+
+    /* Dinner-leftover mode makes the selected cook nights the only nights that
+       produce new dinner groceries. Non-cook nights reuse the most recent cook
+       dinner and point back to it, so the shopping list counts the source once. */
+    if (prep.dinnerLeftovers && prep.cookDays.length) {
+      var lastSourceKey = '', uses = {};
+      days.forEach(function (d) {
+        var dow = WEEKDAY_NAME(new Date(d + 'T12:00:00').getDay());
+        var key = d + '|Dinner';
+        if (prep.cookDays.indexOf(dow) >= 0 || !lastSourceKey) {
+          lastSourceKey = key; uses[key] = uses[key] || [];
+          return;
+        }
+        var source = map[lastSourceKey];
+        if (!source) return;
+        uses[lastSourceKey].push(key);
+        map[key] = Object.assign({}, source, {
+          date: d, slot: 'Dinner', servings: 1, leftoverOf: lastSourceKey,
+          batchId: 'dinner-' + lastSourceKey.slice(0,10), batchSource: false, source: 'prep', photoId: '',
+          recipeNote: 'Leftover dinner from ' + lastSourceKey.slice(0,10) + '. Reheat safely and serve.'
+        });
+      });
+      Object.keys(uses).forEach(function (sourceKey) {
+        var source = map[sourceKey]; if (!source) return;
+        var count = 1 + uses[sourceKey].length;
+        map[sourceKey] = Object.assign({}, source, {
+          servings: Math.max(+source.servings || 1, count), batchId: 'dinner-' + sourceKey.slice(0,10), batchSource: true,
+          leftoverOf: '', recipeNote: ('Cook ' + count + ' servings tonight; ' + uses[sourceKey].length + ' become planned leftovers. ' + (source.recipeNote || '')).trim()
+        });
+      });
+    }
+    return map;
+  }
+  function WEEKDAY_NAME(i) { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i] || ''; }
 
   /* A real planner, not six loose suggestions. The contract is deliberately
      strict: one recipe for every Breakfast/Lunch/Dinner/Snack slot across the
@@ -1018,6 +1156,7 @@
       ((prefs.proteins || []).length ? 'Selected protein choices: ' + prefs.proteins.join(', ') + '. Use these as the primary proteins for the week. ' : '') +
       (cleanText(prefs.likes, 1200) ? 'Foods/flavors they like: ' + cleanText(prefs.likes, 1200) + '. Lean toward these. ' : '') +
       (cleanText(prefs.avoid, 1200) ? 'Foods/flavors they do NOT like or want: ' + cleanText(prefs.avoid, 1200) + '. Do not use them. ' : '') +
+      (window.Insights && Insights.mealPrepPrefs ? (function(){ var pp=Insights.mealPrepPrefs(); return (pp.lunchPrepDays ? 'They want ' + pp.lunchPrepDays + ' weekday lunches batch-prepped from one recipe. ' : '') + (pp.dinnerLeftovers ? 'Dinner leftovers are welcome. ' : '') + (pp.cookDays.length ? 'Preferred cooking nights: ' + pp.cookDays.join(', ') + '. ' : ''); })() : '') +
       (disliked.length ? 'Meals they have explicitly thumbs-downed and must NOT return: ' + disliked.slice(-30).join(', ') + '. ' : '') +
       (favNames.length ? 'Favorite meals they want to see again: ' + favNames.join(', ') + '. Reuse compatible favorites naturally instead of always inventing new food. ' : '') +
       (known.length ? 'Meals they have already logged include: ' + known.slice(0, 14).join(', ') + '. You may reuse a good fit occasionally but do not repeat the same day over and over. ' : '') +
@@ -1052,7 +1191,8 @@
       if (missing.length) {
         return cb(new Error('The coach missed or rejected ' + missing.length + ' meal slot' + (missing.length === 1 ? '' : 's') + '. Nothing was replaced; try the week again.'));
       }
-      cb(null, reintroduceFavorites(map, favorites, prefs, disliked));
+      map = reintroduceFavorites(map, favorites, prefs, disliked);
+      cb(null, applyMealPrep(map, weekOf, prefs));
     });
   }
 
@@ -1091,7 +1231,8 @@
       'Today: ' + t.kcal + '/' + s.targets.calories + ' kcal, ' + t.protein + '/' + s.targets.protein + ' g protein, ' +
         d.steps + '/' + s.targets.steps + ' steps, ' + d.workouts.length + ' session(s), ' + d.meals.length + ' meal(s).',
       'Weight target ' + s.targets.weightGoal + ' lb.' + (d.weight != null ? ' Weighed ' + d.weight + ' lb today.' : ''),
-      w.length > 1 ? 'Recent weights: ' + w.map(function (x) { return x.weight; }).join(', ') + '.' : ''
+      w.length > 1 ? 'Recent weights: ' + w.map(function (x) { return x.weight; }).join(', ') + '.' : '',
+      (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns visible across recent days:\n' + Insights.patternsText() : ''
     ].filter(Boolean).join('\n');
 
     var msgs = (history || []).slice(-6).map(function (m) {
@@ -1171,7 +1312,7 @@
     proposeTargets: proposeTargets,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,
-    coachLine: coachLine, chooseVerse: chooseVerse, writePlan: writePlan, weeklyNote: weeklyNote, ask: ask,
+    coachLine: coachLine, chooseVerse: chooseVerse, writePlan: writePlan, weeklyNote: weeklyNote, weeklyReview: weeklyReview, ask: ask,
     parseMeal: parseMeal, parseMealPhoto: parseMealPhoto,
     readBarcodePhoto: readBarcodePhoto,
     restaurantMenu: restaurantMenu, menuItem: menuItem,

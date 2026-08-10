@@ -233,8 +233,16 @@
     return all().filter(function (b) { return b.earned && known.indexOf(b.id) < 0; });
   }
   function markSeen() {
-    var ids = all().filter(function (b) { return b.earned; }).map(function (b) { return b.id; });
-    Store.set('earned', ids);
+    var previously = (Store.state().earned || []).slice();
+    var now = all().filter(function (b) { return b.earned; }).map(function (b) { return b.id; });
+    var stamped = Object.assign({}, Store.state().badgeEarnedAt || {}), day = Store.todayKey();
+    now.forEach(function (id) {
+      /* Only badges that were not already known get a timestamp. This is
+         deliberately forward-only: migrated badges cannot be dated honestly. */
+      if (previously.indexOf(id) < 0 && !stamped[id]) stamped[id] = day;
+    });
+    Store.set('badgeEarnedAt', stamped);
+    Store.set('earned', now);
   }
 
   window.Badges = {

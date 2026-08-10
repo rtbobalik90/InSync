@@ -769,8 +769,16 @@ body.onboarding-open { overflow: hidden; }
 .row.tap.needsyou::before { content: ''; position: absolute; left: 0; top: 50%;
   width: 3px; height: 22px; margin-top: -11px; background: var(--gold); border-radius: 99px; }
 .iconbtn { position: relative; }
-.iconbtn .dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px;
-  border-radius: 50%; background: var(--gold); border: 1.5px solid #14150F; }
+.notifbell { transition: color .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+.notifbell.has-info, .notifbell.has-action {
+  color: var(--gold); border-color: rgba(198,161,93,.72); background: rgba(70,57,26,.46);
+}
+.notifbell.has-action { box-shadow: 0 0 0 2px rgba(198,161,93,.09), 0 0 18px rgba(198,161,93,.18); }
+.notifbell .notifdot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--gold); border: 1.5px solid #14150F; box-shadow: 0 0 8px rgba(198,161,93,.55); }
+.notifbell .notifcount { position: absolute; top: -5px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 999px; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  background: var(--gold); border: 2px solid #14150F; color: #14150F; font: 700 9px/1 var(--sans); letter-spacing: 0; }
 .inlink { background: none; border: 0; padding: 0; font: inherit; color: var(--gold);
   text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .kicker.faint { color: #8A8371; }
@@ -1156,3 +1164,50 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .recipeactions.full { margin: 0 0 10px; }
 .recipeactions .btn { width: 100%; }
 @media (max-width: 390px) { .recipeactions { grid-template-columns: 1fr; } }
+
+/* 5.5 completion features ------------------------------------------------ */
+.calendar-head,.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.calendar-head{margin:18px 0 7px}.calendar-head span{text-align:center;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.calday{appearance:none;border:1px solid var(--rule);background:rgba(255,255,255,.025);color:var(--ink);border-radius:5px;min-height:58px;padding:7px 5px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;font:inherit}.calday.blank{border-color:transparent;background:transparent}.calday.muted{opacity:.35}.calday.today{border-color:var(--gold-mid);box-shadow:inset 0 0 0 1px rgba(198,161,93,.2)}.calday.logged{background:rgba(143,161,132,.08)}.calday strong{font-family:var(--serif);font-size:18px;color:var(--gold-mid);font-weight:500}.calday em{font-style:normal;color:var(--muted)}.calday small{font-size:8px;letter-spacing:1px;color:var(--sage);white-space:nowrap}.calnum{font-size:10px;color:var(--muted)}
+.sync-health{border:1px solid var(--rule);border-radius:5px;padding:13px;margin:0 0 13px;background:rgba(255,255,255,.025)}.sync-health.good{border-color:rgba(143,161,132,.55)}.sync-health.bad{border-color:rgba(157,82,65,.65)}.sync-health.warn{border-color:rgba(198,161,93,.45)}.synctop{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.synctop strong{font-weight:600}.synctop span{color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}.syncfacts{display:grid;gap:5px;margin-top:10px;font-size:10.5px;color:var(--muted)}.syncfacts span{display:flex;justify-content:space-between;gap:12px}.syncfacts b{font-weight:500;color:var(--ink);text-align:right}
+.activityrow{padding:14px 16px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:12px}.activityrow:last-child{border-bottom:0}.activitymain{flex:1;min-width:0}.reactionbar{display:flex;gap:5px;flex:none}.reactionbtn{appearance:none;border:1px solid var(--rule);background:transparent;border-radius:999px;min-width:34px;height:32px;padding:0 6px;font-size:16px}.reactionbtn.on{border-color:var(--gold-mid);background:rgba(198,161,93,.12)}.activityreaction{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none}.activityreaction span{font-size:18px}.activityreaction small{font-size:8px;color:var(--muted);white-space:nowrap}
+@media(max-width:380px){.calday{min-height:52px}.activityrow{align-items:flex-start;flex-wrap:wrap}.reactionbar{width:100%;justify-content:flex-end}}
+.goalrow{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule);font-size:11.5px}.goalrow:last-child{border-bottom:0}.goalrow span{min-width:0}.goalrow b{font-family:var(--serif);font-size:15px;font-weight:500;color:var(--gold-mid);flex:none}
+
+/* ---- Workout walk timer -------------------------------------------------
+   A persistent walk belongs to the active lifting session. The clock itself
+   updates without re-rendering the screen, so the user can keep the exercise
+   list open while the timer runs. */
+.walk-card { overflow: hidden; }
+.walk-body { padding: 18px 17px 17px; }
+.walk-clock {
+  font: 400 clamp(42px, 12vw, 58px)/1 'Playfair Display', Georgia, serif;
+  color: var(--ink, #F3EDE1); letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums; margin: 2px 0 10px;
+}
+.walk-copy { margin: 0 0 15px; max-width: 38em; }
+.walk-state { letter-spacing: .13em; }
+.walk-state.live { color: #E4CB99; }
+.walk-state.live::before {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 7px;
+  border-radius: 50%; background: var(--gold, #C6A15D); vertical-align: 1px;
+  box-shadow: 0 0 0 0 rgba(198,161,93,.45); animation: walkpulse 1.7s ease-out infinite;
+}
+.walk-state.done { color: var(--sage, #8FA184); }
+.walk-stop { background: rgba(157,82,65,.9); border-color: rgba(198,119,99,.9); color: #fff7ef; }
+.walk-details {
+  display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px;
+  border-top: 1px solid var(--rule); margin-top: 16px; padding-top: 16px;
+}
+.walk-details .btnrow { grid-column: 1 / -1; margin-top: -1px; }
+.walk-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border-top: 1px solid var(--rule); }
+.walk-facts > div { padding: 14px 17px 16px; min-width: 0; }
+.walk-facts > div + div { border-left: 1px solid var(--rule); }
+.walk-facts span { display:block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.walk-facts strong { display:block; font-family:var(--serif); font-size:17px; font-weight:500; color:var(--ink); overflow-wrap:anywhere; }
+.walk-history { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:11px 17px; border-bottom:1px solid var(--rule); color:var(--muted); font-size:11px; }
+.walk-history span { letter-spacing:.1em; text-transform:uppercase; }
+.walk-history strong { color:var(--ink); font-weight:500; text-align:right; }
+@keyframes walkpulse { 0% { box-shadow:0 0 0 0 rgba(198,161,93,.42); } 70% { box-shadow:0 0 0 8px rgba(198,161,93,0); } 100% { box-shadow:0 0 0 0 rgba(198,161,93,0); } }
+@media (max-width: 440px) {
+  .walk-details, .walk-facts { grid-template-columns: 1fr; }
+  .walk-facts > div + div { border-left:0; border-top:1px solid var(--rule); }
+}

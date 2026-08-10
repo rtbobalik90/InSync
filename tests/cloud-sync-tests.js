@@ -62,7 +62,7 @@ function b64decode(str){ return Buffer.from(String(str||'').replace(/\n/g,''),'b
     return response(404,{message:'unexpected '+method+' '+url});
   };
   vm.createContext(ctx);
-  run(ctx,'store.js'); run(ctx,'exercises.js'); run(ctx,'onboarding.js'); run(ctx,'cloud.js');
+  run(ctx,'store.js'); run(ctx,'exercises.js'); run(ctx,'insights.js'); run(ctx,'onboarding.js'); run(ctx,'cloud.js');
   const S=ctx.Store, C=ctx.Cloud;
   S.setProfileName('Robert'); S.setPartnerName('Lizzie');
   S.setSecret('githubToken','token'); S.set('connections.githubRepo','acme/insync-sync'); S.set('connections.githubBranch','main');
@@ -104,6 +104,25 @@ function b64decode(str){ return Buffer.from(String(str||'').replace(/\n/g,''),'b
   eq(S.state().partnerHistory[today],8,'full sync merges partner history');
   ok(!!S.state().connections.lastSync,'successful full sync records a completion timestamp');
   eq(S.state().connections.lastSyncError,'','successful full sync leaves no stale error');
+
+  // Schema-6 social additions are sanitized before they enter the app.
+  const partnerUpdated=new Date().toISOString(), validEvent='a:lizzie:'+today+':protein';
+  partner=Buffer.from(unescape(encodeURIComponent(JSON.stringify({
+    schema:6,name:'Lizzie',initials:'L',date:today,updated:partnerUpdated,points:8,streak:5,earned:[],
+    history:{points:{[today]:8},logged:{[today]:true}},
+    activity:[{id:validEvent,date:today,type:'protein',text:'Reached the protein target'},{id:'__proto__',date:today,type:'protein',text:'bad'},{id:'a:lizzie:'+today+':protein',date:today,type:'script',text:'bad type'},{id:'a:lizzie:2026-02-31:steps',date:today,type:'steps',text:'impossible date'}],
+    reactions:{[validEvent]:'heart','__proto__':'fire',['a:lizzie:'+today+':steps']:'explode'},
+    seenPartnerUpdated:partnerUpdated
+  }))),'binary').toString('base64');
+  await callbackPromise(cb=>C.pull(cb));
+  eq(S.state().partnerData.activity.length,1,'partner activity admits only valid bounded activity events');
+  ok(!C.sanitizePartnerPayload({schema:6,name:'Lizzie',date:today,activity:[{id:'a:lizzie:2026-02-31:steps',date:today,type:'steps',text:'bad'}]}).activity.length,'calendar-shaped impossible activity ids are rejected at the cloud boundary');
+  eq(S.state().partnerData.activity[0].id,validEvent,'valid partner activity id survives sanitation');
+  eq(S.state().partnerData.reactions[validEvent],'heart','valid partner reaction survives sanitation');
+  ok(!Object.prototype.hasOwnProperty.call(S.state().partnerData.reactions,'__proto__'),'unsafe reaction key cannot pollute partner state');
+  eq(C.sharePayload().seenPartnerUpdated,partnerUpdated,'our next payload acknowledges the exact partner version we pulled');
+  const badUpdated=C.sanitizePartnerPayload({schema:6,name:'Lizzie',date:today,updated:'not-a-time'});
+  eq(badUpdated.updated,'','malformed partner update timestamp is discarded before sync-health state can use it');
 
   // A shared expedition is monotonic across the two phones. If the partner has
   // already opened the next leg, this phone follows that leg index and never

@@ -64,6 +64,7 @@ vm.createContext(context);
   'store.js',
   'ui.js',
   'exercises.js',
+  'insights.js',
   'onboarding.js',
   'cloud.js',
   'foods.js',
@@ -118,6 +119,9 @@ Object.entries({
   plannedMeal: 'planned-meal/2099-01-01/Breakfast',
   cookbook: 'cookbook',
   history: 'history',
+  calendar: 'calendar',
+  dayHistory: `day-history/${Store.todayKey()}`,
+  weeklyReview: 'weekly-review',
   exercises: 'exercises',
   exercise: 'exercise/dumbbell-chest-press',
   trainDay: 'trainday',
@@ -125,6 +129,34 @@ Object.entries({
   meal: 'meal/unknown',
   handshake: 'handshake'
 }).forEach(([screenName, hash]) => check(screenName, hash, screenName === 'meal'));
+
+// A walk day counts toward the weekly training frequency through its real
+// step requirement; it does not need a fake workout record.
+const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Store.todayKey()+'T12:00:00').getDay()];
+Store.set('plan',[{day:dow,name:'Walk',detail:'Treadmill, 45 minutes'}]);Store.set('planMeta',{writtenBy:'coach',weekOf:Store.weekStart(Store.todayKey()),note:''});Store.setSteps(Store.state().targets.steps);
+context.location.hash='#train';const walkHtml=context.Screens.train();
+if (!walkHtml.includes('Walking day complete') || !walkHtml.includes('1 of 4')) { failed += 1; console.error('FAIL completed walk day is not counted toward the weekly training frequency'); } else passed += 1;
+Store.set('plan',[]);Store.set('planMeta',{});Store.setSteps(0);
+
+// The training strip is locked to the current Monday–Sunday calendar week.
+context.location.hash='#train';
+const calendarWeekHtml=context.Screens.train();
+const trainWeekStart=Store.weekStart(Store.todayKey()), trainWeekEnd=Store.shift(trainWeekStart,6);
+if (!calendarWeekHtml.includes('data-route="trainday/'+trainWeekStart+'"') || !calendarWeekHtml.includes('data-route="trainday/'+trainWeekEnd+'"')) {
+  failed += 1; console.error('FAIL training strip does not render the real Monday–Sunday calendar week');
+} else passed += 1;
+
+// Real lift history is surfaced on the main Training card as a next-session progression cue.
+const priorA=Store.shift(Store.todayKey(),-14), priorB=Store.shift(Store.todayKey(),-7);
+Store.day(priorA).workouts=[{name:'Chest',minutes:30,exercises:[{name:'Dumbbell chest press',weight:50,reps:10,sets:3}]}];
+Store.day(priorB).workouts=[{name:'Chest',minutes:30,exercises:[{name:'Dumbbell chest press',weight:50,reps:10,sets:3}]}];
+Store.save();
+Store.set('plan',[{day:dow,name:'Chest',detail:'',ex:['dumbbell-chest-press']}]);
+Store.set('planMeta',{writtenBy:'coach',weekOf:Store.weekStart(Store.todayKey()),note:''});
+context.location.hash='#train';
+const progressionHtml=context.Screens.train();
+if (!progressionHtml.includes('Next: Ready to add load')) { failed += 1; console.error('FAIL Training does not show the derived next-session progression cue'); } else passed += 1;
+Store.set('plan',[]);Store.set('planMeta',{});
 
 const plannedDate = Store.todayKey();
 const plannedKey = `${plannedDate}|Dinner`;
@@ -158,6 +190,25 @@ const workout = context.Exercises.expand([
 ]);
 Store.startSession('Upper', workout);
 check('session', 'session');
+context.location.hash='#session';
+const walkReadyHtml=context.Screens.session();
+if (!walkReadyHtml.includes('Workout walk') || !walkReadyHtml.includes('data-action="walk-start"') || walkReadyHtml.indexOf('Workout walk') > walkReadyHtml.indexOf('Dumbbell chest press')) {
+  failed += 1; console.error('FAIL workout walk is not rendered above the lifting movements');
+} else passed += 1;
+Store.startSessionWalk();
+context.location.hash='#session';
+const walkLiveHtml=context.Screens.session();
+if (!walkLiveHtml.includes('data-action="walk-stop"') || !walkLiveHtml.includes('walk-state live')) {
+  failed += 1; console.error('FAIL live workout walk does not render its stop state');
+} else passed += 1;
+Store.session().walk.startedAt=Date.now()-61000;Store.save();Store.stopSessionWalk();
+context.location.hash='#session';
+const walkStoppedHtml=context.Screens.session();
+if (!walkStoppedHtml.includes('data-walk-pace') || !walkStoppedHtml.includes('data-walk-elevation')) {
+  failed += 1; console.error('FAIL stopped workout walk does not render pace/elevation fields');
+} else passed += 1;
+check('swapExercise', 'swap-exercise/0');
+check('swapExercise', 'swap-exercise/0/occupied');
 Store.logSet(0, { weight: 50, reps: 10 });
 const completed = Store.finishSession();
 Store.set('lastFinish', completed);
@@ -196,6 +247,13 @@ Store.importState({
   coachCache: { date: 'bad', line: {} }, coachChat: { date: Store.todayKey(), messages: { bad: true } },
   lastFinish: { name: {}, minutes: -1, exercises: { bad: true }, best: 'bad' },
   lastArrival: { routeId: '', legIndex: 999999, milesMine: -2 },
+  badgeEarnedAt: { '__proto__': '2026-08-09', fake: '2026-02-31' },
+  mealFavoriteAt: { '__proto__': '2026-08-09', stale: 'bad' },
+  exercisePrefs: { dislikedIds: 'bad', discomfortIds: [null, 'not-an-exercise'], swapLog: [{date:'bad',fromId:{},toId:[],reason:'bad'}] },
+  weeklyReviews: { bad: {summary:{}}, '2026-08-03': 'bad' },
+  weeklyGoals: { bad: [{id:'x'}], '2026-08-03': 'bad' },
+  reactionsGiven: { '__proto__':'heart', nonsense:'explode' },
+  futurePlan: [{day:'Noday',name:{},ex:'bad'}], futurePlanMeta:{weekOf:'not-a-date'},
   connections: { githubBranch: '' }
 });
 
@@ -203,7 +261,7 @@ Object.entries({
   home: 'home', coach: 'coach', nutrition: 'nutrition', train: 'train', together: 'together',
   settings: 'settings', body: 'body', photos: 'photos', records: 'records', badges: 'badges',
   reflection: 'reflection', trends: 'trends', planner: 'planner', cookbook: 'cookbook',
-  history: 'history', exercises: 'exercises', notifications: 'notifications', handshake: 'handshake'
+  history: 'history', calendar: 'calendar', dayHistory: `day-history/${Store.todayKey()}`, weeklyReview: 'weekly-review', exercises: 'exercises', notifications: 'notifications', handshake: 'handshake'
 }).forEach(([screenName, hash]) => check(screenName, hash));
 
 console.log(`${passed} screen smoke checks passed, ${failed} failed`);

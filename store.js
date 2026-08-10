@@ -29,6 +29,9 @@
     /* Notification-centre preferences. The daily logging
        reminder is deliberately absent: it fires hardest on the worst days. */
     notifs: { invite: true, accept: true, note: true, challengeExpiring: true, leg: true, badge: false },
+    /* Stable ids of informational notifications already opened in the centre.
+       Action-required items are never cleared merely by viewing them. */
+    notificationInfoSeen: [],
     days: {},
     /* No expedition is chosen on a fresh install. The two of them pick the
        first one together, so nothing here may name a route. legStart is the day
@@ -41,6 +44,10 @@
     partnerHistory: {},
     partnerLoggedHistory: {},
     earned: [],
+    /* Forward-looking badge timestamps. Older earned ids are intentionally not
+       backdated during migration; only genuinely new earning moments receive
+       a date so weekly reviews never invent badge history. */
+    badgeEarnedAt: {},
     photos: [],
     notesSent: 0,
     /* Messages this device has authored. The partner's messages live in partnerData.messages. */
@@ -52,15 +59,25 @@
     verseCache: null,
     plan: [],
     planMeta: {},
+    futurePlan: [],
+    futurePlanMeta: {},
     mealIdeas: [],
     mealPlan: {},
     mealPlannerWeek: '',
     shopTicked: {},
     /* Meal-prep taste memory stays on this device. Favorites are full recipe
        snapshots so they can be reused even when the original planned week is gone. */
-    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '' },
+    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '', lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [] },
     mealFavorites: [],
+    /* Date a recipe was most recently favorited. This lets weekly reviews say
+       which favorites were actually added that week instead of guessing from
+       the current cookbook. Keys are normalized recipe names. */
+    mealFavoriteAt: {},
     mealDislikedMeals: [],
+    exercisePrefs: { dislikedIds: [], discomfortIds: [], swapLog: [] },
+    weeklyReviews: {},
+    weeklyGoals: {},
+    reactionsGiven: {},
     proposal: null,
     lastArrival: null,
     lastFinish: null,
@@ -169,6 +186,29 @@
     return n;
   }
   function shortText(v, max) { return typeof v === 'string' ? v.slice(0, max || 5000) : ''; }
+
+
+  function blankSessionWalk() {
+    return { startedAt: 0, elapsedMs: 0, stoppedAt: 0, pace: '', elevation: '' };
+  }
+  function sanitizeSessionWalk(v) {
+    var out = blankSessionWalk();
+    if (!plainObject(v)) return out;
+    out.startedAt = Math.round(finiteOr(v.startedAt, 0, 0, Number.MAX_SAFE_INTEGER));
+    out.elapsedMs = Math.round(finiteOr(v.elapsedMs, 0, 0, 86400000));
+    out.stoppedAt = Math.round(finiteOr(v.stoppedAt, 0, 0, Number.MAX_SAFE_INTEGER));
+    out.pace = shortText(v.pace, 80).trim();
+    out.elevation = shortText(v.elevation, 80).trim();
+    return out;
+  }
+  function sanitizeWorkoutWalk(v) {
+    if (!plainObject(v)) return null;
+    var seconds = Math.round(finiteOr(v.seconds, 0, 0, 86400));
+    var pace = shortText(v.pace, 80).trim();
+    var elevation = shortText(v.elevation, 80).trim();
+    if (!seconds && !pace && !elevation) return null;
+    return { seconds: seconds, pace: pace, elevation: elevation };
+  }
   function validDateKey(v) {
     var x = String(v || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
@@ -178,6 +218,17 @@
     test.setHours(12, 0, 0, 0);
     test.setFullYear(y, m - 1, d);
     return test.getFullYear() === y && test.getMonth() === m - 1 && test.getDate() === d;
+  }
+
+  function validTimestamp(v) {
+    var x = shortText(v, 80);
+    return x && !isNaN(Date.parse(x)) ? x : '';
+  }
+  function validActivityIdKey(id) {
+    id = String(id || '');
+    if (!safeKey(id)) return false;
+    var m = id.match(/^a:([a-z0-9-]{1,80}):(\d{4}-\d{2}-\d{2}):(score|protein|steps|workout:\d{1,3})$/);
+    return !!(m && validDateKey(m[2]));
   }
 
   /* A backup is user-editable JSON and local browser storage can also be
@@ -212,6 +263,13 @@
     Object.keys(DEFAULT.notifs).forEach(function (k) {
       S.notifs[k] = typeof S.notifs[k] === 'boolean' ? S.notifs[k] : DEFAULT.notifs[k];
     });
+    var seenInfo = {};
+    S.notificationInfoSeen = Array.isArray(S.notificationInfoSeen) ? S.notificationInfoSeen.map(function (x) {
+      return shortText(x, 320).trim();
+    }).filter(function (x) {
+      if (!x || seenInfo[x]) return false;
+      seenInfo[x] = true; return true;
+    }).slice(-200) : [];
 
     if (!plainObject(S.days)) S.days = {};
     Object.keys(S.days).forEach(function (key) {
@@ -235,12 +293,14 @@
         w.name = shortText(w.name, 120) || 'Session';
         w.minutes = Math.max(0, Math.round(finiteOr(w.minutes, 0, 0, 1440)));
         w.exercises = Array.isArray(w.exercises) ? w.exercises.filter(plainObject).map(function (e) {
+          e.id = shortText(e.id, 120);
           e.name = shortText(e.name, 160) || 'Exercise';
           e.weight = Math.max(0, finiteOr(e.weight, 0, 0, 5000));
           e.reps = Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000)));
           e.sets = Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000)));
           return e;
         }) : [];
+        w.walk = sanitizeWorkoutWalk(w.walk);
         return w;
       }) : [];
       d.steps = Math.max(0, Math.round(finiteOr(d.steps, 0, 0, 500000)));
@@ -287,8 +347,14 @@
     });
     if (!Array.isArray(S.earned)) S.earned = [];
     S.earned = S.earned.filter(function (x, i, a) { return typeof x === 'string' && a.indexOf(x) === i; }).slice(0, 500);
+    if (!plainObject(S.badgeEarnedAt)) S.badgeEarnedAt = {};
+    Object.keys(S.badgeEarnedAt).forEach(function (id) {
+      var d = S.badgeEarnedAt[id];
+      if (!safeKey(id) || id.length > 120 || S.earned.indexOf(id) < 0 || !validDateKey(d) || d > todayKey()) delete S.badgeEarnedAt[id];
+      else S.badgeEarnedAt[id] = String(d);
+    });
     if (!Array.isArray(S.photos)) S.photos = [];
-    S.photos = S.photos.filter(plainObject).map(function (p) { return { id: shortText(p.id, 200), date: shortText(p.date, 10) }; }).filter(function (p) { return !!p.id; });
+    S.photos = S.photos.filter(plainObject).map(function (p) { var pd=shortText(p.date,10); return { id: shortText(p.id, 200), date: validDateKey(pd) ? pd : '' }; }).filter(function (p) { return !!p.id; });
     S.notesSent = Math.max(0, Math.round(finiteOr(S.notesSent, 0, 0, 1000000)));
     if (!Array.isArray(S.sentMessages)) S.sentMessages = [];
     S.sentMessages = S.sentMessages.filter(plainObject).map(function (m) {
@@ -352,6 +418,18 @@
         };
         if (!S.partnerData.expedition.routeId) delete S.partnerData.expedition;
       } else delete S.partnerData.expedition;
+      S.partnerData.updated = validTimestamp(S.partnerData.updated);
+      S.partnerData.seenPartnerUpdated = validTimestamp(S.partnerData.seenPartnerUpdated);
+      S.partnerData.activity = Array.isArray(S.partnerData.activity) ? S.partnerData.activity.filter(plainObject).map(function (a) {
+        var id = shortText(a.id, 160), type = shortText(a.type, 40), date = validDateKey(a.date) ? String(a.date) : S.partnerData.date;
+        return { id: id, date: date, type: type, text: shortText(a.text, 240), createdAt: validTimestamp(a.createdAt) };
+      }).filter(function (a) {
+        return validActivityIdKey(a.id) && ['score','workout','protein','steps'].indexOf(a.type) >= 0 && !!a.text && validDateKey(a.date);
+      }).slice(-80) : [];
+      if (!plainObject(S.partnerData.reactions)) S.partnerData.reactions = {};
+      Object.keys(S.partnerData.reactions).forEach(function (id) {
+        if (!validActivityIdKey(id) || ['heart','clap','fire'].indexOf(S.partnerData.reactions[id]) < 0) delete S.partnerData.reactions[id];
+      });
       if (!S.partnerData.date || !S.partnerData.name) S.partnerData = null;
     }
 
@@ -398,7 +476,10 @@
       m.cuisine = shortText(m.cuisine, 60);
       m.proteins = Array.isArray(m.proteins) ? m.proteins.map(function (x) { return shortText(x, 60); }).filter(Boolean).slice(0, 8) : [];
       m.photoId = shortText(m.photoId, 220);
-      m.source = ['coach', 'saved', 'manual', 'favorite'].indexOf(m.source) >= 0 ? m.source : '';
+      m.source = ['coach', 'saved', 'manual', 'favorite', 'prep'].indexOf(m.source) >= 0 ? m.source : '';
+      m.batchId = shortText(m.batchId, 160);
+      m.leftoverOf = shortText(m.leftoverOf, 200);
+      m.batchSource = !!m.batchSource;
       return m;
     }
 
@@ -443,6 +524,11 @@
     }).slice(0, allowedProteins.length) : [];
     S.mealPrefs.likes = shortText(S.mealPrefs.likes, 1200);
     S.mealPrefs.avoid = shortText(S.mealPrefs.avoid, 1200);
+    S.mealPrefs.lunchPrepDays = Math.max(0, Math.min(5, Math.round(finiteOr(S.mealPrefs.lunchPrepDays, 0, 0, 5))));
+    S.mealPrefs.dinnerLeftovers = !!S.mealPrefs.dinnerLeftovers;
+    S.mealPrefs.cookDays = Array.isArray(S.mealPrefs.cookDays) ? S.mealPrefs.cookDays.filter(function (x, i, a) {
+      return WEEKDAYS.indexOf(x) >= 0 && a.indexOf(x) === i;
+    }).slice(0, 7) : [];
     S.mealFavorites = Array.isArray(S.mealFavorites) ? S.mealFavorites.filter(plainObject).map(cleanPlannedMeal).filter(Boolean).slice(-60) : [];
     /* One favorite per normalized recipe name. The newest snapshot wins. */
     var favoriteNames = {};
@@ -451,6 +537,12 @@
       if (!k || favoriteNames[k]) return false;
       favoriteNames[k] = true; return true;
     }).reverse();
+    if (!plainObject(S.mealFavoriteAt)) S.mealFavoriteAt = {};
+    Object.keys(S.mealFavoriteAt).forEach(function (k) {
+      var d=S.mealFavoriteAt[k];
+      if (!safeKey(k) || k.length > 220 || !favoriteNames[k] || !validDateKey(d) || d > todayKey()) delete S.mealFavoriteAt[k];
+      else S.mealFavoriteAt[k]=String(d);
+    });
     var dislikedNames = {};
     S.mealDislikedMeals = Array.isArray(S.mealDislikedMeals) ? S.mealDislikedMeals.map(function (x) { return shortText(x, 200).trim(); })
       .filter(function (x) {
@@ -458,10 +550,44 @@
         if (!x || dislikedNames[k]) return false;
         dislikedNames[k] = true; return true;
       }).slice(-120) : [];
+    if (!plainObject(S.exercisePrefs)) S.exercisePrefs = clone(DEFAULT.exercisePrefs);
+    ['dislikedIds','discomfortIds'].forEach(function (field) {
+      S.exercisePrefs[field] = Array.isArray(S.exercisePrefs[field]) ? S.exercisePrefs[field].map(function (x) { return shortText(x, 120); })
+        .filter(function (x, i, a) { return !!x && a.indexOf(x) === i; }).slice(-80) : [];
+    });
+    S.exercisePrefs.swapLog = Array.isArray(S.exercisePrefs.swapLog) ? S.exercisePrefs.swapLog.filter(plainObject).slice(-80).map(function (x) {
+      return { date: validDateKey(x.date) ? String(x.date) : todayKey(), fromId: shortText(x.fromId, 120), toId: shortText(x.toId, 120), reason: ['occupied','discomfort','dislike'].indexOf(x.reason) >= 0 ? x.reason : 'occupied' };
+    }) : [];
+    if (!plainObject(S.weeklyReviews)) S.weeklyReviews = {};
+    Object.keys(S.weeklyReviews).forEach(function (k) {
+      if (!validDateKey(k) || !plainObject(S.weeklyReviews[k])) { delete S.weeklyReviews[k]; return; }
+      var r = S.weeklyReviews[k];
+      S.weeklyReviews[k] = { summary: shortText(r.summary, 1600), win: shortText(r.win, 800), pattern: shortText(r.pattern, 800), carry: shortText(r.carry, 800), generatedAt: shortText(r.generatedAt, 80) };
+    });
+    if (!plainObject(S.weeklyGoals)) S.weeklyGoals = {};
+    Object.keys(S.weeklyGoals).forEach(function (k) {
+      if (!validDateKey(k) || !Array.isArray(S.weeklyGoals[k])) { delete S.weeklyGoals[k]; return; }
+      S.weeklyGoals[k] = S.weeklyGoals[k].filter(plainObject).slice(0, 4).map(function (g) {
+        return { id: shortText(g.id, 60), label: shortText(g.label, 240), target: Math.max(1, Math.round(finiteOr(g.target, 1, 1, 20))) };
+      }).filter(function (g) { return !!g.id && !!g.label; });
+    });
+    if (!plainObject(S.reactionsGiven)) S.reactionsGiven = {};
+    Object.keys(S.reactionsGiven).forEach(function (id) {
+      if (!validActivityIdKey(id) || ['heart','clap','fire'].indexOf(S.reactionsGiven[id]) < 0) delete S.reactionsGiven[id];
+    });
     if (!plainObject(S.planMeta)) S.planMeta = {};
     S.planMeta.writtenBy = S.planMeta.writtenBy === 'coach' ? 'coach' : '';
     S.planMeta.weekOf = validDateKey(S.planMeta.weekOf) ? String(S.planMeta.weekOf) : '';
     S.planMeta.note = shortText(S.planMeta.note, 1000);
+    if (!Array.isArray(S.futurePlan)) S.futurePlan = [];
+    S.futurePlan = S.futurePlan.filter(plainObject).map(function (p) {
+      return { day: WEEKDAYS.indexOf(p.day) >= 0 ? p.day : '', name: shortText(p.name,40) || 'Session',
+        ex: Array.isArray(p.ex) ? p.ex.filter(function(x){return typeof x === 'string';}).slice(0,12) : undefined, detail: shortText(p.detail,200) };
+    }).filter(function(p){return !!p.day;});
+    if (!plainObject(S.futurePlanMeta)) S.futurePlanMeta = {};
+    S.futurePlanMeta.writtenBy = S.futurePlanMeta.writtenBy === 'coach' ? 'coach' : '';
+    S.futurePlanMeta.weekOf = validDateKey(S.futurePlanMeta.weekOf) ? String(S.futurePlanMeta.weekOf) : '';
+    S.futurePlanMeta.note = shortText(S.futurePlanMeta.note,1000);
     if (S.proposal != null && (!plainObject(S.proposal) || !plainObject(S.proposal.targets))) S.proposal = null;
     if (S.proposal) {
       var pt = S.proposal.targets, cleanTargets = {};
@@ -514,12 +640,14 @@
       S.lastFinish.pointsGained = Math.max(0, Math.min(10, Math.round(finiteOr(S.lastFinish.pointsGained, 0, 0, 10))));
       S.lastFinish.exercises = Array.isArray(S.lastFinish.exercises) ? S.lastFinish.exercises.filter(plainObject).slice(0, 100).map(function (x) {
         return {
+          id: shortText(x.id, 120),
           name: shortText(x.name, 160) || 'Exercise',
           weight: Math.max(0, finiteOr(x.weight, 0, 0, 5000)),
           reps: Math.max(0, Math.round(finiteOr(x.reps, 0, 0, 10000))),
           sets: Math.max(0, Math.round(finiteOr(x.sets, 0, 0, 1000)))
         };
       }) : [];
+      S.lastFinish.walk = sanitizeWorkoutWalk(S.lastFinish.walk);
       if (plainObject(S.lastFinish.best)) {
         S.lastFinish.best = { name: shortText(S.lastFinish.best.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(S.lastFinish.best.weight, 0, 0, 5000)) };
       } else S.lastFinish.best = null;
@@ -530,6 +658,7 @@
     if (S.session) {
       S.session.name = shortText(S.session.name, 120) || 'Session';
       S.session.startedAt = finiteOr(S.session.startedAt, Date.now(), 0, Number.MAX_SAFE_INTEGER);
+      S.session.walk = sanitizeSessionWalk(S.session.walk);
       S.session.items = S.session.items.filter(plainObject).map(function (it) {
         it.id = shortText(it.id, 120); it.name = shortText(it.name, 160) || 'Exercise';
         it.sets = Array.isArray(it.sets) ? it.sets.filter(plainObject).map(function (set) {
@@ -1001,8 +1130,9 @@
       name: shortText(w.name, 120) || 'Session',
       minutes: Math.max(0, Math.round(finiteOr(w.minutes, 0, 0, 1440))),
       exercises: Array.isArray(w.exercises) ? w.exercises.filter(plainObject).map(function (e) {
-        return { name: shortText(e.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(e.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000))), sets: Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000))) };
-      }) : []
+        return { id: shortText(e.id, 120), name: shortText(e.name, 160) || 'Exercise', weight: Math.max(0, finiteOr(e.weight, 0, 0, 5000)), reps: Math.max(0, Math.round(finiteOr(e.reps, 0, 0, 10000))), sets: Math.max(0, Math.round(finiteOr(e.sets, 0, 0, 1000))) };
+      }) : [],
+      walk: sanitizeWorkoutWalk(w.walk)
     };
     day(key).workouts.push(entry); save(); emit(); return entry;
   }
@@ -1016,6 +1146,7 @@
       name: planName || 'Session',
       startedAt: Date.now(),
       scoreBasis: clone(makeScoreBasis(todayKey())),
+      walk: blankSessionWalk(),
       items: items.map(function (e) {
         return {
           id: e.id, name: e.name, gif: e.gif || null,
@@ -1035,6 +1166,41 @@
     if (S.session && S.session.date < shift(todayKey(), -1)) { S.session = null; save(); }
     return S.session || null;
   }
+  function sessionWalkElapsedMs() {
+    var s = S.session; if (!s) return 0;
+    var w = sanitizeSessionWalk(s.walk);
+    return Math.max(0, w.elapsedMs + (w.startedAt ? Date.now() - w.startedAt : 0));
+  }
+  function startSessionWalk() {
+    var s = S.session; if (!s) return false;
+    s.walk = sanitizeSessionWalk(s.walk);
+    if (s.walk.startedAt) return true;
+    s.walk.startedAt = Date.now();
+    s.walk.stoppedAt = 0;
+    save(); emit(); return true;
+  }
+  function stopSessionWalk() {
+    var s = S.session; if (!s) return false;
+    s.walk = sanitizeSessionWalk(s.walk);
+    if (!s.walk.startedAt) return false;
+    s.walk.elapsedMs = Math.min(86400000, s.walk.elapsedMs + Math.max(0, Date.now() - s.walk.startedAt));
+    s.walk.startedAt = 0;
+    s.walk.stoppedAt = Date.now();
+    save(); emit(); return true;
+  }
+  function updateSessionWalk(patch) {
+    var s = S.session; if (!s || !plainObject(patch)) return false;
+    s.walk = sanitizeSessionWalk(s.walk);
+    if (patch.pace != null) s.walk.pace = shortText(String(patch.pace), 80).trim();
+    if (patch.elevation != null) s.walk.elevation = shortText(String(patch.elevation), 80).trim();
+    save(); emit(); return true;
+  }
+  function resetSessionWalk() {
+    var s = S.session; if (!s) return false;
+    s.walk = blankSessionWalk();
+    save(); emit(); return true;
+  }
+
   function logSet(itemIndex, set) {
     var s = S.session; if (!s || !s.items[itemIndex] || !plainObject(set)) return;
     s.items[itemIndex].sets.push({
@@ -1069,6 +1235,10 @@
      screen states facts rather than re-deriving them. */
   function finishSession() {
     var s = S.session; if (!s) return null;
+    s.walk = sanitizeSessionWalk(s.walk);
+    /* The user owns the walk clock. Finishing a lift must never silently stop
+       a walk that they intended to keep timing. */
+    if (s.walk.startedAt) return null;
     var logged = s.items.filter(function (i) { return i.sets.length; });
     if (!logged.length) return null;
 
@@ -1086,16 +1256,21 @@
         if (!top || set.weight > top.weight) top = set;
       });
       if (top && (!best || top.weight > best.weight)) best = { name: i.name, weight: top.weight, reps: top.reps };
-      return { name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length };
+      return { id: i.id || '', name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length };
     });
 
-    d.workouts.push({ name: s.name, minutes: minutes, exercises: exercises });
+    var walk = sanitizeWorkoutWalk({
+      seconds: Math.round((s.walk.elapsedMs || 0) / 1000),
+      pace: s.walk.pace,
+      elevation: s.walk.elevation
+    });
+    d.workouts.push({ name: s.name, minutes: minutes, exercises: exercises, walk: walk });
     S.session = null;
     save(); emit();
 
     return {
       name: s.name, minutes: minutes, volume: Math.round(volume),
-      exercises: exercises, best: best,
+      exercises: exercises, best: best, walk: walk,
       pointsGained: points(key) - before
     };
   }
@@ -1653,6 +1828,8 @@
     points: points, pointRows: pointRows, timeOfDay: timeOfDay, nextStep: nextStep,
     addMeal: addMeal, findMeal: findMeal, updateMeal: updateMeal, removeMeal: removeMeal, addWorkout: addWorkout, setSteps: setSteps, setMorning: setMorning,
     startSession: startSession, session: session, logSet: logSet, dropSet: dropSet,
+    sessionWalkElapsedMs: sessionWalkElapsedMs, startSessionWalk: startSessionWalk,
+    stopSessionWalk: stopSessionWalk, updateSessionWalk: updateSessionWalk, resetSessionWalk: resetSessionWalk,
     addSessionItem: addSessionItem, dropSessionItem: dropSessionItem,
     abandonSession: abandonSession, finishSession: finishSession,
     saveReflection: saveReflection, markVerseRead: markVerseRead, verse: verse, verseList: verseList, records: records,

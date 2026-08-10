@@ -63,9 +63,25 @@
     return (r && r[id]) || p;
   }
 
-  /* The bell only earns a mark when something is actually waiting. */
-  function unreadCount() {
-    return (window.Screens && Screens.pendingCount) ? Screens.pendingCount() : 0;
+  /* Three bell states: quiet, new information, and an unresolved action.
+     Informational items are marked read by opening the Notification Centre;
+     actions stay counted until the underlying task is actually resolved. */
+  function notificationStatus() {
+    if (window.Screens && Screens.notificationStatus) return Screens.notificationStatus();
+    var pending = (window.Screens && Screens.pendingCount) ? Screens.pendingCount() : 0;
+    return { action: pending, info: 0 };
+  }
+
+  function bellButton() {
+    var n = notificationStatus();
+    var state = n.action ? ' has-action' : (n.info ? ' has-info' : '');
+    var label = n.action
+      ? 'Notifications, ' + n.action + ' need' + (n.action === 1 ? 's' : '') + ' your attention'
+      : (n.info ? 'Notifications, new activity' : 'Notifications');
+    var mark = n.action
+      ? '<span class="notifcount">' + (n.action > 9 ? '9+' : n.action) + '</span>'
+      : (n.info ? '<span class="notifdot"></span>' : '');
+    return '<button class="iconbtn notifbell' + state + '" data-route="notifications" aria-label="' + esc(label) + '">' + icon('bell') + mark + '</button>';
   }
 
   function header(opts) {
@@ -78,8 +94,7 @@
     var right = opts.right != null ? opts.right :
       '<div style="display:flex;align-items:center;gap:10px">' +
         (here === 'notifications' ? '' :
-          '<button class="iconbtn" data-route="notifications" aria-label="Notifications">' + icon('bell') +
-            (unreadCount() ? '<span class="dot"></span>' : '') + '</button>') +
+          bellButton()) +
         (here === 'settings' ? '' :
           '<button class="avatar" data-route="settings" aria-label="Settings">' + esc(Store.state().profile.initials) + '</button>') +
       '</div>';
