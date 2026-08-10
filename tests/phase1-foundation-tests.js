@@ -10,7 +10,7 @@ function make(seed){
   location:{hostname:'example.test',pathname:'/insync/',hash:'#home',protocol:'https:'},navigator:{onLine:true},CustomEvent:function(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),atob:s=>Buffer.from(s,'base64').toString('binary'),fetch:()=>Promise.reject(new Error('offline')),window:null};
  c.window=c;c.window.dispatchEvent=()=>{};vm.createContext(c);
- ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js'].forEach(f=>vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f}));
+ ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','intelligence.js','prompt-registry.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js'].forEach(f=>vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f}));
  return c;
 }
 const c=make(),S=c.Store;
@@ -79,8 +79,8 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),index=fs.readFileSync
 ok(app.includes("var TABS = ['home', 'journey', 'train', 'nutrition', 'together']"),'router uses Journey in the primary tab set');
 ok(app.includes("else if (root === 'coach') html = Screens.coach()"),'Coach remains routable after leaving bottom navigation');
 ok(index.indexOf('journeys.js')<index.indexOf('screens.js')&&index.indexOf('camp.js')<index.indexOf('store.js'),'foundation modules load before their consumers');
-ok(sw.includes("CACHE = 'insync-v10-16'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
-ok(app.includes("version:'6.0.0-p1'")&&screensSource.includes('Version 6.0.0-p1'),'runtime and Settings identify the Phase 1 build');
+ok(sw.includes("CACHE = 'insync-v10-18'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
+ok(app.includes("version:'6.0.0-p3'")&&screensSource.includes('Version 6.0.0-p3'),'runtime and Settings preserve the Phase 1 foundation in the Phase 2 build');
 
 console.log(`\n${passed} Phase 1 foundation checks passed, ${failed} failed`);
 if(failed)process.exit(1);

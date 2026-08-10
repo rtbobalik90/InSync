@@ -494,7 +494,7 @@ function withBadges() {
   S.state().lastArrival={routeId:'camino',legIndex:1,at:new Date().toISOString(),milesMine:3.2,milesHers:2.8};
   S.state().privacy.steps=false; S.day(k).steps=4000; S.save();
   let p=C.sharePayload();
-  eq(p.schema,6,'partner payload uses current sync schema 6');
+  eq(p.schema,7,'partner payload uses current sync schema 7');
   eq(p.expedition.routeId,'camino','expedition route identity is core Together state even with Steps private');
   eq(p.expedition.legIndex,2,'expedition leg identity is core Together state even with Steps private');
   ok(!('legMiles' in p) && !('previousLegMiles' in p.expedition),'Steps privacy removes current and previous-leg mileage');
@@ -638,7 +638,7 @@ function withBadges() {
     'service-worker activation waits for a safe Home/Settings moment instead of reloading an active form or workout');
 
   const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
-  ok(sw.includes("CACHE = 'insync-v10-16'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
+  ok(sw.includes("CACHE = 'insync-v10-18'") && sw.includes('e.waitUntil(fresh'),'service worker uses the refreshed v10 cache and stale-while-revalidate artwork');
   ok(sw.includes('return c.addAll(SHELL)'),'service-worker shell install fails safely instead of swallowing missing core files');
 
   const prodJs=fs.readdirSync(ROOT).filter(f=>f.endsWith('.js'));

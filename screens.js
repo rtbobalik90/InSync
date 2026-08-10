@@ -54,6 +54,17 @@
     return { line: n.line, action: n.action, route: n.route, written: false };
   }
 
+  function aiWhyBlock(key, title) {
+    if (!window.InSyncIntelligence) return '';
+    var e = InSyncIntelligence.evidence(key);
+    if (!e || !e.items || !e.items.length) return '';
+    return '<details class="aiwhy"><summary>' + esc(title || 'Why did Coach suggest this?') + '</summary>' +
+      '<div class="aiwhybody">' + e.items.map(function (it) {
+        return '<div class="aiwhyrow"><span>' + esc(it.label) + '</span><b>' + esc(it.value) + '</b></div>';
+      }).join('') +
+      '<p class="small">Evidence is computed by InSync from your saved data. Coach does not get to invent the figures.</p></div></details>';
+  }
+
   function nextStepCard() {
     var n = coachSays();
     return '<article class="card pad">' +
@@ -66,6 +77,46 @@
         '<button class="btn" data-route="' + n.route + '">' + esc(n.action) + '</button>' +
         '<button class="btn ghost auto" data-route="coach">Ask coach</button>' +
       '</div>' +
+      (n.written ? aiWhyBlock('daily-next-step') : '') +
+    '</article>';
+  }
+
+
+  function faithBriefCard() {
+    if (!window.Faith) return '';
+    var v = Store.verse(), f = Faith.summary(), partnerPrayer = f.partnerPrayer;
+    var status = f.memoryDue
+      ? f.memoryDue + ' Scripture review' + (f.memoryDue === 1 ? '' : 's') + ' due'
+      : (f.memoryTotal ? f.memoryTotal + ' verse' + (f.memoryTotal === 1 ? '' : 's') + ' on the Memory Trail' : 'Begin the Scripture Memory Trail');
+    var partner = partnerPrayer
+      ? '<div style="margin-top:13px;padding-top:12px;border-top:1px solid var(--rule)"><span class="small">' +
+          esc(Store.partnerName()) + ' shared a prayer request.</span></div>'
+      : '';
+    return '<article class="card pad">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">' +
+        '<span class="kicker sage">Spirit</span><span class="small">' + esc(status) + '</span>' +
+      '</div>' +
+      '<p class="lede" style="font-size:17px">' + esc(v.ref) + '</p>' +
+      '<p class="small" style="margin-top:7px">' + esc(v.text) + '</p>' +
+      partner +
+      '<div class="btnrow" style="margin-top:15px"><button class="btn ghost sm" data-route="faith">Open Faith</button>' +
+      '<button class="btn ghost sm" data-route="reflection">Reflect</button></div>' +
+    '</article>';
+  }
+
+  function sabbathHomeCard() {
+    var v = Store.verse(), d = Store.day(), t = Store.totals();
+    var facts = [];
+    if (d.steps) facts.push(d.steps.toLocaleString() + ' steps');
+    if ((d.meals || []).length) facts.push((d.meals || []).length + ' meals');
+    if ((d.workouts || []).length) facts.push((d.workouts || []).length + ' session' + ((d.workouts || []).length === 1 ? '' : 's'));
+    if (t.protein) facts.push(t.protein + ' g protein');
+    return '<article class="card pad accent">' +
+      '<div class="kicker gold" style="margin-bottom:9px">Sabbath mode</div>' +
+      '<p class="lede">Today is not a score to close.</p>' +
+      '<p class="small" style="margin-top:9px">Rest, worship, Scripture, gratitude and an unhurried walk may belong here. Health data can still be logged, but InSync will not turn it into pressure.</p>' +
+      (facts.length ? '<p class="small" style="margin-top:12px">Already recorded: ' + esc(facts.join(' · ')) + '.</p>' : '') +
+      '<div class="btnrow" style="margin-top:15px"><button class="btn" data-route="faith">Faith Hub</button><button class="btn ghost" data-route="reflection">Gratitude & reflection</button></div>' +
     '</article>';
   }
 
@@ -159,9 +210,12 @@
       (hasData ? '' :
         '<div class="streakline"><i></i><span>Day one &middot; ' + timeWord() + '</span></div>');
 
-    var body = hasData
-      ? ledgerCard() + nextStepCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
-      : dayOneCard();
+    var sabbath = window.Faith && Faith.isSabbath && Faith.isSabbath();
+    var body = sabbath
+      ? sabbathHomeCard() + faithBriefCard() + expeditionCard() + partnerCard()
+      : (hasData
+          ? ledgerCard() + nextStepCard() + faithBriefCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
+          : dayOneCard() + faithBriefCard());
     body += '<button class="btn ghost block" data-route="calendar">History &amp; calendar</button>';
 
     return UI.screen({
@@ -328,6 +382,18 @@
   /* Coach. One scrolling screen; the top changes after dark, and the
      conversation is real when a key is set. Every figure here is computed. */
   function coach() {
+    if (window.Faith && Faith.isSabbath && Faith.isSabbath()) {
+      var sv = Store.verse();
+      return UI.screen({
+        tab: null, restMeasure: true, art: 'assets/art/coach-desk.webp', photoPos: 'center 34%',
+        overlay: '<div class="eyebrow">' + esc(dayPart()) + '</div><p class="verse" style="font-size:25px">Sabbath mode is on. Coach will not turn today into a list to close.</p>',
+        body:
+          '<article class="card pad accent"><div class="kicker gold" style="margin-bottom:9px">A slower day</div>' +
+            '<p class="lede">' + esc(sv.text) + '</p><p class="small" style="margin-top:8px">' + esc(sv.ref) + '</p>' +
+            '<div class="btnrow" style="margin-top:15px"><button class="btn" data-route="faith">Open Faith</button><button class="btn ghost" data-route="reflection">Reflect</button></div></article>' +
+          askBlock()
+      });
+    }
     var n = coachSays(), t = Store.totals(), tg = Store.state().targets;
     var d = Store.day(), evening = Store.timeOfDay() === 'night';
     var gaps = [
@@ -393,7 +459,9 @@
           '<div class="btnrow" style="margin-top:16px">' +
             '<button class="btn" data-route="' + n.route + '">' + esc(n.action) + '</button>' +
             writeBtn +
+            '<button class="btn ghost auto" data-route="faith">Faith Hub</button>' +
           '</div>' +
+          (n.written ? aiWhyBlock('daily-next-step') : '') +
           (Cloud.hasClaude() ? '' : '<p class="small" style="margin-top:13px">Written from simple rules. Add a Claude key in Settings and the coach writes it in its own words.</p>') +
         '</article>' +
         eveningCard +
@@ -1780,6 +1848,7 @@
         (review.win ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Win</div><div class="small">' + esc(review.win) + '</div></div></div>' : '') +
         (review.pattern ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Pattern</div><div class="small">' + esc(review.pattern) + '</div></div></div>' : '') +
         (review.carry ? '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Carry forward</div><div class="small">' + esc(review.carry) + '</div></div></div>' : '') +
+        aiWhyBlock('weekly-review', 'What evidence did Coach use?') +
       '</article>';
     } else {
       body += '<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:9px 0 14px">The numbers above are already final. The coach can turn them into a short review without inventing anything.</p>' +
@@ -1824,7 +1893,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p1 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p3 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -1884,6 +1953,13 @@
           return '<button class="ob-chip' + (current === o[0] ? ' on' : '') + '" data-action="' + action + '" data-value="' + esc(o[0]) + '">' + esc(o[1]) + '</button>';
         }).join('') + '</div></div>';
     }
+    function aiPreferenceRow(label, note, key, opts, current) {
+      return '<div class="setpref"><div><div class="setname">' + esc(label) + '</div>' +
+        (note ? '<div class="small">' + esc(note) + '</div>' : '') + '</div>' +
+        '<div class="setprefchips">' + opts.map(function (o) {
+          return '<button class="ob-chip' + (current === o[0] ? ' on' : '') + '" data-action="set-ai-pref" data-pref="' + esc(key) + '" data-value="' + esc(o[0]) + '">' + esc(o[1]) + '</button>';
+        }).join('') + '</div></div>';
+    }
     function keyField(label, secretName, value, placeholder, note) {
       return '<div class="keyfield">' +
         '<label class="kicker">' + esc(label) + '</label>' +
@@ -1902,6 +1978,7 @@
           ? '<article class="card pad accent">' +
               '<div class="kicker" style="margin-bottom:11px">The coach has a proposal</div>' +
               '<p class="lede" style="margin:0 0 14px">' + esc(prop.why || prop.summary || 'New targets to approve') + '</p>' +
+              aiWhyBlock('target-proposal', 'What evidence did Coach use?') +
               '<div style="border:1px solid var(--rule);border-radius:2px;overflow:hidden;margin-bottom:15px">' +
                 [['calories', 'Energy', ' ' + S.units.energy], ['protein', 'Protein', ' g'], ['steps', 'Steps', ''], ['weightGoal', 'Weight goal', ' ' + S.units.weight]]
                   .filter(function (f) { return prop.targets[f[0]] !== S.targets[f[0]]; })
@@ -1975,6 +2052,17 @@
         '</article>' +
 
         '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Coach & Intelligence</div><div class="meta">Constitution v' + esc(window.InSyncIntelligence ? InSyncIntelligence.constitution.version : '—') + '</div></div>' +
+          '<p class="small pad-x" style="padding-top:14px">Choose how Coach communicates. These are safe preferences, not access to the hidden instruction layer; truth, privacy, Christian guardrails and approval-before-change rules cannot be turned off.</p>' +
+          aiPreferenceRow('Tone', 'The overall writing feel.', 'tone', [['grounded','Grounded'],['warm','Warmer'],['concise','Concise']], (S.aiPrefs||{}).tone) +
+          aiPreferenceRow('Directness', 'How plainly Coach names a gap.', 'directness', [['gentle','Gentle'],['direct','Direct'],['firm','Firm']], (S.aiPrefs||{}).directness) +
+          aiPreferenceRow('Meal complexity', 'How ambitious generated home cooking should be.', 'mealComplexity', [['simple','Simple'],['practical','Practical'],['adventurous','Adventurous']], (S.aiPrefs||{}).mealComplexity) +
+          aiPreferenceRow('Training style', 'How readily Coach proposes progression when the log supports it.', 'trainingStyle', [['conservative','Conservative'],['balanced','Balanced'],['progressive','Progressive']], (S.aiPrefs||{}).trainingStyle) +
+          aiPreferenceRow('Faith emphasis', 'How often optional coaching language brings the Christian frame forward.', 'faithEmphasis', [['light','Light'],['integrated','Integrated'],['explicit','Explicit']], (S.aiPrefs||{}).faithEmphasis) +
+          '<p class="small pad-x" style="padding-bottom:15px">One Coach, multiple internal skills: Daily Coach, Trainer, Nutrition Planner, Faith Companion, Weekly Planner, Expedition Guide and Couple Encouragement. Each receives only its allowed context.</p>' +
+        '</article>' +
+
+        '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Goals & targets</div><div class="meta">Yours to change</div></div>' +
           preferenceRow('Primary goal', 'A goal change keeps this week intact and rebuilds any staged training week.', 'set-goal',
             [['lose-fat','Lose fat'],['build','Build'],['hold','Hold'],['strong','Stronger']], S.goal) +
@@ -2026,7 +2114,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p1</div></div>' +
+            '<div class="meta">Version 6.0.0-p3</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3390,11 +3478,220 @@
     return bits.join(' \u00b7 ');
   }
 
+
+  // ---------------- Faith ----------------
+  function faithDayName(day) {
+    return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][Math.max(0,Math.min(6,+day||0))];
+  }
+
+  function faithHub() {
+    var v = Store.verse(), f = window.Faith ? Faith.summary() : {};
+    var currentMemory = window.Faith && Faith.memory ? Faith.memory().find(function (m) { return m.ref === v.ref && m.text === v.text; }) : null;
+    var partnerPrayer = window.Faith && Faith.partnerSharedPrayer ? Faith.partnerSharedPrayer() : null;
+    var sab = (Store.state().faith && Store.state().faith.sabbath) || {enabled:true,day:0};
+    var gratitude = window.Faith && Faith.gratitudeEntries ? Faith.gratitudeEntries(3) : [];
+    var partnerBlock = '';
+    if (partnerPrayer) {
+      var prayed = Faith.prayedForPartner(partnerPrayer.id);
+      partnerBlock =
+        '<article class="card pad accent">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px"><span class="kicker gold">' + esc(Store.partnerName()) + ' asked for prayer</span><span class="small">' + esc(partnerPrayer.category) + '</span></div>' +
+          '<p class="lede" style="font-size:18px">' + esc(partnerPrayer.text) + '</p>' +
+          '<div class="btnrow" style="margin-top:14px">' +
+            (prayed ? '<button class="btn ghost sm" disabled>I prayed for this</button>' : '<button class="btn sm" data-action="faith-prayer-ack" data-prayer-id="' + esc(partnerPrayer.id) + '">I prayed for this</button>') +
+          '</div>' +
+          '<p class="small" style="margin-top:11px">This is acknowledgement, not a score.</p>' +
+        '</article>';
+    }
+
+    return UI.screen({
+      tab:null, rest:430, restMeasure:true, art:'assets/art/camp-night.webp', photoPosition:'center 42%',
+      header:{back:'home',title:'Faith'},
+      overlay:
+        '<div class="eyebrow">Scripture today</div><p class="verse">' + esc(v.text) + '</p><cite class="attrib">' + esc(v.ref) + '</cite>' +
+        (v.why ? '<p class="versewhy">' + esc(v.why) + '</p>' : ''),
+      body:
+        partnerBlock +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker sage">Scripture Memory Trail</span><span class="small">' + (f.memoryDue || 0) + ' due</span></div>' +
+          '<p class="lede" style="margin-top:10px">' + (f.memoryTotal ? (f.memorized + ' memorized · ' + f.memoryTotal + ' total') : 'Start with today’s passage.') + '</p>' +
+          '<div class="btnrow" style="margin-top:14px"><button class="btn" data-route="memory">Open Memory Trail</button>' +
+            (currentMemory ? '<button class="btn ghost" data-route="memory-item/' + esc(currentMemory.id) + '">Practice today’s verse</button>' :
+              '<button class="btn ghost" data-action="faith-add-today">Add today’s verse</button>') +
+          '</div>' +
+        '</article>' +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker">Prayer Journal</span><span class="small">' + (f.prayersOngoing || 0) + ' ongoing · ' + (f.prayersAnswered || 0) + ' answered</span></div>' +
+          '<p class="small" style="margin-top:10px">Private by default. Only one prayer request crosses to ' + esc(Store.partnerName()) + ' when you explicitly share it.</p>' +
+          '<div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-route="prayers">Open Prayer Journal</button></div>' +
+        '</article>' +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker sage">Gratitude</span><span class="small">' + (f.gratitudeCount || 0) + ' entries</span></div>' +
+          (gratitude.length ? gratitude.map(function (g) {
+            return '<div style="padding-top:12px;margin-top:12px;border-top:1px solid var(--rule)"><span class="small">' + esc(new Date(g.date + 'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'})) + '</span><p class="note" style="margin-top:5px">' + esc(g.text) + '</p></div>';
+          }).join('') : '<p class="small" style="margin-top:10px">Nothing written yet. Evening reflection can hold one simple thank-you.</p>') +
+          '<div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-route="reflection">Write tonight</button></div>' +
+        '</article>' +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker">Sabbath</span><span class="small">' + (sab.enabled ? faithDayName(sab.day) : 'Off') + '</span></div>' +
+          '<p class="small" style="margin-top:10px">Sabbath removes score-closing pressure. It does not create another requirement to perform.</p>' +
+          '<div class="btnrow" style="margin-top:13px"><button class="btn ghost sm" data-action="faith-sabbath-toggle">' + (sab.enabled ? 'Turn off' : 'Turn on') + '</button></div>' +
+          '<div class="faith-day-pills" style="display:flex;gap:7px;overflow-x:auto;padding-top:12px">' +
+            [0,1,2,3,4,5,6].map(function (d) { return '<button class="btn ghost tiny" data-action="faith-sabbath-day" data-day="' + d + '"' + (sab.day === d ? ' aria-current="true"' : '') + '>' + faithDayName(d).slice(0,3) + '</button>'; }).join('') +
+          '</div>' +
+        '</article>' +
+        '<article class="card pad">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker sage">Rule of Life</span><span class="small">' + (f.ruleConfigured || 0) + ' of 7 areas</span></div>' +
+          '<p class="small" style="margin-top:10px">A gentle weekly rhythm for worship, Scripture, prayer, rest, body stewardship and relationship life.</p>' +
+          '<div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-route="rule-of-life">Shape the rhythm</button></div>' +
+        '</article>' +
+        '<p class="small" style="text-align:center;padding:4px 18px 10px">Faith milestones are never partner rankings or competitive points.</p>'
+    });
+  }
+
+  function scriptureMemory() {
+    var v = Store.verse(), items = window.Faith ? Faith.memory().slice() : [];
+    items.sort(function (a,b) {
+      var ad = Faith.memoryStatus(a) === 'Review due' ? 0 : 1, bd = Faith.memoryStatus(b) === 'Review due' ? 0 : 1;
+      if (ad !== bd) return ad-bd;
+      return String(b.createdAt||'').localeCompare(String(a.createdAt||''));
+    });
+    var already = items.find(function (m) { return m.ref === v.ref && m.text === v.text; });
+    var rows = items.length ? items.map(function (m) {
+      var st = Faith.memoryStatus(m), due = m.reviewDue ? new Date(m.reviewDue + 'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
+      return '<button class="card cardbtn pad" data-route="memory-item/' + esc(m.id) + '">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span class="kicker' + (st === 'Review due' ? ' gold' : '') + '">' + esc(st) + '</span><span class="small">' + (st === 'Review due' ? 'Due now' : (due ? 'Next ' + esc(due) : 'Practice')) + '</span></div>' +
+        '<p class="lede" style="margin-top:9px">' + esc(m.ref) + '</p>' +
+        '<p class="small" style="margin-top:6px">' + esc(m.text) + '</p>' +
+      '</button>';
+    }).join('') : '<article class="card pad"><p class="note">No verses are on the trail yet. Add today’s verse and begin with reading, then gradually remove the supports.</p></article>';
+
+    return UI.screen({
+      tab:null, rest:350, restMeasure:true, art:'assets/art/camp-dawn.webp', photoPosition:'center 45%',
+      header:{back:'faith',title:'Memory Trail',right:'<div style="width:34px"></div>'},
+      overlay:'<div class="eyebrow">' + items.length + ' verses · ' + Faith.dueMemory().length + ' due</div><p class="verse">A verse is never lost because a streak broke.</p>',
+      body:
+        '<article class="card pad accent"><div class="kicker gold" style="margin-bottom:8px">Today · ' + esc(v.ref) + '</div><p class="small">' + esc(v.text) + '</p>' +
+          '<div class="btnrow" style="margin-top:14px">' +
+            (already ? '<button class="btn" data-route="memory-item/' + esc(already.id) + '">Practice this verse</button>' : '<button class="btn" data-action="faith-add-today">Add to Memory Trail</button>') +
+          '</div></article>' +
+        '<div class="rulehead"><span class="kicker sage">Your verses</span><span></span></div>' + rows
+    });
+  }
+
+  function memoryItemScreen() {
+    var parts = (location.hash || '').replace(/^#/,'').split('/'), id = decodeURIComponent(parts[1] || '');
+    var m = window.Faith && Faith.memoryItem ? Faith.memoryItem(id) : null;
+    if (!m) return UI.screen({tab:null,rest:260,blur:true,header:{back:'memory',title:'Memory Trail',right:'<div style="width:34px"></div>'},art:'assets/art/camp-dawn.webp',overlay:'<p class="verse">That verse is not on your Memory Trail.</p>',body:'<button class="btn ghost block" data-route="memory">Back to Memory Trail</button>'});
+    var status = Faith.memoryStatus(m), due = status === 'Review due';
+    var prompt = '', controls = '';
+    if (m.stage <= 1) {
+      prompt = '<p class="verse" style="font-size:23px">' + esc(m.text) + '</p><p class="small" style="margin-top:11px">Read it slowly. Notice the sentence before trying to hold it.</p>';
+      controls = '<button class="btn block" data-action="faith-memory-advance" data-memory-id="' + esc(m.id) + '">I read it</button>';
+    } else if (m.stage === 2) {
+      prompt = '<p class="verse" style="font-size:23px">' + esc(Faith.hideWords(m.text,3)) + '</p><p class="small" style="margin-top:11px">Fill the missing words in your head before moving on.</p>';
+      controls = '<button class="btn block" data-action="faith-memory-advance" data-memory-id="' + esc(m.id) + '">Remove more help</button>';
+    } else if (m.stage === 3) {
+      prompt = '<p class="verse memory-letters" style="font-size:22px">' + esc(Faith.firstLetters(m.text)) + '</p><p class="small" style="margin-top:11px">Use only the first letters to rebuild the sentence.</p>';
+      controls = '<button class="btn block" data-action="faith-memory-advance" data-memory-id="' + esc(m.id) + '">Try it from memory</button>';
+    } else if (m.stage === 4) {
+      prompt = '<p class="small" style="margin-bottom:10px">Type the verse from memory. Punctuation and capitalization do not count against you.</p><textarea id="memory-type" class="reflect" rows="5" placeholder="Type the verse…"></textarea><div id="memory-result" class="small" style="margin-top:9px"></div>';
+      controls = '<button class="btn block" data-action="faith-memory-check" data-memory-id="' + esc(m.id) + '">Check my recall</button>';
+    } else {
+      prompt = '<p class="verse" style="font-size:23px">' + (due ? 'Recite it before revealing the text.' : 'Keep it alive without chasing a streak.') + '</p>' +
+        '<details class="aiwhy" style="margin-top:14px"><summary>Reveal verse</summary><div class="aiwhybody"><p class="note">' + esc(m.text) + '</p></div></details>';
+      controls =
+        '<div class="btnrow"><button class="btn ghost sm" data-action="faith-memory-review" data-rating="again" data-memory-id="' + esc(m.id) + '">Again</button>' +
+        '<button class="btn ghost sm" data-action="faith-memory-review" data-rating="hard" data-memory-id="' + esc(m.id) + '">Hard</button>' +
+        '<button class="btn sm" data-action="faith-memory-review" data-rating="good" data-memory-id="' + esc(m.id) + '">Got it</button>' +
+        '<button class="btn ghost sm" data-action="faith-memory-review" data-rating="easy" data-memory-id="' + esc(m.id) + '">Easy</button></div>';
+    }
+    var next = m.reviewDue ? new Date(m.reviewDue + 'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}) : '';
+    return UI.screen({
+      tab:null,rest:325,restMeasure:true,art:'assets/art/camp-dawn.webp',photoPosition:'center 45%',
+      header:{back:'memory',title:'Memory Trail',right:'<div style="width:34px"></div>'},
+      overlay:'<div class="eyebrow">' + esc(status) + '</div><p class="verse">' + esc(m.ref) + '</p>' + (next ? '<p class="versewhy">Next review ' + esc(next) + '</p>' : ''),
+      body:
+        '<article class="card pad">' + prompt + '<div style="margin-top:17px">' + controls + '</div></article>' +
+        '<button class="btn ghost danger block" data-action="faith-memory-remove" data-memory-id="' + esc(m.id) + '">Remove from Memory Trail</button>'
+    });
+  }
+
+  function prayerJournal() {
+    var all = window.Faith ? Faith.prayers().slice().reverse() : [];
+    var ongoing = all.filter(function (p) { return p.status === 'ongoing'; });
+    var answered = all.filter(function (p) { return p.status === 'answered'; });
+    function prayerCard(p) {
+      var shared = Store.state().faith.sharedPrayerId === p.id, ack = Faith.partnerAckForMine(p.id);
+      return '<article class="card pad" data-prayer-card="' + esc(p.id) + '">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker' + (shared ? ' gold' : '') + '">' + esc(p.category) + '</span><span class="small">' + (shared ? 'Shared with ' + esc(Store.partnerName()) : 'Private') + '</span></div>' +
+        '<p class="lede" style="font-size:17px;margin-top:10px">' + esc(p.text) + '</p>' +
+        (ack ? '<p class="small" style="margin-top:10px;color:var(--sage)">✓ ' + esc(Store.partnerName()) + ' prayed for this.</p>' : '') +
+        '<textarea class="reflect" rows="2" data-prayer-answer placeholder="Optional: what happened / how was it answered?"></textarea>' +
+        '<div class="btnrow" style="margin-top:12px">' +
+          '<button class="btn sm" data-action="faith-prayer-answer" data-prayer-id="' + esc(p.id) + '">Mark answered</button>' +
+          (shared ? '<button class="btn ghost sm" data-action="faith-prayer-unshare" data-prayer-id="' + esc(p.id) + '">Make private</button>' :
+            '<button class="btn ghost sm" data-action="faith-prayer-share" data-prayer-id="' + esc(p.id) + '">Share request</button>') +
+        '</div>' +
+      '</article>';
+    }
+    function answeredCard(p) {
+      return '<article class="card pad"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span class="kicker sage">' + esc(p.category) + '</span><span class="small">Answered</span></div>' +
+        '<p class="lede" style="font-size:17px;margin-top:10px">' + esc(p.text) + '</p>' +
+        (p.answer ? '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rule)"><span class="small">Answer / reflection</span><p class="note" style="margin-top:5px">' + esc(p.answer) + '</p></div>' : '') +
+        '<div class="btnrow" style="margin-top:12px"><button class="btn ghost sm" data-action="faith-prayer-reopen" data-prayer-id="' + esc(p.id) + '">Reopen</button></div></article>';
+    }
+    var partnerPrayer = Faith.partnerSharedPrayer();
+    var partnerBlock = partnerPrayer ? '<article class="card pad accent"><div class="kicker gold" style="margin-bottom:9px">' + esc(Store.partnerName()) + ' shared</div><p class="lede">' + esc(partnerPrayer.text) + '</p><div class="btnrow" style="margin-top:14px">' +
+      (Faith.prayedForPartner(partnerPrayer.id) ? '<button class="btn ghost" disabled>I prayed for this</button>' : '<button class="btn" data-action="faith-prayer-ack" data-prayer-id="' + esc(partnerPrayer.id) + '">I prayed for this</button>') +
+      '</div></article>' : '';
+
+    return UI.screen({
+      tab:null,rest:350,restMeasure:true,art:'assets/art/camp-night.webp',photoPosition:'center 43%',
+      header:{back:'faith',title:'Prayer Journal',right:'<div style="width:34px"></div>'},
+      overlay:'<div class="eyebrow">Private by default</div><p class="verse">' + ongoing.length + ' ongoing · ' + answered.length + ' answered</p>',
+      body:
+        partnerBlock +
+        '<article class="card pad"><div class="kicker sage" style="margin-bottom:10px">Add a prayer</div>' +
+          '<textarea id="faith-prayer-text" class="reflect" rows="4" placeholder="What do you want to bring before God?"></textarea>' +
+          '<select id="faith-prayer-category" class="field-input plain" style="margin-top:10px">' + Faith.categories.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('') + '</select>' +
+          '<button class="btn block" style="margin-top:12px" data-action="faith-prayer-add">Save privately</button></article>' +
+        (ongoing.length ? '<div class="rulehead"><span class="kicker">Ongoing</span><span></span></div>' + ongoing.map(prayerCard).join('') : '') +
+        (answered.length ? '<div class="rulehead"><span class="kicker sage">Answered</span><span></span></div>' + answered.map(answeredCard).join('') : '') +
+        '<p class="small" style="text-align:center;padding:4px 18px 10px">Sharing sends only the selected request text and category. Your journal, answer notes, gratitude and reflections stay private.</p>'
+    });
+  }
+
+  function ruleOfLifeScreen() {
+    var r = window.Faith ? Faith.ruleOfLife() : {};
+    var fields = [
+      ['worship','Worship','How will you protect gathered worship and church life?'],
+      ['scripture','Scripture','What recurring Scripture rhythm do you want to protect?'],
+      ['prayer','Prayer','What prayer rhythm is realistic and life-giving?'],
+      ['rest','Rest','What will genuine rest look like each week?'],
+      ['exercise','Body stewardship','How will training and movement fit without ruling the week?'],
+      ['mealPrep','Meal preparation','When will you prepare food so the week is easier to steward?'],
+      ['relationship','Relationship / family','What time or practice will you protect for the people entrusted to you?']
+    ];
+    return UI.screen({
+      tab:null,rest:330,restMeasure:true,art:'assets/art/camp-sunset.webp',photoPosition:'center 44%',
+      header:{back:'faith',title:'Rule of Life',right:'<div style="width:34px"></div>'},
+      overlay:'<div class="eyebrow">Weekly rhythm</div><p class="verse">A rule of life protects what matters. It does not prove your worth.</p>',
+      body:
+        '<article class="card pad accent"><p class="note">Write simple rhythms, not idealized promises. InSync stores these privately and does not score them.</p></article>' +
+        fields.map(function (f) {
+          return '<article class="card pad"><div class="kicker sage" style="margin-bottom:8px">' + esc(f[1]) + '</div><p class="small" style="margin-bottom:10px">' + esc(f[2]) + '</p>' +
+            '<textarea class="reflect" rows="3" data-set="faith.ruleOfLife.' + esc(f[0]) + '" placeholder="A simple weekly rhythm…">' + esc(r[f[0]] || '') + '</textarea></article>';
+        }).join('')
+    });
+  }
+
   function reflection() {
     var v = Store.verse();
     var d = Store.day();
     var facts = dayFacts(Store.todayKey());
     var written = (d.reflection || '').trim();
+    var gratitude = window.Faith && Faith.gratitude ? Faith.gratitude(Store.todayKey()) : '';
     var nights = Object.keys(Store.state().days).sort().reverse()
       .filter(function (k) { return k !== Store.todayKey(); });
     var past = nights.slice(0, 6).map(function (k) { return { key: k, d: Store.state().days[k] }; });
@@ -3426,6 +3723,12 @@
             '<span class="small">' + savedLabel + '</span>' +
             '<button class="btn sm" style="flex:none;padding:0 18px" data-action="save-reflection">Close the day</button>' +
           '</div>' +
+        '</article>' +
+        '<article class="card pad">' +
+          '<div class="kicker sage" style="margin-bottom:10px">Gratitude</div>' +
+          '<p class="small" style="margin:0 0 11px">What are you thankful for today?</p>' +
+          '<textarea id="gratitude" class="reflect" rows="3" placeholder="One thing is enough.">' + esc(gratitude) + '</textarea>' +
+          '<div class="btnrow" style="margin-top:13px"><button class="btn ghost sm" data-route="faith">Open Faith Hub</button></div>' +
         '</article>' +
 
         /* Attached, not asserted: only what the day actually holds. */
@@ -4069,6 +4372,7 @@
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,
     records: records, badges: badges, reflection: reflection,
+    faith: faithHub, memory: scriptureMemory, memoryItem: memoryItemScreen, prayers: prayerJournal, ruleOfLife: ruleOfLifeScreen,
     trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,
     route: route, leg: leg, verse: Store.verse

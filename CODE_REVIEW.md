@@ -1,59 +1,42 @@
-# InSync 6.0.0-p1 — Code Review
+# InSync 6.0.0-p3 — Phase 3 Code Review
 
+## Review conclusion
 
-## Phase 1 architecture boundary
+**Phase 3 is structurally ready to ship into the current private two-phone InSync environment.** Faith is implemented as a bounded domain rather than being scattered across Home, Coach and Together.
 
-The 6.0 foundation deliberately avoids a framework rewrite. Expedition data has been extracted into `journeys.js`; product domains, AI/privacy/event contracts, theme registration, reward events and Base Camp progression now have isolated modules. `screens.js`, `store.js` and `cloud.js` remain large, but future phases now have stable seams for incremental extraction while the existing regression surface remains intact.
+## Architecture decisions
 
-Base Camp is local-only in this release. Its data is normalized and backup-safe, but it does not enter partner sync until the later privacy/security design explicitly defines which camp fields are safe to share.
+### Faith remains supporting infrastructure
+Faith does not consume a sixth bottom tab. It is reachable from Home, Coach and Reflection and has its own internal routes.
 
-## Scope
+### Private-first data model
+The local store owns Scripture Memory, prayers, gratitude, Sabbath and Rule of Life. Only one explicitly selected ongoing prayer request can enter partner sync.
 
-This was a full second-user code audit, not a planner-only patch. The review traced state normalization and migration, owner/partner identity, two-phone sync direction, privacy boundaries, backup/restore, onboarding targets, units, Coach persistence, weekly chapters, meal generation, future training, Settings preference changes, Daily Walk coexistence and all exported screens.
+### No game coupling
+`faith.js` does not emit reward events, write Base Camp XP or alter daily health scoring. This enforces the summit's noncompetitive spiritual-formation boundary in code rather than copy alone.
 
-## Canonical storage contract
+### Intelligence gets summaries, not journals
+The Context Builder may see counts/status such as reviews due, prayer counts and Sabbath state. It does not receive prayer text, gratitude text, Rule-of-Life text or reflections by default.
 
-InSync intentionally keeps stable internal units:
+### Partner sync schema 7
+The new schema adds only `sharedPrayer` and `prayerAcks`. Existing schema-6 partner files remain readable because these fields are optional during sanitation.
 
-- weight / lifted load: pounds;
-- distance: miles;
-- energy: kilocalories.
+## Data-safety notes
 
-User-facing input/output is converted at the boundary. 5.5.6 closes legacy paths that previously displayed or stored selected kg/kJ values as if they were canonical lb/kcal. Distance and climb output likewise go through the selected-unit formatters.
+- Faith state is included in the user's private backup/restore flow.
+- Connection secrets remain outside the ordinary state object.
+- Shared prayer text is bounded and sanitized as external partner input.
+- Prayer acknowledgements are bounded and timestamp-validated.
+- Imported malformed Faith structures are normalized before persistence.
 
-This approach avoids rewriting historical records when the user changes units and prevents cumulative rounding drift.
+## Known intentional limits
 
-## State normalization fixes
+- No licensed multi-translation Scripture library has been added; Memory Trail uses the verified Scripture already shipped inside InSync.
+- No speech recognition is required for recitation; the user self-checks.
+- Shared prayer is one request at a time by design.
+- Faith does not yet generate a separate long-form spiritual-history screen; answered prayers and gratitude can feed Living History in a later phase.
+- No spiritual reminders/push infrastructure is added in this phase.
 
-The v10 state contract now explicitly normalizes `profile.startWeight`, `coachPending`, `chapters`, chosen-verse cache shape, profile sex and every previously supported goal including `strong`.
+## Next engineering focus
 
-`coachPending` is intentionally reset on load/import because an in-flight browser request cannot survive a killed/suspended PWA. Weekly chapters are canonicalized to Monday calendar weeks and deduplicated by week.
-
-No local key/schema bump is required: the v10 merger supplies new defaults and the existing normalization/migration pass safely repairs older shapes in memory before the next save.
-
-## Future-week correctness
-
-Readiness is semantic rather than metadata-based. Meals must have all exact date/slot combinations plus usable grocery ingredients and instructions. Training must contain real exercise IDs, obey current exclusions, match the selected lifting frequency and satisfy recovery rules.
-
-A future plan can activate only when `futurePlanMeta.weekOf` exactly equals the current Monday. Expired plans are cleared. Meal setup persists each validated batch as it finishes, making retry genuinely resumable within the meal half rather than only between meals and training.
-
-Goal/frequency changes are now atomic Store operations. They leave the current plan alone, clear staged training generated under the old preference and remove the stale next-week lifting goal so the next setup regenerates consistently.
-
-## Identity and restore safety
-
-Owner and partner names are not merely labels; their normalized identity keys determine private sync filenames.
-
-- Partner identity changes clear partner-derived caches.
-- Material owner renames clear stale sync-health success state.
-- Connected Settings warns before a material owner rename.
-- Restore refuses a different-owner backup over an active onboarded device and refuses an ownerless backup marked onboarded.
-
-This prevents a particularly dangerous two-phone failure mode where Lizzie's phone could retain Lizzie's local GitHub token/repository settings while importing Robert's owner identity and then begin writing the same sync filename as Robert's phone.
-
-## Privacy review
-
-The partner payload remains schema 6. Full meal plans, meal preferences, exact foods, exact lifted weights, photographs and exact bodyweight remain local. Optional calories/protein, workouts and steps follow their privacy switches; turning steps off also withholds shared expedition mileage. The deep pair test runs both device directions to prevent one-sided privacy assumptions.
-
-## Remaining architectural debt
-
-The app is still a dependency-free browser PWA with large domain modules. Direct browser-held API credentials remain a deliberate private-app tradeoff. A future major refactor could split planning, sync and Store normalization into smaller modules, but this audit intentionally avoided a broad rewrite that would increase regression risk while repairing production behavior.
+Phase 4 should move Training from a strong logger toward a deterministic coaching loop. Progression and deload logic should stay code-grounded, with AI explaining/proposing rather than inventing exercise rules.

@@ -86,7 +86,7 @@
     if (!Store.state().onboarded) { app.innerHTML = ''; lastRenderedKey = ''; return; }
 
     // Opening a verse surface is the evidence for the verse-reading badge.
-    if ((root === 'home' || root === 'reflection') && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
+    if (['home','reflection','faith','memory','memory-item'].indexOf(root) >= 0 && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
 
     if (TABS.indexOf(root) >= 0) html = Screens[root]();
     else if (root === 'coach') html = Screens.coach();
@@ -101,6 +101,11 @@
     else if (root === 'earned') html = Screens.earnedMoment();
     else if (root === 'handshake') html = Screens.handshake();
     else if (root === 'reflection') html = Screens.reflection();
+    else if (root === 'faith') html = Screens.faith();
+    else if (root === 'memory') html = Screens.memory();
+    else if (root === 'memory-item') html = Screens.memoryItem();
+    else if (root === 'prayers') html = Screens.prayers();
+    else if (root === 'rule-of-life') html = Screens.ruleOfLife();
     else if (root === 'trends') html = Screens.trends();
     else if (root === 'planner') html = Screens.planner();
     else if (root === 'weekly-review') html = Screens.weeklyReview();
@@ -921,6 +926,11 @@
       Store.setFrequency(el.getAttribute('data-value'));
       return;
     }
+    if (action === 'set-ai-pref') {
+      var prefKey = el.getAttribute('data-pref'), prefValue = el.getAttribute('data-value');
+      if (['tone','directness','mealComplexity','trainingStyle','faithEmphasis'].indexOf(prefKey) >= 0) Store.set('aiPrefs.' + prefKey, prefValue);
+      return;
+    }
     if (action === 'accept-proposal') { Store.acceptProposal(); return; }
     if (action === 'dismiss-proposal') { Store.dismissProposal(); return; }
     if (action === 'ack-badge') {
@@ -965,10 +975,86 @@
       location.hash = '#together';
       return;
     }
+    /* ---- Faith Foundation ---- */
+    if (action === 'faith-add-today') {
+      var added = window.Faith && Faith.addVerse ? Faith.addVerse(Store.verse()) : null;
+      if (added) location.hash = '#memory-item/' + encodeURIComponent(added.id);
+      return;
+    }
+    if (action === 'faith-memory-advance') {
+      if (window.Faith) Faith.advanceMemory(el.getAttribute('data-memory-id')); return;
+    }
+    if (action === 'faith-memory-check') {
+      if (!window.Faith) return;
+      var memoryText = document.getElementById('memory-type');
+      var result = Faith.checkTyped(el.getAttribute('data-memory-id'), memoryText ? memoryText.value : '');
+      var resultEl = document.getElementById('memory-result');
+      if (resultEl) resultEl.textContent = result.ok
+        ? 'That is close enough to move to recitation.'
+        : Math.round(result.accuracy * 100) + '% matched. Keep the prompt and try again.';
+      if (result.ok) setTimeout(render, 450);
+      return;
+    }
+    if (action === 'faith-memory-review') {
+      if (window.Faith) Faith.reviewMemory(el.getAttribute('data-memory-id'), el.getAttribute('data-rating')); return;
+    }
+    if (action === 'faith-memory-remove') {
+      if (window.Faith && confirm('Remove this verse from the Memory Trail? The verse itself stays available in InSync.')) {
+        Faith.removeMemory(el.getAttribute('data-memory-id')); location.hash = '#memory';
+      }
+      return;
+    }
+    if (action === 'faith-prayer-add') {
+      if (!window.Faith) return;
+      var prayerText = document.getElementById('faith-prayer-text');
+      var prayerCategory = document.getElementById('faith-prayer-category');
+      var prayer = Faith.addPrayer(prayerText ? prayerText.value : '', prayerCategory ? prayerCategory.value : 'General');
+      if (prayer && prayerText) prayerText.value = '';
+      return;
+    }
+    if (action === 'faith-prayer-answer') {
+      if (!window.Faith) return;
+      var prayerHost = el.closest('[data-prayer-card]');
+      var answerEl = prayerHost && prayerHost.querySelector('[data-prayer-answer]');
+      Faith.markAnswered(el.getAttribute('data-prayer-id'), answerEl ? answerEl.value : '');
+      if (Cloud.hasGit()) Cloud.push(function () {});
+      return;
+    }
+    if (action === 'faith-prayer-reopen') {
+      if (window.Faith) Faith.reopenPrayer(el.getAttribute('data-prayer-id')); return;
+    }
+    if (action === 'faith-prayer-share') {
+      if (window.Faith && Faith.sharePrayer(el.getAttribute('data-prayer-id'))) {
+        if (Cloud.hasGit()) Cloud.push(function () {});
+      }
+      return;
+    }
+    if (action === 'faith-prayer-unshare') {
+      if (window.Faith) {
+        Faith.unsharePrayer(el.getAttribute('data-prayer-id'));
+        if (Cloud.hasGit()) Cloud.push(function () {});
+      }
+      return;
+    }
+    if (action === 'faith-prayer-ack') {
+      if (window.Faith && Faith.ackPartnerPrayer(el.getAttribute('data-prayer-id'))) {
+        if (Cloud.hasGit()) Cloud.push(function () {});
+      }
+      return;
+    }
+    if (action === 'faith-sabbath-toggle') {
+      if (window.Faith) Faith.setSabbath(!Store.state().faith.sabbath.enabled, Store.state().faith.sabbath.day); return;
+    }
+    if (action === 'faith-sabbath-day') {
+      if (window.Faith) Faith.setSabbath(true, +el.getAttribute('data-day')); return;
+    }
+
     if (action === 'save-reflection') {
       var ta = document.getElementById('reflect');
-      if (ta) {
-        Store.saveReflection(ta.value);
+      var ga = document.getElementById('gratitude');
+      if (ta) Store.saveReflection(ta.value);
+      if (ga && window.Faith && Faith.saveGratitude) Faith.saveGratitude(ga.value);
+      if (ta || ga) {
         var b2 = el, l2 = b2.textContent;
         b2.textContent = 'Saved';
         setTimeout(function () { b2.textContent = l2; }, 1400);
@@ -982,6 +1068,7 @@
     /* The evening page saves itself when the user leaves the field. Losing an entry
        to a stray tap is not a thing a journal may do. */
     if (e.target.id === 'reflect') { Store.saveReflection(e.target.value); return; }
+    if (e.target.id === 'gratitude' && window.Faith && Faith.saveGratitude) { Faith.saveGratitude(e.target.value); return; }
     var el = e.target.closest('[data-set]');
     if (!el) return;
     if (el.hasAttribute('data-secret')) {
@@ -1180,7 +1267,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p1', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p3', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

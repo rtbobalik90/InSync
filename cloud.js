@@ -53,7 +53,15 @@
        max_tokens. InSync asks for short UI copy and compact JSON, so disabling
        thinking preserves those deliberately small output budgets. */
     if (chosenModel === 'claude-sonnet-5') body.thinking = { type: 'disabled' };
-    if (opts && opts.system) body.system = opts.system;
+    var promptId = (opts && opts.promptId) || '';
+    var system = (opts && opts.system) || '';
+    if (window.InSyncIntelligence && promptId) {
+      var registered = InSyncIntelligence.prompt(promptId);
+      if (!registered) return cb(new Error('InSync Intelligence does not recognize prompt: ' + promptId));
+      InSyncIntelligence.noteRequest(promptId);
+      system = InSyncIntelligence.systemFor(promptId, system);
+    }
+    if (system) body.system = system;
 
     fetchWithTimeout(CLAUDE_URL, {
       method: 'POST',
@@ -77,7 +85,9 @@
         /* Keep the callback backward-compatible while exposing why a structured
            reply stopped. Meal-week generation uses this to distinguish a normal
            parse miss from an output that was physically cut off at max_tokens. */
-        cb(null, text, { stopReason: String(j.stop_reason || ''), usage: j.usage || {} });
+        cb(null, text, { stopReason: String(j.stop_reason || ''), usage: j.usage || {}, promptId: promptId,
+          promptVersion: (window.InSyncIntelligence && promptId && InSyncIntelligence.prompt(promptId) ? InSyncIntelligence.prompt(promptId).version : ''),
+          constitutionVersion: (window.InSyncIntelligence && InSyncIntelligence.constitution ? InSyncIntelligence.constitution.version : '') });
       })
       .catch(function (e) { cb(e); });
   }
@@ -92,22 +102,33 @@
     'No emoji. No exclamation marks. No motivational-poster phrasing. No "here is why this matters". ' +
     'Never invent numbers — use only the figures given to you.';
 
+  /* Every AI call goes through a stable prompt id. The prompt registry defines
+     purpose, context allow-list, response contract, fallback and repair policy;
+     the transport then applies the shared Constitution before the request. */
+  function ai(promptId, messages, opts, cb) {
+    var o = Object.assign({}, opts || {}, { promptId: promptId });
+    return claude(messages, o, cb);
+  }
+
   // Today's next step, written rather than templated.
   function coachLine(cb) {
     var k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), s = Store.state();
+    var ctx = window.InSyncIntelligence ? InSyncIntelligence.context('daily.next-step') : null;
+    var td = ctx && ctx.today ? ctx.today : { journeyDay:Store.daysIn(), streak:Store.streak(), calories:t.kcal, protein:t.protein, steps:d.steps, workouts:d.workouts.length, meals:d.meals.map(function(m){return m.slot;}), weighed:d.weight!=null, weight:d.weight };
+    var uc = ctx && ctx.user ? ctx.user : { goal:s.goal, targets:s.targets };
     var facts = [
-      'Day ' + Store.daysIn() + ' of the journey. Current streak ' + Store.streak() + ' days.',
-      'Energy: ' + Store.fmtEnergy(t.kcal) + ' of ' + Store.fmtEnergy(s.targets.calories) + '.',
-      'Protein: ' + t.protein + ' g of ' + s.targets.protein + ' g.',
-      'Steps: ' + d.steps + ' of ' + s.targets.steps + '.',
-      'Sessions logged today: ' + d.workouts.length + '.',
-      'Meals logged today: ' + d.meals.length + (d.meals.length ? ' (' + d.meals.map(function (m) { return m.slot; }).join(', ') + ')' : ''),
-      'Weighed in today: ' + (d.weight != null ? 'yes, ' + Store.fmtWeight(d.weight) : 'no') + '.',
-      'Goal: ' + s.goal.replace(/-/g, ' ') + '.',
-      (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns already visible in the log:\n' + Insights.patternsText() : ''
+      'Day ' + td.journeyDay + ' of the journey. Current streak ' + td.streak + ' days.',
+      'Energy: ' + Store.fmtEnergy(td.calories) + ' of ' + Store.fmtEnergy(uc.targets.calories) + '.',
+      'Protein: ' + td.protein + ' g of ' + uc.targets.protein + ' g.',
+      'Steps: ' + td.steps + ' of ' + uc.targets.steps + '.',
+      'Sessions logged today: ' + td.workouts + '.',
+      'Meals logged today: ' + td.meals.length + (td.meals.length ? ' (' + td.meals.join(', ') + ')' : ''),
+      'Weighed in today: ' + (td.weighed ? 'yes, ' + Store.fmtWeight(td.weight) : 'no') + '.',
+      'Goal: ' + String(uc.goal || '').replace(/-/g, ' ') + '.',
+      (ctx && ctx.recent && ctx.recent.patterns) ? 'Patterns already visible in the log:\n' + ctx.recent.patterns : ((window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns already visible in the log:\n' + Insights.patternsText() : '')
     ].filter(Boolean).join('\n');
 
-    claude([{
+    ai('daily.next-step', [{
       role: 'user',
       content: 'Here is ' + me() + '\'s day so far:\n\n' + facts +
         '\n\nWrite the single next useful thing they should do today. Two sentences at most. ' +
@@ -116,6 +137,7 @@
     }], { system: VOICE, maxTokens: 200 }, function (err, text) {
       if (err) return cb(err);
       Store.set('coachCache', { date: k, line: text });
+      if (window.InSyncIntelligence && ctx) InSyncIntelligence.rememberEvidence('daily-next-step', 'daily.next-step', InSyncIntelligence.evidenceFromContext(ctx, 'daily'));
       cb(null, text);
     });
   }
@@ -141,7 +163,7 @@
 
     var menu = list.map(function (v, i) { return i + '. "' + v[0] + '" — ' + v[1]; }).join('\n');
 
-    claude([{
+    ai('faith.verse', [{
       role: 'user',
       content: facts + '\n\nHere are the verses available:\n' + menu +
         '\n\nChoose the one that fits the week ' + me() + ' has actually had. A hard week and a ' +
@@ -150,9 +172,10 @@
         'Return only JSON: {"index": <number>, "why": "<one short sentence, said to them>"}'
     }], { system: VOICE, maxTokens: 220 }, function (err, text) {
       if (err) return cb(err);
-      var data;
-      try { data = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]); }
-      catch (e) { return cb(new Error('The coach did not return a verse.')); }
+      var data, verdict = window.InSyncIntelligence ? InSyncIntelligence.validate('faith.verse', text) : null;
+      if (verdict && !verdict.ok) return cb(new Error('The coach did not return a verse.'));
+      if (verdict) data = verdict.value;
+      else { try { data = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]); } catch (e) { return cb(new Error('The coach did not return a verse.')); } }
       var idx = Math.round(+data.index);
       if (!(idx >= 0 && idx < list.length)) return cb(new Error('The coach chose a verse that does not exist.'));
       Store.set('verseCache', { date: k, index: idx, why: (data.why || '').trim() });
@@ -243,7 +266,7 @@
        before surfacing the failure. */
     function attempt(n, reason) {
       var prompt = basePrompt + (n ? '\n\nYour previous answer could not be accepted because ' + reason + '. Rewrite the complete week from scratch and obey every rule exactly.' : '');
-      claude([{ role:'user', content:prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
+      ai('trainer.week', [{ role:'user', content:prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
         if (err) {
           if (n < 1) return attempt(n + 1, 'the request failed before a valid plan was returned');
           return cb(err);
@@ -343,7 +366,7 @@
       rows.push(key + ': ' + Store.fmtEnergy(t.kcal) + ', ' + t.protein + ' g protein, ' + d.steps + ' steps, ' +
         d.workouts.length + ' session' + (d.workouts.length === 1 ? '' : 's') + ', ' + Store.points(key) + '/10 points');
     }
-    claude([{
+    ai('weekly.chapter', [{
       role: 'user',
       content: me() + '\'s week beginning ' + weekOf + ':\n\n' + rows.join('\n') +
         '\n\nWrite three sentences about the week. Name one pattern worth noticing and one thing to carry into next week. ' +
@@ -366,21 +389,24 @@
       'Cookbook favorites currently saved: ' + (st.favorites || 0) + '.',
       st.weightChange == null ? '' : 'Weight changed ' + (st.weightChange >= 0 ? '+' : '') + Store.weightNum(st.weightChange, 1) + ' ' + Store.state().units.weight + ' between the first and last weigh-in that week.'
     ].filter(Boolean).join('\n');
-    claude([{ role:'user', content:
+    ai('weekly.review', [{ role:'user', content:
       'Review ' + me() + '\'s week from these facts only:\n\n' + facts +
       '\n\nReturn ONLY JSON: {"summary":"2-3 grounded sentences","win":"one concrete win","pattern":"one pattern worth noticing","carry":"one specific focus for next week"}. ' +
       'Do not invent a number or praise something the facts do not support.'
     }], { system:VOICE, maxTokens:500 }, function(err,text){
-      if(err) return cb(err); var out;
-      try { out=extractJson(text); } catch(e) { return cb(new Error('The weekly review could not be read. Try again.')); }
+      if(err) return cb(err); var out, verdict = window.InSyncIntelligence ? InSyncIntelligence.validate('weekly.review', text) : null;
+      if (verdict && !verdict.ok) return cb(new Error('The weekly review came back incomplete. Try again.'));
+      if (verdict) out = verdict.value;
+      else { try { out=extractJson(text); } catch(e) { return cb(new Error('The weekly review could not be read. Try again.')); } }
       if(!out || !cleanText(out.summary,1200) || !cleanText(out.carry,700)) return cb(new Error('The weekly review came back incomplete. Try again.'));
+      if (window.InSyncIntelligence) { var wctx=InSyncIntelligence.context('weekly.review'); InSyncIntelligence.rememberEvidence('weekly-review','weekly.review',InSyncIntelligence.evidenceFromContext(wctx,'weekly')); }
       cb(null,{summary:cleanText(out.summary,1200),win:cleanText(out.win,500),pattern:cleanText(out.pattern,700),carry:cleanText(out.carry,700)});
     });
   }
 
   // Free-text meal → structured macros.
   function parseMeal(text, cb) {
-    claude([{
+    ai('nutrition.meal-estimate', [{
       role: 'user',
       content: 'Estimate the nutrition for this meal: "' + text + '"\n\n' +
         'Respond with JSON only, no prose, in exactly this shape:\n' +
@@ -395,7 +421,7 @@
   /* A restaurant's menu, as far as the model knows it. Estimates, and the
      sheet says so — the point is a starting number you can correct. */
   function restaurantMenu(place, cb) {
-    claude([{
+    ai('nutrition.restaurant-menu', [{
       role: 'user',
       content: 'List the most commonly ordered menu items at "' + place + '".\n' +
         'Give 8 to 12 items, favouring ones a person tracking protein would order.\n' +
@@ -414,7 +440,7 @@
   function parseMealPhoto(dataUrl, cb) {
     var m = /^data:(image\/[a-z+]+);base64,(.*)$/i.exec(dataUrl || '');
     if (!m) return cb(new Error('Could not read that photo'));
-    claude([{
+    ai('nutrition.meal-photo', [{
       role: 'user',
       content: [
         { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
@@ -436,7 +462,7 @@
   function readBarcodePhoto(dataUrl, cb) {
     var m = /^data:(image\/[a-z+]+);base64,(.*)$/i.exec(dataUrl || '');
     if (!m) return cb(new Error('Could not read that photo'));
-    claude([{
+    ai('nutrition.barcode-photo', [{
       role: 'user',
       content: [
         { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
@@ -453,7 +479,7 @@
 
   // One named dish at one named place.
   function menuItem(place, dish, cb) {
-    claude([{
+    ai('nutrition.menu-item', [{
       role: 'user',
       content: 'Estimate the nutrition for "' + dish + '" at "' + place + '".\n' +
         'Use the real menu item if you know it. One standard serving as it is normally served.\n' +
@@ -728,6 +754,25 @@
         };
       }
     }
+    if (raw.sharedPrayer && Object.prototype.toString.call(raw.sharedPrayer) === '[object Object]') {
+      var prayerId = cleanText(raw.sharedPrayer.id, 120), prayerText = cleanText(raw.sharedPrayer.text, 700);
+      if (prayerId && prayerText) {
+        out.sharedPrayer = {
+          id: prayerId,
+          text: prayerText,
+          category: ['General','Faith','Family','Relationship','Work','Health','Other'].indexOf(raw.sharedPrayer.category) >= 0 ? raw.sharedPrayer.category : 'General',
+          createdAt: (function(){ var at=cleanText(raw.sharedPrayer.createdAt,80); return at && !isNaN(Date.parse(at)) ? at : ''; })()
+        };
+      }
+    }
+    out.prayerAcks = [];
+    if (Array.isArray(raw.prayerAcks)) {
+      raw.prayerAcks.slice(-80).forEach(function (a) {
+        if (!a || Object.prototype.toString.call(a) !== '[object Object]') return;
+        var aid = cleanText(a.id,120), at = cleanText(a.at,80);
+        if (aid && at && !isNaN(Date.parse(at))) out.prayerAcks.push({ id:aid, at:at });
+      });
+    }
     return out;
   }
 
@@ -735,7 +780,7 @@
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
-      schema: 6,
+      schema: 7,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
@@ -749,6 +794,11 @@
       seenPartnerUpdated: s.partnerData && s.partnerData.updated ? cleanText(s.partnerData.updated,80) : '',
       activity: window.Insights && Insights.localActivity ? Insights.localActivity(7) : [],
       reactions: window.Insights && Insights.reactionsGiven ? Insights.reactionsGiven() : {},
+      /* Faith privacy is opt-in: only the one request deliberately selected
+         for sharing crosses. The private prayer journal, answers and gratitude
+         never enter this payload. */
+      sharedPrayer: window.Faith && Faith.sharedPrayerPayload ? Faith.sharedPrayerPayload() : null,
+      prayerAcks: window.Faith && Faith.sharedPrayerAcks ? Faith.sharedPrayerAcks() : [],
       messages: (s.sentMessages || []).slice(-50).map(function (m) {
         return {
           id: cleanText(m.id, 120), date: validDateKey(m.date) ? m.date : k,
@@ -981,7 +1031,7 @@
     Object.keys(S.days).forEach(function (k) {
       (S.days[k].meals || []).forEach(function (m) { if (known.indexOf(m.name) < 0) known.push(m.name); });
     });
-    claude([{
+    ai('nutrition.suggestions', [{
       role: 'user',
       content: 'Suggest 6 meals for someone targeting ' + tg.calories + ' kcal and ' + tg.protein +
         ' g of protein a day. ' +
@@ -1275,7 +1325,7 @@
       }
       progress({ batch: index + 1, total: batches.length, label: label, resumed: false });
       function attempt(n, reason) {
-        claude([{ role: 'user', content: buildPrompt(batchDates, index, reason) }], { system: VOICE, maxTokens: 4200, timeoutMs: 75000 }, function (err, text, meta) {
+        ai('nutrition.week-plan', [{ role: 'user', content: buildPrompt(batchDates, index, reason) }], { system: VOICE, maxTokens: 4200, timeoutMs: 75000 }, function (err, text, meta) {
           if (err) {
             if (n < 1) return attempt(n + 1, 'the request failed before a complete batch came back');
             return cb(new Error('The meal coach could not finish ' + label + ' after two attempts. ' + err.message));
@@ -1317,7 +1367,7 @@
       Math.round(+meal.carbs || 0) + ' g carbs, ' + Math.round(+meal.fat || 0) + ' g fat. ' +
       'Return ONLY JSON: {"name":"","slot":"' + cleanText(meal.slot, 20) + '","cuisine":"","proteins":[],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
       '"servings":1,"prepMinutes":0,"recipeNote":"","items":[{"name":"","weight":""}],"instructions":[""]}.';
-    claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
+    ai('nutrition.recipe', [{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
       if (err) return cb(err);
       var out;
       try { out = extractJson(text); } catch (e) { return cb(new Error('The recipe could not be read. Try again.')); }
@@ -1414,14 +1464,16 @@
      History is passed so a follow-up ("what about tomorrow?") makes sense. */
   function ask(question, history, cb) {
     var k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), s = Store.state();
-    var w = Store.recentWeights(14);
+    var w = Store.recentWeights(14), ctx = window.InSyncIntelligence ? InSyncIntelligence.context('coach.chat') : null;
+    var td = ctx && ctx.today ? ctx.today : {journeyDay:Store.daysIn(),streak:Store.streak(),calories:t.kcal,protein:t.protein,steps:d.steps,workouts:d.workouts.length,meals:d.meals.map(function(m){return m.slot;}),weight:d.weight};
+    var uc = ctx && ctx.user ? ctx.user : {goal:s.goal,targets:s.targets};
     var facts = [
-      'Day ' + Store.daysIn() + '. Streak ' + Store.streak() + ' days. Goal: ' + s.goal.replace(/-/g, ' ') + '.',
-      'Today: ' + Store.fmtEnergy(t.kcal) + ' of ' + Store.fmtEnergy(s.targets.calories) + ', ' + t.protein + '/' + s.targets.protein + ' g protein, ' +
-        d.steps + '/' + s.targets.steps + ' steps, ' + d.workouts.length + ' session(s), ' + d.meals.length + ' meal(s).',
-      'Weight target ' + Store.fmtWeight(s.targets.weightGoal) + '.' + (d.weight != null ? ' Weighed ' + Store.fmtWeight(d.weight) + ' today.' : ''),
+      'Day ' + td.journeyDay + '. Streak ' + td.streak + ' days. Goal: ' + String(uc.goal || '').replace(/-/g, ' ') + '.',
+      'Today: ' + Store.fmtEnergy(td.calories) + ' of ' + Store.fmtEnergy(uc.targets.calories) + ', ' + td.protein + '/' + uc.targets.protein + ' g protein, ' +
+        td.steps + '/' + uc.targets.steps + ' steps, ' + td.workouts + ' session(s), ' + td.meals.length + ' meal(s).',
+      'Weight target ' + Store.fmtWeight(uc.targets.weightGoal) + '.' + (td.weight != null ? ' Weighed ' + Store.fmtWeight(td.weight) + ' today.' : ''),
       w.length > 1 ? 'Recent weights: ' + w.map(function (x) { return Store.fmtWeight(x.weight); }).join(', ') + '.' : '',
-      (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns visible across recent days:\n' + Insights.patternsText() : ''
+      (ctx && ctx.recent && ctx.recent.patterns) ? 'Patterns visible across recent days:\n' + ctx.recent.patterns : ((window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns visible across recent days:\n' + Insights.patternsText() : '')
     ].filter(Boolean).join('\n');
 
     var msgs = (history || []).slice(-6).map(function (m) {
@@ -1435,13 +1487,13 @@
         'If the figures cannot answer it, say what is missing. Return only the answer.'
     });
 
-    claude(msgs, { system: VOICE, maxTokens: 300 }, cb);
+    ai('coach.chat', msgs, { system: VOICE, maxTokens: 300 }, cb);
   }
 
   /* One cheap call, so a mistyped key is caught while it can still be pasted
      again — not on the first morning the coach is needed. */
   function testClaude(cb) {
-    claude([{ role: 'user', content: 'Reply with the single word: ready' }], { maxTokens: 8 }, function (err) {
+    ai('connectivity.test', [{ role: 'user', content: 'Reply with the single word: ready' }], { maxTokens: 8 }, function (err) {
       cb(err || null);
     });
   }
@@ -1463,7 +1515,7 @@
     var displayWeightGoal = Store.weightNum(t.weightGoal, s.units.weight === 'kg' ? 1 : 0);
     var displayEnergyTarget = Store.energyNum(t.calories), energyUnit = s.units.energy;
 
-    claude([{
+    ai('coach.targets', [{
       role: 'user',
       content: me() + '\'s goal is ' + s.goal.replace(/-/g, ' ') + '. Their current targets are ' +
         displayEnergyTarget + ' ' + energyUnit + ', ' + t.protein + ' g protein, ' + t.steps + ' steps, weight goal ' + displayWeightGoal + ' ' + s.units.weight + '.\n\n' +
@@ -1473,15 +1525,17 @@
         '{"calories":n,"protein":n,"steps":n,"weightGoal":n,"why":"one or two sentences naming the evidence"}'
     }], { system: VOICE, maxTokens: 400 }, function (err, text) {
       if (err) return cb(err);
-      var out;
-      try { out = JSON.parse((text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); }
-      catch (e) { return cb(new Error('The coach\'s proposal could not be read.')); }
+      var out, verdict = window.InSyncIntelligence ? InSyncIntelligence.validate('coach.targets', text) : null;
+      if (verdict && !verdict.ok) return cb(new Error('The coach\'s proposal could not be read.'));
+      if (verdict) out = verdict.value;
+      else { try { out = JSON.parse((text || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '')); } catch (e) { return cb(new Error('The coach\'s proposal could not be read.')); } }
       var num = function (v, lo, hi, fallback) {
         var n = Math.round(+v);
         return (n >= lo && n <= hi) ? n : fallback;
       };
       var why = (out.why || '').trim();
       var firstSentence = why.split('. ')[0];
+      if (window.InSyncIntelligence) { var pctx=InSyncIntelligence.context('coach.targets'); InSyncIntelligence.rememberEvidence('target-proposal','coach.targets',InSyncIntelligence.evidenceFromContext(pctx,'weekly')); }
       Store.set('proposal', {
         date: Store.todayKey(),
         answered: false,

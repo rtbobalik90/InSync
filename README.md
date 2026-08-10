@@ -1,147 +1,137 @@
-# InSync 6.0.0-p1 — Architecture Foundation
+# InSync 6.0.0-p3 — Faith Foundation
 
-InSync is a private, local-first two-person health and fitness PWA. Daily nutrition, training, body tracking, faith/reflection, progression, photos, goals and history live primarily on each phone. A small privacy-controlled subset is exchanged through a dedicated private GitHub repository so Together, expeditions, chat and reactions can work across two devices.
+InSync is a local-first, two-person Christian health and formation journey. Version 6.0.0-p3 completes Phase 3 of the 6.0 roadmap: Faith becomes a first-class product system while remaining explicitly noncompetitive and private by default.
 
-## Core navigation
+## Product direction
 
-The 6.0 foundation has five primary destinations:
+Primary navigation remains:
 
-- **Home** — daily score, next step, Coach observations, weekly goals/review and expedition status.
-- **Journey** — first-class expedition hub with current leg, shared contribution, route map and passport surface.
-- **Train** — Monday–Sunday training week, sessions, progression, substitutions and records.
-- **Nutrition** — Breakfast/Lunch/Dinner/Snack logging, weekly meal planning, recipes, favorites, preferences and shopping list.
-- **Together** — shared progress, weekly points, conversation and lightweight reactions.
+**Home · Journey · Train · Nutrition · Together**
 
-**Coach** is no longer a bottom tab. It remains a full route and is globally accessible from the header so Intelligence can become a system that follows the user rather than a competing destination.
+Coach remains globally accessible. Faith is a supporting system reachable from Home, Coach, Reflection and its dedicated Faith Hub.
 
-## 6.0 Phase 1 architecture foundation
+The product still follows three pillars:
+- **Body** — training, walking, nutrition, recovery and health habits;
+- **Spirit** — Scripture, prayer, memorization, gratitude, Sabbath and reflection;
+- **Together** — shared expeditions, encouragement and deliberately shared prayer.
 
-Phase 1 introduces small shared modules without rewriting the working app:
+## Phase 3 additions
 
-- `domains.js` — product-domain and primary-navigation registry;
-- `journeys.js` — the single expedition catalog and route math used by Journey today and Theme/Base Camp later;
-- `contracts.js` — AI-skill, privacy and domain-event contracts;
-- `theme.js` — default theme plus expedition-pack registration/fallback seam;
-- `rewards.js` — declared event bus for later XP/reward systems; Phase 1 awards no XP;
-- `camp.js` — Base Camp level thresholds, land tiers, starter item catalog and read-only model helpers;
-- `store.js` now carries a sanitized, backup-safe local Base Camp state model. Camp state is **not** added to partner sync in Phase 1.
+### Faith Hub
+A dedicated Christian formation route now gathers Scripture Today, Memory Trail, Prayer Journal, Gratitude, Sabbath and Rule of Life without adding a sixth bottom navigation tab.
 
-This extraction is intentionally incremental. Existing Training, Nutrition, Together, Coach and History logic stays proven while later phases can migrate each domain behind these boundaries.
+### Scripture Memory Trail
+The app now supports a complete memorization sequence built only from verified in-app Scripture:
+1. Read.
+2. Hide selected words.
+3. First-letter prompt.
+4. Type from memory.
+5. Recite/self-check.
+6. Spaced review.
 
-## The weekly rhythm
+Memory states are **Learning**, **Familiar**, **Memorized**, and **Review due**. Missing a review never deletes a verse or breaks a spiritual streak because Faith does not use competitive streak mechanics.
 
-### Weekly Review
-On Sunday evening/night, or afterward, InSync can review the completed/current closing week. It uses only evidence present in the log: points, workouts, logged nutrition, steps, weight direction, expedition miles, newly recorded badges and favorites added that week.
+### Prayer Journal
+Prayer entries are private by default and may be:
+- categorized;
+- kept ongoing;
+- marked answered with an optional private answer/reflection;
+- reopened later.
 
-The review can then **Set up my next week**:
-1. Build and immediately save a complete 7-day × 4-slot meal week in four bounded Claude batches so one oversized response cannot truncate the whole plan.
-2. Write exactly the selected number of **lifting** days; the daily walk never consumes a gym day.
-3. Stage future training without replacing the active week early.
-4. Create exactly two measurable personal goals.
+Exactly one ongoing request may be explicitly selected for partner sharing. Private journal entries, answer notes, gratitude and reflections do not enter partner sync.
 
-Meal generation is bounded and repairable. The 28 recipes are requested as four small date batches (Mon–Tue, Wed–Thu, Fri–Sat, Sun). Each batch gets one automatic repair attempt for request failure, malformed JSON, an output cut off at `max_tokens`, or missing/rejected dated slots. The button shows `Planning meals 1 of 4` through `4 of 4` so the phone never looks frozen during a long build.
+### Shared Prayer
+Partner sync schema 7 introduces a narrowly scoped shared-prayer contract:
+- one explicitly shared request;
+- category and creation time;
+- `I prayed for this` acknowledgement.
 
-Setup is resumable inside the meal week and across the meal/training boundary. Each validated meal batch is saved immediately, so a later batch failure resumes only the missing dates. If all meals finish but training fails validation or the network/API call fails, the 28 meals stay saved and the next tap retries only training. Training receives one automatic repair pass when Claude returns malformed JSON, an invented exercise, a walk/cardio placeholder, or an unsafe recovery layout. The readiness check verifies real meal slots and real plan rows rather than trusting stale metadata. When the new Monday arrives, the staged training week promotes automatically, including while the PWA remains open across the week boundary.
+The acknowledgement is relational feedback only. It never becomes points, XP or a leaderboard.
 
-### Meal prep
-Meal Planner supports:
-- four daily slots: Breakfast, Lunch, Dinner and Snack;
-- cuisine and protein selection;
-- like/avoid keyword memory;
-- home-cooked-only generation;
-- recipe ingredients, method, servings, prep time and nutrition;
-- favorite recipe memory;
-- thumbs-down exclusion with an **allow again** control;
-- finished-plate photos stored locally in IndexedDB;
-- batch-prep lunches;
-- dinner leftovers on selected cook nights;
-- a shopping list derived from the displayed week's actual grocery-bearing recipes.
+### Gratitude
+Evening Reflection now includes an optional gratitude field. Gratitude is date-keyed, private, backed up with the owner log and visible in the Faith Hub.
 
-### Daily walk timer
-Training opens with a dedicated **Walk timer** on every current day, including lifting days, dedicated walk days and recovery/rest days. The same clock also appears above the exercise list during an active lift. Start begins from a persisted timestamp, Stop freezes elapsed time, and Resume continues from the accumulated duration. Locking the phone, switching InSync screens, completing the lifting portion, or a same-screen render does not reset or stop the walk.
+### Sabbath Mode
+Sabbath may be enabled on a selected weekday. When active:
+- Home does not render the normal target-deficit ledger;
+- Home explicitly says the day is not a score to close;
+- Coach stops presenting a list of open health gaps;
+- Scripture, gratitude, rest and an unhurried walk are emphasized without turning rest into another performance requirement.
 
-After Stop, the user can record flexible **Pace / speed** text (for example `16:00 /mi` or `3.5 mph`) and **Elevation / incline** text (for example `5% incline` or `300 ft`). The walk is stored on that calendar day and appears in Training/history independently of whether a workout was completed. Past days offer a manual duration/pace/elevation correction instead of a live timer; future dates cannot start one early.
+### Rule of Life
+A private, non-scored weekly rhythm can now be written for:
+- worship;
+- Scripture;
+- prayer;
+- rest;
+- body stewardship;
+- meal preparation;
+- relationship/family life.
 
-### Training progression
-Training derives the next cue from real exercise history. Depending on the record it can recommend holding the load, adding a clean rep, repeating the top of the range, or adding a conservative 5 lb after the top has been achieved twice.
+## Faith + Intelligence boundary
 
-Before sets are logged, an exercise can be swapped. Occupancy swaps are temporary; discomfort/dislike swaps are remembered so future Coach plans avoid those movements. The Training page lets the user allow a remembered movement again.
+Phase 2 Intelligence remains underneath Faith. AI may receive safe structural facts such as Scripture-memory counts, whether a review is due, prayer counts or whether Sabbath is active. It does **not** receive private prayer text, gratitude text, Rule-of-Life text or evening reflection content by default.
 
-### Train landing screen
-The Train landing view intentionally keeps the expedition/training artwork visible longer, uses a compact daily Walk timer near the top, and places **This week** directly beneath it so the current Monday–Sunday plan is visible in the opening phoneful. If next week has already been staged, a separate **Next week — Ready** strip previews those seven days without activating them early.
+The AI Constitution continues to prohibit:
+- claiming God spoke through the model;
+- claiming spiritual authority;
+- replacing Scripture, church or pastoral care;
+- inventing Scripture quotations;
+- ranking partners spiritually;
+- shame/guilt mechanics.
 
-## History and calendar
+## Game boundary
 
-The calendar shows actual activity by date and never invents pre-install history. Opening a day can show:
-- daily score and score components;
-- meals/macros;
-- workout detail;
-- steps and derived trail distance;
-- weight/body metrics;
-- verse/reflection;
-- progress-photo evidence.
+Faith has no reward-emission path. Scripture practice, prayer, gratitude, Sabbath and Rule-of-Life configuration do **not** award Base Camp XP and do not alter competitive health points.
 
-## Coach memory
+## Architecture
 
-Coach patterns are derived, not guessed. Current rules can notice repeated protein misses, repeated step gaps, training consistency/attention, meaningful weight movement and accumulated meal dislikes. These facts are also supplied to Claude when AI coaching is enabled.
+Phase 3 adds:
+- `faith.js` — Faith domain logic, Scripture Memory Trail, prayer state, gratitude, Sabbath and Rule of Life;
+- additive `faith` state under the existing local store;
+- partner-sync schema 7 for deliberately shared prayer only;
+- Faith-safe context summaries inside `intelligence.js`;
+- Faith routes/screens and event handlers.
 
-## Together and reactions
+Existing Phase 1/2 architecture remains intact:
+- `domains.js`
+- `contracts.js`
+- `journeys.js`
+- `theme.js`
+- `rewards.js`
+- `camp.js`
+- `intelligence.js`
+- `prompt-registry.js`
 
-Together includes the rolling two-person conversation plus a bounded shared activity feed. A 10/10 day may appear automatically; workout, protein and step activity appears only when the corresponding privacy switch permits it. Partner activity can receive ❤️, 👏 or 🔥 reactions.
+## Privacy model
 
-## Dedicated private sync repository
+Local state remains the source of truth. Connection secrets remain stored separately from normal backups. Faith data is local-first.
 
-Use a second GitHub repository only for sync data. Do **not** put the app files in it.
+Partner sync may contain only the prayer request deliberately selected for sharing plus prayer acknowledgements. The sync contract does not include the private prayer journal, answers, gratitude, Rule of Life or reflection text.
 
-Recommended repository:
-- private;
-- initialized with a README so `main` exists;
-- GitHub Pages disabled.
+## Compatibility
 
-Both phones use the same repository, for example:
+- App/UI: **6.0.0-p3**
+- Local state: **v10** — additive Faith state; no forced reset
+- Partner sync: **schema 7**
+- Service worker: **insync-v10-18**
 
-`rtbobalik90/insync-sync`
+An older schema-6 partner file remains readable; it simply has no shared-prayer fields.
 
-Each phone should use its own fine-grained token limited to that repository with **Contents: Read and write**. Metadata read access may be automatically present. The app repository and sync-data repository must remain separate.
+## Test gate
 
-InSync writes each person's small JSON sync record and reads the partner's. The private payload can contain points/streak/badges, chat, expedition state, bounded history, shared activity/reactions, acknowledgement timestamps, and optional privacy-controlled health summaries. It is not a full backup.
+The release passes **1,088 / 1,088 automated assertions with 0 failures**, including **81 Phase 3 Faith Foundation checks**.
 
-### Automatic sync behavior
+## Next roadmap phase
 
-A meaningful local change schedules a push. The app also pulls when it launches/returns to the foreground/reconnects, when Together is opened, and periodically while the PWA is visible. iOS may suspend JavaScript while the app is fully backgrounded; it catches up when the app resumes.
+**Phase 4 — Training 2.0**
 
-**Sync Now** is a force/troubleshooting control, not a normal daily requirement.
-
-### Sync Health
-Settings reports last successful exchange, failures, partner update freshness and whether the partner has acknowledged the version of your data it received.
-
-### Owner and coaching preferences
-Settings exposes the primary goal and weekly gym-day count after onboarding. Changing either leaves the active calendar week intact but invalidates staged future training written under the old preference. A connected owner-name change warns before changing the private sync filename; a material partner-name change clears partner-derived cache so data from a previous identity is never relabeled as the new partner.
-
-## Backups
-
-Use **Create Backup** for the complete personal backup. Backups include application state and local photos but intentionally exclude GitHub and Claude secret keys. Restore is preflighted and transactional; damaged local bytes are protected by recovery mode rather than overwritten as a blank install. An already-onboarded phone will not restore a backup belonging to a different owner, because retaining the phone's local connection keys while changing its owner identity could make both phones write the same sync file. Use **Start over** first only when intentionally replacing who owns the device.
-
-## PWA updates
-
-
-
-## Notification bell states
-
-The header bell is neutral when nothing new is waiting, gold with a dot for unread informational activity, and gold with a numbered badge/glow when one or more items require action. Opening Notifications acknowledges informational items; unresolved actions remain counted until the underlying invitation, note, or coach proposal is handled.
-
-Version 6.0.0-p1 uses service-worker cache `insync-v10-16`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
-
-## Version matrix
-
-- App/UI: **6.0.0-p1**
-- Local state: **v10**
-- Partner sync: **schema 6**
-- Service worker: **insync-v10-16**
-
-See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the release gate and detailed changes.
-
-## Daily walk timer
-
-The Training walk timer belongs to the calendar day, not to a lifting session. It is available on lift days, walk days and recovery/rest days, and it remains available after the lifting portion is marked complete. Start/Stop uses a persisted wall-clock timestamp, so locking the iPhone or moving between InSync screens does not reset elapsed time. Pace/speed and elevation/incline can be saved after stopping. Past days are never allowed to run a live timer; they offer a manual duration/pace/elevation correction instead. Existing 5.5.1/5.5.2 workout-owned walk records migrate into the corresponding day record.
-
+Planned scope:
+- readiness check;
+- effort/RIR;
+- rest timer;
+- progression engine 2.0;
+- deload proposals;
+- gym/equipment profiles;
+- expanded exercise library/media;
+- structured walk metrics.

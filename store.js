@@ -79,6 +79,24 @@
     mealFavoriteAt: {},
     mealDislikedMeals: [],
     exercisePrefs: { dislikedIds: [], discomfortIds: [], swapLog: [] },
+    /* Phase 2 exposes safe AI preferences rather than the raw master prompt.
+       These shape presentation only; the Intelligence Constitution always wins. */
+    aiPrefs: { tone: 'grounded', directness: 'direct', mealComplexity: 'practical', trainingStyle: 'balanced', faithEmphasis: 'integrated' },
+    /* Small explainability records. No raw prompts, journal text, photographs or
+       API responses are stored here — only code-derived evidence labels. */
+    aiEvidence: {},
+    /* Faith Foundation is local-first. Prayer-journal text and gratitude never
+       enter partner sync. One explicitly selected prayer request may cross. */
+    faith: {
+      schema: 1,
+      memory: [],
+      prayers: [],
+      sharedPrayerId: '',
+      partnerPrayerAcks: {},
+      gratitude: {},
+      sabbath: { enabled: true, day: 0 },
+      ruleOfLife: { worship: '', scripture: '', prayer: '', rest: '', exercise: '', mealPrep: '', relationship: '' }
+    },
     weeklyReviews: {},
     weeklyGoals: {},
     reactionsGiven: {},
@@ -447,6 +465,20 @@
         };
         if (!S.partnerData.expedition.routeId) delete S.partnerData.expedition;
       } else delete S.partnerData.expedition;
+      if (plainObject(S.partnerData.sharedPrayer)) {
+        var sp = S.partnerData.sharedPrayer;
+        var spid = shortText(sp.id, 120).trim(), sptext = shortText(sp.text, 700).trim();
+        if (spid && sptext) {
+          S.partnerData.sharedPrayer = {
+            id: spid, text: sptext,
+            category: ['General','Faith','Family','Relationship','Work','Health','Other'].indexOf(sp.category) >= 0 ? sp.category : 'General',
+            createdAt: validTimestamp(sp.createdAt)
+          };
+        } else delete S.partnerData.sharedPrayer;
+      } else delete S.partnerData.sharedPrayer;
+      S.partnerData.prayerAcks = Array.isArray(S.partnerData.prayerAcks) ? S.partnerData.prayerAcks.filter(plainObject).map(function (a) {
+        return { id: shortText(a.id,120).trim(), at: validTimestamp(a.at) };
+      }).filter(function (a) { return !!a.id && !!a.at; }).slice(-80) : [];
       S.partnerData.updated = validTimestamp(S.partnerData.updated);
       S.partnerData.seenPartnerUpdated = validTimestamp(S.partnerData.seenPartnerUpdated);
       S.partnerData.activity = Array.isArray(S.partnerData.activity) ? S.partnerData.activity.filter(plainObject).map(function (a) {
@@ -587,6 +619,57 @@
     S.exercisePrefs.swapLog = Array.isArray(S.exercisePrefs.swapLog) ? S.exercisePrefs.swapLog.filter(plainObject).slice(-80).map(function (x) {
       return { date: validDateKey(x.date) ? String(x.date) : todayKey(), fromId: shortText(x.fromId, 120), toId: shortText(x.toId, 120), reason: ['occupied','discomfort','dislike'].indexOf(x.reason) >= 0 ? x.reason : 'occupied' };
     }) : [];
+    /* Faith Foundation. These fields are normalized separately from days so
+       private spiritual history cannot accidentally become ordinary shared
+       activity. */
+    if (!plainObject(S.faith)) S.faith = clone(DEFAULT.faith);
+    S.faith.schema = 1;
+    S.faith.memory = Array.isArray(S.faith.memory) ? S.faith.memory.filter(plainObject).map(function (m) {
+      var id = shortText(m.id, 120).trim(), ref = shortText(m.ref, 160).trim(), text = shortText(m.text, 1600).trim();
+      return {
+        id: id, ref: ref, text: text, createdAt: validTimestamp(m.createdAt),
+        stage: Math.max(1, Math.min(6, Math.round(finiteOr(m.stage, 1, 1, 6)))),
+        intervalDays: Math.max(0, Math.min(3650, Math.round(finiteOr(m.intervalDays, 0, 0, 3650)))),
+        reviewDue: validDateKey(m.reviewDue) ? String(m.reviewDue) : '',
+        lastReviewedAt: validTimestamp(m.lastReviewedAt),
+        reviews: Math.max(0, Math.min(10000, Math.round(finiteOr(m.reviews, 0, 0, 10000)))),
+        typedAccuracy: m.typedAccuracy == null ? null : finiteOr(m.typedAccuracy, null, 0, 1)
+      };
+    }).filter(function (m) { return !!m.id && !!m.ref && !!m.text; }).slice(-300) : [];
+    S.faith.prayers = Array.isArray(S.faith.prayers) ? S.faith.prayers.filter(plainObject).map(function (p) {
+      var status = p.status === 'answered' ? 'answered' : 'ongoing';
+      return {
+        id: shortText(p.id, 120).trim(),
+        text: shortText(p.text, 2000).trim(),
+        category: ['General','Faith','Family','Relationship','Work','Health','Other'].indexOf(p.category) >= 0 ? p.category : 'General',
+        status: status,
+        createdAt: validTimestamp(p.createdAt),
+        updatedAt: validTimestamp(p.updatedAt),
+        answeredAt: status === 'answered' ? validTimestamp(p.answeredAt) : '',
+        answer: status === 'answered' ? shortText(p.answer, 3000).trim() : ''
+      };
+    }).filter(function (p) { return !!p.id && !!p.text; }).slice(-500) : [];
+    S.faith.sharedPrayerId = shortText(S.faith.sharedPrayerId, 120).trim();
+    if (S.faith.sharedPrayerId && !S.faith.prayers.some(function (p) { return p.id === S.faith.sharedPrayerId && p.status === 'ongoing'; })) S.faith.sharedPrayerId = '';
+    if (!plainObject(S.faith.partnerPrayerAcks)) S.faith.partnerPrayerAcks = {};
+    Object.keys(S.faith.partnerPrayerAcks).forEach(function (id) {
+      var at = validTimestamp(S.faith.partnerPrayerAcks[id]);
+      if (!safeKey(id) || id.length > 120 || !at) delete S.faith.partnerPrayerAcks[id];
+      else S.faith.partnerPrayerAcks[id] = at;
+    });
+    if (!plainObject(S.faith.gratitude)) S.faith.gratitude = {};
+    Object.keys(S.faith.gratitude).forEach(function (k) {
+      var text = shortText(S.faith.gratitude[k], 3000).trim();
+      if (!validDateKey(k) || !text) delete S.faith.gratitude[k]; else S.faith.gratitude[k] = text;
+    });
+    if (!plainObject(S.faith.sabbath)) S.faith.sabbath = clone(DEFAULT.faith.sabbath);
+    S.faith.sabbath.enabled = typeof S.faith.sabbath.enabled === 'boolean' ? S.faith.sabbath.enabled : true;
+    S.faith.sabbath.day = Math.max(0, Math.min(6, Math.round(finiteOr(S.faith.sabbath.day, 0, 0, 6))));
+    if (!plainObject(S.faith.ruleOfLife)) S.faith.ruleOfLife = clone(DEFAULT.faith.ruleOfLife);
+    ['worship','scripture','prayer','rest','exercise','mealPrep','relationship'].forEach(function (k) {
+      S.faith.ruleOfLife[k] = shortText(S.faith.ruleOfLife[k], 1200).trim();
+    });
+
     if (!plainObject(S.weeklyReviews)) S.weeklyReviews = {};
     Object.keys(S.weeklyReviews).forEach(function (k) {
       if (!validDateKey(k) || !plainObject(S.weeklyReviews[k])) { delete S.weeklyReviews[k]; return; }
@@ -705,6 +788,25 @@
       }).filter(function (m) { return !!m.text; }) : [];
       if (!S.coachChat.date) S.coachChat = null;
     }
+    if (!plainObject(S.aiPrefs)) S.aiPrefs = clone(DEFAULT.aiPrefs);
+    S.aiPrefs.tone = ['grounded','warm','concise'].indexOf(S.aiPrefs.tone) >= 0 ? S.aiPrefs.tone : DEFAULT.aiPrefs.tone;
+    S.aiPrefs.directness = ['gentle','direct','firm'].indexOf(S.aiPrefs.directness) >= 0 ? S.aiPrefs.directness : DEFAULT.aiPrefs.directness;
+    S.aiPrefs.mealComplexity = ['simple','practical','adventurous'].indexOf(S.aiPrefs.mealComplexity) >= 0 ? S.aiPrefs.mealComplexity : DEFAULT.aiPrefs.mealComplexity;
+    S.aiPrefs.trainingStyle = ['conservative','balanced','progressive'].indexOf(S.aiPrefs.trainingStyle) >= 0 ? S.aiPrefs.trainingStyle : DEFAULT.aiPrefs.trainingStyle;
+    S.aiPrefs.faithEmphasis = ['light','integrated','explicit'].indexOf(S.aiPrefs.faithEmphasis) >= 0 ? S.aiPrefs.faithEmphasis : DEFAULT.aiPrefs.faithEmphasis;
+    if (!plainObject(S.aiEvidence)) S.aiEvidence = {};
+    Object.keys(S.aiEvidence).forEach(function (key) {
+      var e = S.aiEvidence[key];
+      if (!plainObject(e)) { delete S.aiEvidence[key]; return; }
+      e.date = validDateKey(e.date) ? String(e.date) : '';
+      e.at = validTimestamp(e.at);
+      e.promptId = shortText(e.promptId,120); e.promptVersion = shortText(e.promptVersion,40); e.constitutionVersion = shortText(e.constitutionVersion,40);
+      e.items = Array.isArray(e.items) ? e.items.filter(plainObject).slice(0,12).map(function (it) {
+        return { label: shortText(it.label,80).trim(), value: shortText(it.value,500).trim() };
+      }).filter(function (it) { return !!it.label && !!it.value; }) : [];
+      if (!e.promptId || !e.items.length) delete S.aiEvidence[key];
+    });
+    Object.keys(S.aiEvidence).sort(function (a,b) { return String(S.aiEvidence[b].at||'').localeCompare(String(S.aiEvidence[a].at||'')); }).slice(20).forEach(function (key) { delete S.aiEvidence[key]; });
     if (S.lastArrival != null && !plainObject(S.lastArrival)) S.lastArrival = null;
     if (S.lastArrival) {
       S.lastArrival.routeId = shortText(S.lastArrival.routeId, 100);

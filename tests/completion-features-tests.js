@@ -93,7 +93,7 @@ function plan(w){return new Promise(r=>C.planMealsWeek(w,(err,map)=>r({err,map})
  // Reactions are toggleable and travel as a small sync map.
  ok(!I.setReaction('__proto__','heart'),'reaction storage rejects unsafe/non-activity ids');
  const partnerEvent='a:lizzie:'+today+':protein';ok(I.setReaction(partnerEvent,'heart'),'partner activity can be reacted to');eq(I.reactionsGiven()[partnerEvent],'heart','reaction is stored locally for sync');ok(I.setReaction(partnerEvent,'heart'),'tapping the same reaction toggles it off');ok(!I.reactionsGiven()[partnerEvent],'reaction can be removed');I.setReaction(partnerEvent,'fire');
- const share=C.sharePayload();eq(share.schema,6,'completion features use sync schema 6');eq(share.reactions[partnerEvent],'fire','reaction is included in shared payload');ok(Array.isArray(share.activity),'shared payload carries a bounded activity feed');
+ const share=C.sharePayload();eq(share.schema,7,'completion features use sync schema 7');eq(share.reactions[partnerEvent],'fire','reaction is included in shared payload');ok(Array.isArray(share.activity),'shared payload carries a bounded activity feed');
 
  // Sync health has explicit healthy/error/ack facts rather than a vague string.
  S.setSecret('githubToken','token');S.set('connections.githubRepo','rtbobalik90/insync-sync');S.set('connections.lastSync',new Date().toISOString());

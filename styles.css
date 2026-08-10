@@ -1270,3 +1270,16 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .passport-stamp > span { width: 24px; color: var(--gold); }
 .passport-stamp svg { width: 22px; height: 22px; }
 .passport-stamp strong { font: 500 15px/1.25 var(--serif); }
+
+/* Phase 2 — explainable Intelligence evidence. Native details keeps the drawer
+   keyboard/screen-reader accessible without another modal state machine. */
+.aiwhy{margin-top:14px;border-top:1px solid var(--rule);padding-top:10px}
+.aiwhy summary{cursor:pointer;list-style:none;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--sage);min-height:36px;display:flex;align-items:center}
+.aiwhy summary::-webkit-details-marker{display:none}
+.aiwhy summary:after{content:'+';margin-left:auto;font-family:var(--serif);font-size:18px;color:var(--faint)}
+.aiwhy[open] summary:after{content:'–'}
+.aiwhybody{padding:3px 0 2px}
+.aiwhyrow{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:12px}
+.aiwhyrow span{color:var(--faint)}
+.aiwhyrow b{font-weight:500;text-align:right;color:var(--ink)}
+.aiwhybody .small{margin:10px 0 0}

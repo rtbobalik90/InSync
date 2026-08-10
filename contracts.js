@@ -1,6 +1,6 @@
-/* Shared product contracts. Phase 1 centralizes names and boundaries first;
-   later phases can attach implementations without inventing incompatible
-   shapes in individual screens. */
+/* Shared product contracts. Phase 2 keeps domain names, AI skill boundaries
+   and privacy rules stable while the Intelligence layer attaches real policy,
+   context and prompt contracts behind them. */
 (function () {
   'use strict';
 
@@ -33,7 +33,7 @@
   };
 
   window.InSyncContracts = {
-    version: 1,
+    version: 2,
     aiSkills: AI_SKILLS,
     privacy: PRIVACY,
     events: EVENTS
