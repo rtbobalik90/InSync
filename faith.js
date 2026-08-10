@@ -195,6 +195,73 @@
     var r = fs().ruleOfLife || {};
     return RULE_FIELDS.filter(function (k) { return !!clean(r[k], 1200); }).length;
   }
+  function addPassage(passage) {
+    if (!passage) return null;
+    if (window.ScriptureLibrary && ScriptureLibrary.asMemory) passage = ScriptureLibrary.asMemory(passage) || passage;
+    return addVerse(passage);
+  }
+
+  function memoryMode(m) {
+    if (!m) return 'read';
+    if ((+m.stage || 1) <= 1) return 'read';
+    if (m.stage === 2) return 'reveal';
+    if (m.stage === 3) return 'word-bank';
+    if (m.stage === 4) return 'letters';
+    if (m.stage === 5) return 'type';
+    return 'speak';
+  }
+
+  function wordBank(text, difficulty) {
+    difficulty = Math.max(1, Math.min(5, Math.round(+difficulty || 2)));
+    var source = words(text), candidates = [];
+    for (var i = 0; i < source.length; i++) {
+      var core = source[i].replace(/[^A-Za-z0-9']/g, '');
+      if (core.length >= 3) candidates.push(i);
+    }
+    var wanted = Math.max(2, Math.min(candidates.length, Math.ceil(source.length * (0.08 + difficulty * 0.055))));
+    var hidden = [];
+    if (candidates.length) {
+      var stride = candidates.length / wanted;
+      for (var j = 0; j < wanted; j++) hidden.push(candidates[Math.min(candidates.length - 1, Math.floor(j * stride + stride / 2))]);
+    }
+    var hiddenMap = {}, answers = [];
+    hidden.forEach(function (idx) {
+      hiddenMap[idx] = true;
+      answers.push(source[idx].replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g, ''));
+    });
+    var tokens = source.map(function (w, idx) {
+      if (!hiddenMap[idx]) return { type:'text', text:w };
+      var lead = (w.match(/^[^A-Za-z0-9']*/) || [''])[0], tail = (w.match(/[^A-Za-z0-9']*$/) || [''])[0];
+      return { type:'blank', answer:w.replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g, ''), lead:lead, tail:tail };
+    });
+    /* Deterministic shuffle: stable for a verse so practice does not jump on
+       every render, but not simply the verse order. */
+    answers = answers.filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+    answers.sort(function (a,b) {
+      var av = a.length * 31 + a.charCodeAt(0), bv = b.length * 31 + b.charCodeAt(0);
+      return av === bv ? a.localeCompare(b) : av - bv;
+    });
+    return { difficulty:difficulty, tokens:tokens, answers:answers, blanks:hidden.length };
+  }
+
+  function revealSegments(text) {
+    var ws = words(text), size = Math.max(4, Math.ceil(ws.length / 4)), out = [];
+    for (var i=0;i<ws.length;i+=size) out.push(ws.slice(i,i+size).join(' '));
+    return out.slice(0,4);
+  }
+
+  function waypoint(routeId, legIndex) {
+    if (window.ScriptureLibrary && ScriptureLibrary.waypoint) return ScriptureLibrary.waypoint(routeId, legIndex);
+    var v = Store.verse(); return { ref:v.ref, text:v.text, passageId:'' };
+  }
+  function waypointKey(routeId, legIndex) { return clean(routeId,80) + '|' + Math.max(0,Math.round(+legIndex||0)); }
+  function waypointNote(routeId, legIndex) { return clean((fs().waypointNotes || {})[waypointKey(routeId,legIndex)], 3000); }
+  function saveWaypointNote(routeId, legIndex, text) {
+    var notes = Object.assign({}, fs().waypointNotes || {}), k = waypointKey(routeId,legIndex), val = clean(text,3000);
+    if (val) notes[k] = val; else delete notes[k];
+    Store.set('faith.waypointNotes', notes); return val;
+  }
+
   function summary() {
     return {
       memoryTotal: memory().length, memoryDue: dueMemory().length, memorized: memorizedCount(),
@@ -206,9 +273,10 @@
   }
 
   window.Faith = {
-    version:'1.0.0', categories:PRAYER_CATEGORIES.slice(), ruleFields:RULE_FIELDS.slice(),
+    version:'1.1.0', categories:PRAYER_CATEGORIES.slice(), ruleFields:RULE_FIELDS.slice(),
     memory:memory, memoryItem:memoryItem, memoryStatus:memoryStatus, dueMemory:dueMemory, memorizedCount:memorizedCount,
-    addVerse:addVerse, advanceMemory:advanceMemory, hideWords:hideWords, firstLetters:firstLetters,
+    addVerse:addVerse, addPassage:addPassage, advanceMemory:advanceMemory, hideWords:hideWords, firstLetters:firstLetters,
+    memoryMode:memoryMode, wordBank:wordBank, revealSegments:revealSegments,
     typedAccuracy:typedAccuracy, checkTyped:checkTyped, reviewMemory:reviewMemory, removeMemory:removeMemory,
     prayers:prayers, prayer:prayer, addPrayer:addPrayer, markAnswered:markAnswered, reopenPrayer:reopenPrayer, removePrayer:removePrayer,
     sharePrayer:sharePrayer, unsharePrayer:unsharePrayer, sharedPrayerPayload:sharedPrayerPayload,
@@ -216,6 +284,7 @@
     prayedForPartner:prayedForPartner, partnerAckForMine:partnerAckForMine,
     gratitude:gratitude, saveGratitude:saveGratitude, gratitudeEntries:gratitudeEntries,
     isSabbath:isSabbath, setSabbath:setSabbath, ruleOfLife:ruleOfLife, ruleConfiguredCount:ruleConfiguredCount,
+    waypoint:waypoint, waypointNote:waypointNote, saveWaypointNote:saveWaypointNote,
     summary:summary
   };
 })();

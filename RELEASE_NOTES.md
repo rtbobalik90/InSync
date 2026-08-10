@@ -1,68 +1,59 @@
-# InSync 6.0.0-p3 — Phase 3 Faith Foundation
+# InSync 6.0.0-p3b — Phase 3B Faith Woven Into the Journey
 
 ## Release purpose
 
-Phase 3 makes Christian formation a real product pillar while preserving the summit rule that spiritual disciplines are never proof of worth, competitive points or partner rankings.
+Phase 3B replaces the rejected Phase 3 Faith presentation while preserving its sound backend, privacy, sync, Sabbath, prayer and memorization foundations. The goal is for Faith to feel native to the expedition and Daily Camp rather than forced into the app as a collection of spiritual utility cards.
 
-## New production module
+## New / redesigned
 
-### `faith.js`
-Provides:
-- Scripture Memory Trail;
-- spaced review scheduling;
-- private prayer journal;
-- answered-prayer state;
-- explicit one-request partner sharing;
-- `I prayed for this` acknowledgement;
-- gratitude;
-- Sabbath mode;
-- Rule of Life foundation;
-- private-safe Faith summaries for the Intelligence layer.
+- **Today at Camp** Faith briefing on Home
+- **Along the Road** Scripture/reflection moment on the active Journey leg
+- redesigned expedition-aware **Faith Hub**
+- new local `scripture.js` verified Scripture Library
+- in-app **Bible / passage reader**
+- expanded **Memory Trail** modes:
+  - Read
+  - Tap to Reveal
+  - Word Bank
+  - First Letters
+  - Type It
+  - Speak / self-check
+- redesigned **Prayer at Camp**
+- redesigned **Close Camp** evening reflection
+- **Rhythm** presentation for Sabbath and Rule of Life
+- private waypoint journal storage
+- text-to-speech hooks for stored Scripture where the browser supports speech synthesis
 
-## Scripture Memory Trail
+## Preserved safeguards
 
-A verse can move through:
-1. Read;
-2. hidden-word practice;
-3. first-letter prompts;
-4. typed recall;
-5. recitation/self-check;
-6. spaced review.
+- no spiritual leaderboard or Faith XP
+- no prayer/Scripture rewards into Base Camp economy
+- one-request explicit prayer sharing only
+- private prayer, gratitude, reflection and waypoint journal stay out of partner sync
+- private spiritual text stays out of general AI context
+- no AI-generated Scripture text
+- Sabbath remains pressure-reducing
 
-The system stores progression and review dates without using a spiritual streak-loss mechanic.
+## Technical changes
 
-## Prayer Journal and shared prayer
-
-All prayers start private. Ongoing prayers can be marked answered with a private note and reopened later.
-
-One ongoing request can be intentionally shared with the partner. Partner sync advances to **schema 7** and carries only:
-- shared prayer id;
-- shared request text;
-- category;
-- creation timestamp;
-- prayer acknowledgements.
-
-Private prayer entries, answer notes, gratitude, Rule-of-Life text and reflections do not cross.
-
-## Sabbath Mode
-
-A selected weekday can run in Sabbath mode. On that day Home and Coach remove score-closing/deficit language. Logging remains available, but the product language emphasizes rest, Scripture, gratitude and unhurried stewardship.
-
-## Rule of Life
-
-Private weekly rhythms can be stored for worship, Scripture, prayer, rest, body stewardship, meal preparation and relationship/family life. These fields are deliberately non-scored.
-
-## Intelligence boundary
-
-Faith context now exposes safe counts/state to registered AI skills while continuing to exclude private journal text. The Phase 2 AI Constitution remains authoritative.
+- new `scripture.js`
+- `faith.js` -> **1.1.0**
+- `store.js` adds normalized private `faith.waypointNotes`
+- `screens.js` adds Scripture, passage, Memory Trail, waypoint and Close Camp surfaces
+- `app.js` adds the new routes/actions and speech/reveal/word-bank handlers
+- `styles.css` adds the approved expedition-native Faith visual system
+- `ui.js` adds a heart icon used by Close Camp
+- `index.html` loads Scripture Library before Faith
+- `sw.js` cache -> **insync-v10-19** and includes Scripture Library offline
 
 ## Compatibility
 
-- App/UI: **6.0.0-p3**
-- Local state: **v10** (additive; no forced reset)
-- Partner sync: **schema 7**
-- Service-worker cache: **insync-v10-18**
+- App/UI: **6.0.0-p3b**
+- local state remains **insync.v10**
+- partner schema remains **7**
+- existing Phase 3 Faith data is preserved
+- no local-data reset is required
 
-## Regression gate
+## Verification
 
-The working repository passes **1,088 / 1,088 automated assertions with 0 failures**, including **81 Phase 3 Faith-specific evaluations**.
+Complete repository suite: **1,156 passed / 0 failed**.

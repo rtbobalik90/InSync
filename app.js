@@ -86,7 +86,7 @@
     if (!Store.state().onboarded) { app.innerHTML = ''; lastRenderedKey = ''; return; }
 
     // Opening a verse surface is the evidence for the verse-reading badge.
-    if (['home','reflection','faith','memory','memory-item'].indexOf(root) >= 0 && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
+    if (['home','reflection','faith','memory','memory-item','scripture','scripture-passage','waypoint-reflection'].indexOf(root) >= 0 && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
 
     if (TABS.indexOf(root) >= 0) html = Screens[root]();
     else if (root === 'coach') html = Screens.coach();
@@ -104,6 +104,9 @@
     else if (root === 'faith') html = Screens.faith();
     else if (root === 'memory') html = Screens.memory();
     else if (root === 'memory-item') html = Screens.memoryItem();
+    else if (root === 'scripture') html = Screens.scripture();
+    else if (root === 'scripture-passage') html = Screens.scripturePassage();
+    else if (root === 'waypoint-reflection') html = Screens.waypointReflection();
     else if (root === 'prayers') html = Screens.prayers();
     else if (root === 'rule-of-life') html = Screens.ruleOfLife();
     else if (root === 'trends') html = Screens.trends();
@@ -975,6 +978,70 @@
       location.hash = '#together';
       return;
     }
+    /* ---- Faith woven into the journey ---- */
+    if (action === 'faith-add-passage' || action === 'faith-add-waypoint') {
+      if (!window.Faith || !window.ScriptureLibrary) return;
+      var passage = ScriptureLibrary.get(el.getAttribute('data-passage-id'));
+      var passageMemory = passage ? Faith.addPassage(passage) : null;
+      if (passageMemory) location.hash = '#memory-item/' + encodeURIComponent(passageMemory.id) + '/' + encodeURIComponent(Faith.memoryMode(passageMemory));
+      return;
+    }
+    if (action === 'faith-scripture-listen') {
+      if (!window.ScriptureLibrary || !window.speechSynthesis) return;
+      var listenPassage = ScriptureLibrary.get(el.getAttribute('data-passage-id'));
+      if (!listenPassage) return;
+      window.speechSynthesis.cancel();
+      var listenUtterance = new SpeechSynthesisUtterance(ScriptureLibrary.text(listenPassage));
+      listenUtterance.rate = 0.92;
+      window.speechSynthesis.speak(listenUtterance);
+      return;
+    }
+    if (action === 'faith-scripture-speak-text') {
+      if (!window.speechSynthesis) return;
+      var speakText = el.getAttribute('data-text') || '';
+      if (!speakText) return;
+      window.speechSynthesis.cancel();
+      var speakUtterance = new SpeechSynthesisUtterance(speakText);
+      speakUtterance.rate = 0.92;
+      window.speechSynthesis.speak(speakUtterance);
+      return;
+    }
+    if (action === 'faith-reveal-segment') {
+      var revealText = el.getAttribute('data-reveal') || '';
+      if (!revealText) return;
+      el.textContent = revealText;
+      el.classList.add('revealed');
+      el.disabled = true;
+      return;
+    }
+    if (action === 'faith-bank-word') {
+      var word = (el.getAttribute('data-word') || '').trim();
+      var practice = el.closest('[data-word-bank-practice]');
+      if (!practice || !word) return;
+      var blanks = Array.prototype.slice.call(practice.querySelectorAll('.memory-blank:not([data-filled="true"])'));
+      var blank = blanks[0];
+      var feedback = practice.querySelector('[data-bank-feedback]');
+      if (!blank) { if (feedback) feedback.textContent = 'This pass is complete.'; return; }
+      var answer = (blank.getAttribute('data-answer') || '').toLowerCase();
+      if (word.toLowerCase() === answer) {
+        blank.textContent = word;
+        blank.setAttribute('data-filled','true');
+        el.disabled = true;
+        var left = practice.querySelectorAll('.memory-blank:not([data-filled="true"])').length;
+        if (feedback) feedback.textContent = left ? left + ' word' + (left === 1 ? '' : 's') + ' left.' : 'Pass complete. Read the verse once more from the top.';
+      } else if (feedback) feedback.textContent = 'Try another word.';
+      return;
+    }
+    if (action === 'faith-waypoint-save') {
+      if (!window.Faith) return;
+      var expedition = Store.state().expedition || {};
+      var waypointInput = document.getElementById('waypoint-note');
+      Faith.saveWaypointNote(expedition.routeId || '', expedition.legIndex || 0, waypointInput ? waypointInput.value : '');
+      var waypointLabel = el.textContent;
+      el.textContent = 'Saved';
+      setTimeout(function () { el.textContent = waypointLabel; }, 1200);
+      return;
+    }
     /* ---- Faith Foundation ---- */
     if (action === 'faith-add-today') {
       var added = window.Faith && Faith.addVerse ? Faith.addVerse(Store.verse()) : null;
@@ -1267,7 +1334,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p3', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p3b', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

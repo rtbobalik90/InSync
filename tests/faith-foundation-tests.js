@@ -10,7 +10,7 @@ function make(){
   location:{hostname:'example.test',pathname:'/insync/',hash:'#home',protocol:'https:'},navigator:{onLine:true},CustomEvent:function(){},window:null,
   btoa:s=>Buffer.from(s,'binary').toString('base64'),atob:s=>Buffer.from(s,'base64').toString('binary')};
  c.window=c;c.window.dispatchEvent=()=>{};vm.createContext(c);
- ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','faith.js','intelligence.js','prompt-registry.js','cloud.js','ui.js','exercises.js','insights.js','foods.js','badges.js','screens.js'].forEach(f=>vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f}));
+ ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','scripture.js','faith.js','intelligence.js','prompt-registry.js','cloud.js','ui.js','exercises.js','insights.js','foods.js','badges.js','screens.js'].forEach(f=>vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f}));
  return c;
 }
 (function(){
@@ -19,7 +19,7 @@ function make(){
 
  // Additive local state and no game economy coupling.
  ok(!!S.state().faith&&S.state().faith.schema===1,'Faith state exists as an additive schema without resetting the owner log');
- eq(F.version,'1.0.0','Faith Foundation module has an explicit version');
+ eq(F.version,'1.1.0','Faith Foundation module has an explicit version');
  eq(S.state().faith.sabbath.enabled,true,'Sabbath pressure relief defaults on');
  eq(S.state().faith.sabbath.day,0,'Sunday is the default Sabbath day');
  const xp0=S.state().baseCamp.xp;
@@ -107,13 +107,13 @@ function make(){
 
  // Faith screens are functional, reachable and explicit about privacy/non-competition.
  c.location.hash='#faith';let faithHtml=c.Screens.faith();
- ok(faithHtml.includes('Scripture Memory Trail')&&faithHtml.includes('Prayer Journal')&&faithHtml.includes('Rule of Life'),'Faith Hub exposes the full Phase 3 formation system');
- ok(faithHtml.includes('never partner rankings or competitive points'),'Faith Hub explicitly separates spiritual practice from competition');
+ ok(faithHtml.includes('Memory Trail')&&faithHtml.includes('Prayer')&&faithHtml.includes('Rhythm')&&faithHtml.includes('Bible'),'Faith Hub exposes the full Phase 3 formation system');
+ ok(faithHtml.includes('Private by default')&&faithHtml.includes('Never competitive'),'Faith Hub explicitly separates spiritual practice from competition');
  c.location.hash='#memory';let memoryHtml=c.Screens.memory();ok(memoryHtml.includes('Memory Trail')&&memoryHtml.includes(today.ref),'Memory Trail renders the verified verse collection');
  c.location.hash='#memory-item/'+encodeURIComponent(m.id);let itemHtml=c.Screens.memoryItem();ok(itemHtml.includes(m.ref),'memory-item route renders the selected verse');
- c.location.hash='#prayers';let prayersHtml=c.Screens.prayers();ok(prayersHtml.includes('Private by default')&&prayersHtml.includes('Save privately'),'Prayer Journal explains and implements private-by-default capture');
+ c.location.hash='#prayers';let prayersHtml=c.Screens.prayers();ok(prayersHtml.includes('Private unless you choose to share one request')&&prayersHtml.includes('Save privately'),'Prayer Journal explains and implements private-by-default capture');
  c.location.hash='#rule-of-life';let ruleHtml=c.Screens.ruleOfLife();ok(ruleHtml.includes('Body stewardship')&&ruleHtml.includes('Relationship / family'),'Rule of Life covers body and relationship rhythms alongside spiritual ones');
- c.location.hash='#home';let reflection=c.Screens.reflection();ok(reflection.includes('id="gratitude"')&&reflection.includes('Open Faith Hub'),'evening reflection includes optional gratitude and a Faith Hub route');
+ c.location.hash='#home';let reflection=c.Screens.reflection();ok(reflection.includes('id="gratitude"')&&reflection.includes('Close Camp')&&reflection.includes('data-route="faith"'),'evening reflection includes gratitude and remains connected to Faith');
 
  // Intelligence sees safe counts/state but not private spiritual text.
  let faithCtx=I.context('faith.verse'),faithJson=JSON.stringify(faithCtx);
@@ -130,9 +130,9 @@ function make(){
 
  // Wiring / offline shell / versioning.
  const index=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
- ok(index.indexOf('store.js')<index.indexOf('faith.js')&&index.indexOf('faith.js')<index.indexOf('intelligence.js'),'Faith loads after Store and before Intelligence');
- ok(sw.includes("CACHE = 'insync-v10-18'")&&sw.includes("'faith.js'"),'Faith Foundation ships in the offline PWA shell');
- ok(app.includes("version:'6.0.0-p3'")&&screens.includes('Version 6.0.0-p3'),'runtime and Settings identify the Phase 3 build');
+ ok(index.indexOf('store.js')<index.indexOf('scripture.js')&&index.indexOf('scripture.js')<index.indexOf('faith.js')&&index.indexOf('faith.js')<index.indexOf('intelligence.js'),'Scripture and Faith load after Store and before Intelligence');
+ ok(sw.includes("CACHE = 'insync-v10-19'")&&sw.includes("'scripture.js'")&&sw.includes("'faith.js'"),'Faith Foundation ships in the offline PWA shell');
+ ok(app.includes("version:'6.0.0-p3b'")&&screens.includes('Version 6.0.0-p3b'),'runtime and Settings identify the Phase 3B build');
  ['faith','memory','memory-item','prayers','rule-of-life'].forEach(route=>ok(app.includes("root === '"+route+"'"),`router contains ${route}`));
  ['faith-add-today','faith-memory-check','faith-memory-review','faith-prayer-add','faith-prayer-share','faith-prayer-ack','faith-sabbath-toggle'].forEach(action=>ok(app.includes("action === '"+action+"'"),`delegated handler contains ${action}`));
  const faithSource=fs.readFileSync(path.join(ROOT,'faith.js'),'utf8');

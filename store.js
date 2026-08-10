@@ -94,6 +94,7 @@
       sharedPrayerId: '',
       partnerPrayerAcks: {},
       gratitude: {},
+      waypointNotes: {},
       sabbath: { enabled: true, day: 0 },
       ruleOfLife: { worship: '', scripture: '', prayer: '', rest: '', exercise: '', mealPrep: '', relationship: '' }
     },
@@ -661,6 +662,11 @@
     Object.keys(S.faith.gratitude).forEach(function (k) {
       var text = shortText(S.faith.gratitude[k], 3000).trim();
       if (!validDateKey(k) || !text) delete S.faith.gratitude[k]; else S.faith.gratitude[k] = text;
+    });
+    if (!plainObject(S.faith.waypointNotes)) S.faith.waypointNotes = {};
+    Object.keys(S.faith.waypointNotes).forEach(function (k) {
+      var text = shortText(S.faith.waypointNotes[k], 3000).trim();
+      if (!/^[-A-Za-z0-9_]+\|\d{1,4}$/.test(k) || !text) delete S.faith.waypointNotes[k]; else S.faith.waypointNotes[k] = text;
     });
     if (!plainObject(S.faith.sabbath)) S.faith.sabbath = clone(DEFAULT.faith.sabbath);
     S.faith.sabbath.enabled = typeof S.faith.sabbath.enabled === 'boolean' ? S.faith.sabbath.enabled : true;

@@ -1,42 +1,44 @@
-# InSync 6.0.0-p3 — Phase 3 Code Review
+# InSync 6.0.0-p3b — Phase 3B Code Review
 
 ## Review conclusion
 
-**Phase 3 is structurally ready to ship into the current private two-phone InSync environment.** Faith is implemented as a bounded domain rather than being scattered across Home, Coach and Together.
+Phase 3B is an additive presentation/interaction rebuild over the Phase 3 Faith foundation. It does not require a destructive state migration and does not widen the partner-sharing boundary.
 
 ## Architecture decisions
 
-### Faith remains supporting infrastructure
-Faith does not consume a sixth bottom tab. It is reachable from Home, Coach and Reflection and has its own internal routes.
+### Scripture is deterministic
+`scripture.js` owns stored Scripture used by the new reader and waypoint experiences. Faith and Journey consume verified local text; Claude is not used to generate or quote Bible passages.
 
-### Private-first data model
-The local store owns Scripture Memory, prayers, gratitude, Sabbath and Rule of Life. Only one explicitly selected ongoing prayer request can enter partner sync.
+### Faith remains a cross-cutting journey domain
+Primary navigation remains:
 
-### No game coupling
-`faith.js` does not emit reward events, write Base Camp XP or alter daily health scoring. This enforces the summit's noncompetitive spiritual-formation boundary in code rather than copy alone.
+**Home · Journey · Train · Nutrition · Together**
 
-### Intelligence gets summaries, not journals
-The Context Builder may see counts/status such as reviews due, prayer counts and Sabbath state. It does not receive prayer text, gratitude text, Rule-of-Life text or reflections by default.
+Faith is reached contextually from Daily Camp, Journey, Coach and evening reflection. This prevents a second, disconnected mini-application from emerging inside InSync.
 
-### Partner sync schema 7
-The new schema adds only `sharedPrayer` and `prayerAcks`. Existing schema-6 partner files remain readable because these fields are optional during sanitation.
+### Private formation data stays private
+`faith.waypointNotes` joins prayer journal, gratitude and reflection as owner-private content. Partner payload construction remains intentionally narrow and only carries the explicitly selected shared prayer plus bounded acknowledgements.
 
-## Data-safety notes
+### Game boundary remains hard
+The Faith module has no reward emission or Base Camp XP path. The redesigned interactions do not change that contract.
 
-- Faith state is included in the user's private backup/restore flow.
-- Connection secrets remain outside the ordinary state object.
-- Shared prayer text is bounded and sanitized as external partner input.
-- Prayer acknowledgements are bounded and timestamp-validated.
-- Imported malformed Faith structures are normalized before persistence.
+## Risk review
 
-## Known intentional limits
+### Local state
+Low risk. `faith.waypointNotes` is additive and normalized under the existing `insync.v10` store. Existing installs retain their data.
 
-- No licensed multi-translation Scripture library has been added; Memory Trail uses the verified Scripture already shipped inside InSync.
-- No speech recognition is required for recitation; the user self-checks.
-- Shared prayer is one request at a time by design.
-- Faith does not yet generate a separate long-form spiritual-history screen; answered prayers and gratitude can feed Living History in a later phase.
-- No spiritual reminders/push infrastructure is added in this phase.
+### Partner sync
+Low risk. Schema remains 7. No new private Faith fields were added to the shared payload.
 
-## Next engineering focus
+### Offline behavior
+`scripture.js` was added to the service-worker shell and the cache was bumped to `insync-v10-19`.
 
-Phase 4 should move Training from a strong logger toward a deterministic coaching loop. Progression and deload logic should stay code-grounded, with AI explaining/proposing rather than inventing exercise rules.
+### Browser support
+Scripture listening uses native `speechSynthesis` only when available; core reading/memory functionality does not depend on it.
+
+### Accessibility
+The practice flows use native buttons, textareas, details/summary and normal focus behavior. Scripture remains actual text rather than text baked into art.
+
+## Release gate
+
+All automated suites pass: **1,156 / 1,156**.

@@ -1,137 +1,82 @@
-# InSync 6.0.0-p3 — Faith Foundation
+# InSync 6.0.0-p3b — Faith Woven Into the Journey
 
-InSync is a local-first, two-person Christian health and formation journey. Version 6.0.0-p3 completes Phase 3 of the 6.0 roadmap: Faith becomes a first-class product system while remaining explicitly noncompetitive and private by default.
+InSync is a local-first, two-person Christian health and formation journey. Phase 3B rebuilds the Faith experience around the approved visual direction: Faith now lives inside Daily Camp, the active expedition, the evening close, and the shared road instead of feeling like a separate feature dashboard.
 
-## Product direction
+## What changed in Phase 3B
 
-Primary navigation remains:
+### Daily Camp integration
+Home now carries a calm **Today at Camp** faith briefing with Today's Scripture, Memory Trail status, Prayer, and an evening **Close Camp** entry. It remains visually grounded in the active expedition.
 
-**Home · Journey · Train · Nutrition · Together**
+### Along the Road
+The Journey screen now includes a waypoint formation moment for the current leg:
+- verified local Scripture
+- Read
+- private Reflect
+- Add to Memory Trail
 
-Coach remains globally accessible. Faith is a supporting system reachable from Home, Coach, Reflection and its dedicated Faith Hub.
-
-The product still follows three pillars:
-- **Body** — training, walking, nutrition, recovery and health habits;
-- **Spirit** — Scripture, prayer, memorization, gratitude, Sabbath and reflection;
-- **Together** — shared expeditions, encouragement and deliberately shared prayer.
-
-## Phase 3 additions
+Waypoint reflections remain local/private and are not sent to the partner or general AI context.
 
 ### Faith Hub
-A dedicated Christian formation route now gathers Scripture Today, Memory Trail, Prayer Journal, Gratitude, Sabbath and Rule of Life without adding a sixth bottom navigation tab.
+Faith remains a deeper destination without becoming a sixth primary navigation tab. The Hub now acts as a quiet gateway into:
+- Bible
+- Memory Trail
+- Prayer
+- Journal / Close Camp
+- Rhythm / Sabbath / Rule of Life
 
-### Scripture Memory Trail
-The app now supports a complete memorization sequence built only from verified in-app Scripture:
-1. Read.
-2. Hide selected words.
-3. First-letter prompt.
-4. Type from memory.
-5. Recite/self-check.
-6. Spaced review.
+The active expedition artwork and camp context remain present throughout.
 
-Memory states are **Learning**, **Familiar**, **Memorized**, and **Review due**. Missing a review never deletes a verse or breaks a spiritual streak because Faith does not use competitive streak mechanics.
+### Scripture Library
+New `scripture.js` provides a local verified Scripture layer. It combines the existing daily verse catalog with selected longer KJV passages used by the redesigned Faith experience. AI is never asked to invent Bible text.
 
-### Prayer Journal
-Prayer entries are private by default and may be:
-- categorized;
-- kept ongoing;
-- marked answered with an optional private answer/reflection;
-- reopened later.
+### Memory Trail practice
+Memory Trail now supports focused practice modes inspired by dedicated Scripture-memory tools while retaining InSync's visual language:
+- Read
+- Tap to Reveal
+- Word Bank
+- First Letters
+- Type It
+- Speak / self-check
 
-Exactly one ongoing request may be explicitly selected for partner sharing. Private journal entries, answer notes, gratitude and reflections do not enter partner sync.
+Word Bank difficulty progressively hides more words. Spaced review from the original Phase 3 remains intact.
 
-### Shared Prayer
-Partner sync schema 7 introduces a narrowly scoped shared-prayer contract:
-- one explicitly shared request;
-- category and creation time;
-- `I prayed for this` acknowledgement.
+### Prayer at Camp
+Prayer remains private by default. One request can still be deliberately shared with the partner, who can acknowledge **I prayed for this** without points, rankings, XP, or competitive scoring.
 
-The acknowledgement is relational feedback only. It never becomes points, XP or a leaderboard.
+### Close Camp
+Evening Reflection is now a journey ritual centered on:
+1. Where did you notice God today?
+2. What are you grateful for?
+3. What are you carrying into tomorrow?
 
-### Gratitude
-Evening Reflection now includes an optional gratitude field. Gratitude is date-keyed, private, backed up with the owner log and visible in the Faith Hub.
+The day's Scripture is carried into the screen, while health facts are available as secondary trail context instead of dominating the reflection.
 
-### Sabbath Mode
-Sabbath may be enabled on a selected weekday. When active:
-- Home does not render the normal target-deficit ledger;
-- Home explicitly says the day is not a score to close;
-- Coach stops presenting a list of open health gaps;
-- Scripture, gratitude, rest and an unhurried walk are emphasized without turning rest into another performance requirement.
+### Rhythm
+Sabbath and Rule of Life remain available under **Rhythm**, secondary to the daily Faith experience. Sabbath continues to reduce pressure across Home and Coach.
 
-### Rule of Life
-A private, non-scored weekly rhythm can now be written for:
-- worship;
-- Scripture;
-- prayer;
-- rest;
-- body stewardship;
-- meal preparation;
-- relationship/family life.
+## Privacy and game boundaries
 
-## Faith + Intelligence boundary
-
-Phase 2 Intelligence remains underneath Faith. AI may receive safe structural facts such as Scripture-memory counts, whether a review is due, prayer counts or whether Sabbath is active. It does **not** receive private prayer text, gratitude text, Rule-of-Life text or evening reflection content by default.
-
-The AI Constitution continues to prohibit:
-- claiming God spoke through the model;
-- claiming spiritual authority;
-- replacing Scripture, church or pastoral care;
-- inventing Scripture quotations;
-- ranking partners spiritually;
-- shame/guilt mechanics.
-
-## Game boundary
-
-Faith has no reward-emission path. Scripture practice, prayer, gratitude, Sabbath and Rule-of-Life configuration do **not** award Base Camp XP and do not alter competitive health points.
-
-## Architecture
-
-Phase 3 adds:
-- `faith.js` — Faith domain logic, Scripture Memory Trail, prayer state, gratitude, Sabbath and Rule of Life;
-- additive `faith` state under the existing local store;
-- partner-sync schema 7 for deliberately shared prayer only;
-- Faith-safe context summaries inside `intelligence.js`;
-- Faith routes/screens and event handlers.
-
-Existing Phase 1/2 architecture remains intact:
-- `domains.js`
-- `contracts.js`
-- `journeys.js`
-- `theme.js`
-- `rewards.js`
-- `camp.js`
-- `intelligence.js`
-- `prompt-registry.js`
-
-## Privacy model
-
-Local state remains the source of truth. Connection secrets remain stored separately from normal backups. Faith data is local-first.
-
-Partner sync may contain only the prayer request deliberately selected for sharing plus prayer acknowledgements. The sync contract does not include the private prayer journal, answers, gratitude, Rule of Life or reflection text.
+Phase 3B preserves the Phase 3 rules:
+- prayer journal is private by default
+- gratitude is private
+- reflections are private
+- waypoint reflections are private
+- only one explicitly selected prayer request enters partner sync
+- partner prayer acknowledgement is not a score
+- Scripture, prayer, gratitude, Sabbath, Rule of Life and waypoint reflection do not award Base Camp XP
+- general AI context receives safe structural counts, not private spiritual journal text
 
 ## Compatibility
 
-- App/UI: **6.0.0-p3**
-- Local state: **v10** — additive Faith state; no forced reset
-- Partner sync: **schema 7**
-- Service worker: **insync-v10-18**
+- App/UI: **6.0.0-p3b**
+- Local storage key/schema: **insync.v10** — unchanged; no forced reset
+- Partner sync schema: **7** — unchanged from Phase 3
+- Faith module: **1.1.0**
+- Scripture Library: **1.0.0**
+- Service worker cache: **insync-v10-19**
 
-An older schema-6 partner file remains readable; it simply has no shared-prayer fields.
+## Test status
 
-## Test gate
+The repository passes **1,156 automated assertions with 0 failures** across the complete release suite, including 67 new Phase 3B Faith/Journey redesign checks.
 
-The release passes **1,088 / 1,088 automated assertions with 0 failures**, including **81 Phase 3 Faith Foundation checks**.
-
-## Next roadmap phase
-
-**Phase 4 — Training 2.0**
-
-Planned scope:
-- readiness check;
-- effort/RIR;
-- rest timer;
-- progression engine 2.0;
-- deload proposals;
-- gym/equipment profiles;
-- expanded exercise library/media;
-- structured walk metrics.
+See `TEST_REPORT.md` for the suite breakdown.

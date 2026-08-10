@@ -1,64 +1,60 @@
-# InSync 6.0.0-p3 — Phase 3 Release Test Report
+# InSync 6.0.0-p3b — Phase 3B Release Test Report
 
 ## Result
 
-**PASS — 1,088 / 1,088 automated assertions, 0 failures.**
+**1,156 automated assertions passed. 0 failed.**
 
-## Suites
+The full test suite was run against the Phase 3B working repository after all Faith/Journey changes.
 
-| Suite | Assertions |
-|---|---:|
-| Cloud sync | 30 |
-| Completion features | 57 |
-| Phase 3 Faith Foundation | 81 |
-| Phase 2 Intelligence | 52 |
-| Lizzie deep audit | 87 |
-| Lizzie device | 50 |
-| Lizzie / Robert pair symmetry | 14 |
-| Meal planner | 25 |
-| Next-week / Train | 23 |
-| Notification bell | 10 |
-| Phase 1 foundation | 40 |
-| Screen smoke | 72 |
-| Stabilization | 505 |
-| Workout / recovery walk | 42 |
-| **Total** | **1,088** |
+## Suite breakdown
 
-## Phase 3-specific coverage
+| Suite | Passed | Failed |
+|---|---:|---:|
+| Cloud sync | 30 | 0 |
+| Completion features | 57 | 0 |
+| Phase 3 Faith Foundation | 81 | 0 |
+| **Phase 3B Faith/Journey redesign** | **67** | **0** |
+| Phase 2 Intelligence | 52 | 0 |
+| Lizzie deep audit | 87 | 0 |
+| Lizzie device | 50 | 0 |
+| Robert/Lizzie pair symmetry | 14 | 0 |
+| Meal planner | 25 | 0 |
+| Next-week / Train | 23 | 0 |
+| Notification bell | 10 | 0 |
+| Phase 1 foundation | 40 | 0 |
+| Screen smoke | 72 | 0 |
+| Stabilization / production integrity | 506 | 0 |
+| Daily workout / recovery walk | 42 | 0 |
+| **Total** | **1,156** | **0** |
 
-The 81 Faith checks verify:
-- additive Faith state;
-- verified in-app Scripture as Memory Trail source;
-- duplicate prevention;
-- Read → hidden words → first letters → typed recall → recitation → spaced review;
-- memory state/review scheduling;
-- no Memory Trail XP;
-- private-by-default prayer creation;
-- answered/reopened prayer lifecycle;
-- explicit one-request sharing;
-- schema-7 prayer payload sanitation;
-- private prayer/answer/gratitude/reflection exclusion from partner sync;
-- `I prayed for this` acknowledgement round-trip;
-- no prayer XP;
-- private gratitude and date history;
-- no gratitude impact on competitive health points;
-- Sabbath weekday behavior;
-- Home/Coach pressure removal on Sabbath;
-- Rule-of-Life storage and non-scoring;
-- Faith Hub, Memory Trail, Prayer Journal and Rule-of-Life rendering;
-- Faith-safe Intelligence context;
-- backup/restore preservation;
-- PWA shell inclusion;
-- Phase 3 route/action wiring;
-- explicit absence of Faith reward emission.
+## Phase 3B-specific coverage
 
-## Compatibility checked
+The new suite verifies:
+- verified local KJV passage storage
+- Daily Camp Faith integration
+- expedition-aware Faith Hub
+- Journey **Along the Road** experience
+- waypoint Scripture sourced from the verified library
+- Bible / passage rendering
+- Memory Trail mode availability
+- progressive Word Bank behavior
+- Tap to Reveal, First Letters, Type It and Speak flows
+- Prayer at Camp privacy language and one-request sharing
+- Close Camp three-part reflection rhythm
+- private waypoint note persistence
+- waypoint notes excluded from partner sync
+- waypoint notes excluded from general AI context
+- no Faith or waypoint Base Camp XP
+- new routes/actions
+- offline shell inclusion
+- `insync.v10` local compatibility
+- partner schema 7 compatibility
 
-- App/UI **6.0.0-p3**
-- Local state **v10**
-- Partner sync **schema 7**
-- Service worker **insync-v10-18**
+## Build identifiers
 
-## Release gate
-
-All prior Phase 1, Phase 2 and 5.5.x regression suites remain green after the Faith Foundation changes.
+- App/UI: **6.0.0-p3b**
+- Faith module: **1.1.0**
+- Scripture Library: **1.0.0**
+- Local storage: **insync.v10**
+- Partner sync: **schema 7**
+- Service worker: **insync-v10-19**
