@@ -7,78 +7,95 @@ function eq(a,b,m){ok(a===b,`${m} (got ${JSON.stringify(a)})`)}
 class LS{constructor(seed){this.m=new Map(Object.entries(seed||{}))}getItem(k){return this.m.has(k)?this.m.get(k):null}setItem(k,v){this.m.set(k,String(v))}removeItem(k){this.m.delete(k)}}
 function make(seed){const ls=new LS(seed),ctx={console,localStorage:ls,Date,Math,JSON,String,Number,Object,Array,RegExp,Intl,parseInt,parseFloat,isFinite,isNaN,setTimeout,clearTimeout,CustomEvent:function(){},window:null};ctx.window=ctx;ctx.window.dispatchEvent=()=>{};vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(ROOT,'store.js'),'utf8'),ctx,{filename:'store.js'});return{ctx,ls}}
 
-// A new workout owns a walk clock from the beginning.
+// A walk belongs to today even when there is no lifting session.
 {
- const {ctx}=make(); const S=ctx.Store;
- S.startSession('Upper',[{id:'press',name:'Press',sets:3,reps:'8-10',group:'Chest'}]);
- ok(!!S.session().walk,'new sessions initialize a workout-walk record');
- eq(S.sessionWalkElapsedMs(),0,'new workout walk starts at zero');
- ok(S.startSessionWalk(),'walk timer starts');
- ok(S.session().walk.startedAt>0,'running walk persists its start timestamp');
- S.session().walk.startedAt=Date.now()-65000; S.save();
- ok(S.sessionWalkElapsedMs()>=64000,'elapsed walk time is derived from saved start time rather than a screen interval');
- ok(S.stopSessionWalk(),'walk timer stops explicitly');
- ok(!S.session().walk.startedAt,'stopped walk clears the live timestamp');
- ok(S.session().walk.elapsedMs>=64000,'stopped walk keeps the accumulated duration');
- S.updateSessionWalk({pace:'16:10 /mi',elevation:'5% incline'});
- eq(S.session().walk.pace,'16:10 /mi','pace/speed is saved on the active workout');
- eq(S.session().walk.elevation,'5% incline','elevation/incline is saved on the active workout');
+ const {ctx}=make(); const S=ctx.Store,today=S.todayKey();
+ ok(S.startDailyWalk(today),'daily walk can start without a workout session');
+ ok(S.state().days[today].walk.startedAt>0,'daily walk start timestamp is persisted on the day');
+ S.state().days[today].walk.startedAt=Date.now()-65000; S.save();
+ ok(S.dailyWalkElapsedMs(today)>=64000,'daily elapsed time derives from persisted wall-clock start time');
+ ok(S.stopDailyWalk(today),'daily walk stops explicitly');
+ ok(!S.dailyWalk(today).startedAt,'stopping clears only the live timestamp');
+ ok(S.dailyWalkElapsedMs(today)>=64000,'stopping preserves accumulated duration');
+ S.updateDailyWalk({pace:'16:10 /mi',elevation:'5% incline'},today);
+ eq(S.dailyWalk(today).pace,'16:10 /mi','pace/speed is saved on the day');
+ eq(S.dailyWalk(today).elevation,'5% incline','elevation/incline is saved on the day');
+ ok(S.logged(today),'a timed walk counts as real day activity');
 }
 
-// Lock/reload safety: a running walk reloads from localStorage and keeps counting.
+// Lock/reload safety: the day-level clock survives a full app reload.
 {
- const first=make(),S=first.ctx.Store;
- S.startSession('Lower',[{id:'leg',name:'Leg press',sets:3,reps:'10',group:'Legs'}]);
- S.startSessionWalk();
- S.session().walk.startedAt=Date.now()-125000; S.save();
+ const first=make(),S=first.ctx.Store,today=S.todayKey();
+ S.startDailyWalk(today); S.state().days[today].walk.startedAt=Date.now()-125000; S.save();
  const seed={}; first.ls.m.forEach((v,k)=>seed[k]=v);
  const second=make(seed),S2=second.ctx.Store;
- ok(!!S2.session().walk.startedAt,'running walk survives a full app reload');
- ok(S2.sessionWalkElapsedMs()>=124000,'reloaded walk resumes from the original saved start time');
- S2.stopSessionWalk();
+ ok(S2.dailyWalk(today).startedAt>0,'running daily walk survives reload');
+ ok(S2.dailyWalkElapsedMs(today)>=124000,'reloaded daily walk resumes from the original timestamp');
+ S2.stopDailyWalk(today);
 }
 
-// Finishing never silently stops a live walk; once explicitly stopped it is archived with the workout.
+// Finishing the weights no longer owns or stops the daily walk.
 {
- const {ctx}=make(); const S=ctx.Store, today=S.todayKey();
+ const {ctx}=make(); const S=ctx.Store,today=S.todayKey();
+ S.startDailyWalk(today); S.state().days[today].walk.startedAt=Date.now()-90000; S.save();
  S.startSession('Upper',[{id:'press',name:'Press',sets:1,reps:'8',group:'Chest'}]);
  S.logSet(0,{weight:50,reps:8});
- S.startSessionWalk();
- S.session().walk.startedAt=Date.now()-90000; S.save();
- eq(S.finishSession(),null,'a running walk blocks session finish instead of being silently stopped');
- S.stopSessionWalk();
- S.updateSessionWalk({pace:'3.6 mph',elevation:'8% incline'});
  const result=S.finishSession();
- ok(!!result,'session finishes after the user stops the walk');
- ok(result.walk && result.walk.seconds>=89,'finish summary includes the measured walk duration');
- eq(result.walk.pace,'3.6 mph','finish summary keeps pace/speed');
- eq(result.walk.elevation,'8% incline','finish summary keeps elevation/incline');
- const saved=S.state().days[today].workouts.slice(-1)[0];
- ok(saved.walk && saved.walk.seconds>=89,'historical workout stores the walk');
- eq(saved.walk.pace,'3.6 mph','historical workout keeps walk details');
+ ok(!!result,'lifting session can finish while the daily walk continues');
+ ok(S.dailyWalk(today).startedAt>0,'finishing lifting does not silently stop the walk clock');
+ ok(result.walk && result.walk.seconds>=89,'session summary snapshots the walk elapsed so far');
+ S.stopDailyWalk(today); S.updateDailyWalk({pace:'3.6 mph',elevation:'8% incline'},today);
+ eq(S.dailyWalk(today).pace,'3.6 mph','walk details can be completed after the lifting session ends');
 }
 
-// Reset is intentional and complete.
+// Past days support manual corrections but never a live historical timer.
 {
- const {ctx}=make(); const S=ctx.Store;
- S.startSession('Upper',[{id:'press',name:'Press',sets:1,reps:'8',group:'Chest'}]);
- S.startSessionWalk(); S.session().walk.startedAt=Date.now()-30000; S.save(); S.stopSessionWalk();
- S.updateSessionWalk({pace:'test pace',elevation:'test elevation'}); S.resetSessionWalk();
- eq(S.sessionWalkElapsedMs(),0,'reset clears walk duration');
- eq(S.session().walk.pace,'','reset clears pace');
- eq(S.session().walk.elevation,'','reset clears elevation');
+ const {ctx}=make(); const S=ctx.Store,past=S.shift(S.todayKey(),-2);
+ ok(S.setDailyWalkManual(past,42.5,'15:30 /mi','350 ft'),'past walk can be manually entered');
+ ok(Math.abs(S.dailyWalkElapsedMs(past)-2550000)<5,'manual duration is stored in milliseconds');
+ eq(S.dailyWalk(past).pace,'15:30 /mi','manual past pace is retained');
+ ok(!S.startDailyWalk(past),'past date cannot start a live timer');
 }
 
-// Imported/malformed walk metadata is bounded and cannot inject objects into string fields.
+// Old workout-owned walks migrate to the calendar day automatically.
 {
- const {ctx}=make(); const S=ctx.Store, key=S.todayKey();
+ const old='2026-08-01';
+ const raw={profile:{name:'R',initials:'R',startDate:old},days:{[old]:{meals:[],steps:0,weight:null,restingHr:null,sleepHr:null,reflection:'',noteToPartner:'',workouts:[{name:'Upper',minutes:40,exercises:[],walk:{seconds:1800,pace:'3.2 mph',elevation:'4%'}}]}}};
+ const {ctx}=make({'insync.v10':JSON.stringify(raw)}); const S=ctx.Store;
+ eq(Math.round(S.dailyWalkElapsedMs(old)/1000),1800,'legacy completed workout walk migrates into the day-level walk');
+ eq(S.dailyWalk(old).pace,'3.2 mph','legacy pace survives migration');
+}
+
+// An in-flight 5.5.2 session walk migrates without losing the live timestamp.
+{
+ const today=new Date(); const key=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+ const started=Date.now()-70000;
+ const raw={profile:{name:'R',initials:'R',startDate:key},days:{[key]:{meals:[],steps:0,weight:null,reflection:'',workouts:[]}},session:{date:key,name:'Upper',startedAt:Date.now()-120000,walk:{startedAt:started,elapsedMs:0,pace:'',elevation:''},items:[]}};
+ const {ctx}=make({'insync.v10':JSON.stringify(raw)}); const S=ctx.Store;
+ ok(S.dailyWalk(key).startedAt>0,'legacy active session walk becomes a live day walk');
+ ok(S.dailyWalkElapsedMs(key)>=69000,'legacy live elapsed time continues after migration');
+}
+
+// Malformed imported daily-walk data is bounded at the Store boundary.
+{
+ const {ctx}=make(); const S=ctx.Store,key=S.todayKey();
  const incoming=S.exportState();
- incoming.days[key]={meals:[],steps:0,weight:null,restingHr:null,sleepHr:null,reflection:'',noteToPartner:'',workouts:[{name:'Upper',minutes:60,exercises:[],walk:{seconds:9999999,pace:{bad:true},elevation:'x'.repeat(500)}}]};
- S.importState(incoming);
- const w=S.state().days[key].workouts[0].walk;
- eq(w.seconds,0,'impossible imported walk duration is rejected');
- eq(w.pace,'','non-string pace metadata is rejected');
- ok(w.elevation.length<=80,'elevation metadata is length bounded');
+ incoming.days[key]={meals:[],steps:0,weight:null,restingHr:null,sleepHr:null,reflection:'',noteToPartner:'',workouts:[],walk:{startedAt:-5,elapsedMs:999999999,pace:{bad:true},elevation:'x'.repeat(500)}};
+ S.importState(incoming); const w=S.dailyWalk(key);
+ eq(w.startedAt,0,'negative imported walk timestamp is rejected');
+ eq(w.elapsedMs,0,'impossible imported daily-walk duration is rejected');
+ eq(w.pace,'','non-string pace is rejected');
+ ok(w.elevation.length<=80,'elevation is length bounded');
+}
+
+// Reset is deliberate and complete.
+{
+ const {ctx}=make(); const S=ctx.Store,today=S.todayKey();
+ S.setDailyWalkManual(today,30,'3 mph','2%');
+ ok(S.resetDailyWalk(today),'daily walk can be reset deliberately');
+ eq(S.dailyWalkElapsedMs(today),0,'reset clears duration');
+ eq(S.dailyWalk(today).pace,'','reset clears pace');
+ eq(S.dailyWalk(today).elevation,'','reset clears elevation');
 }
 
 // Presentation/action wiring is part of the release contract.
@@ -86,13 +103,14 @@ function make(seed){const ls=new LS(seed),ctx={console,localStorage:ls,Date,Math
  const screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
  const css=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
- ok(screens.includes('Workout walk')&&screens.includes('data-walk-clock'),'active session renders the walk block above exercises');
- ok(screens.includes('Pace / speed')&&screens.includes('Elevation / incline'),'stopped walk exposes pace and elevation fields');
- for(const action of ['walk-start','walk-stop','walk-save','walk-reset']) ok(app.includes(`action === '${action}'`),`${action} has an app handler`);
- ok(app.includes('bindSessionWalkClock()')&&app.includes('setInterval(tick, 1000)'),'running clock updates once per second without Store rerenders');
- ok(app.includes('finishPace')&&app.includes('finishElevation'),'finishing a stopped session commits typed walk details even without a separate save tap');
- ok(css.includes('.walk-clock')&&css.includes('.walk-state.live'),'walk timer has dedicated InSync styling');
+ ok(screens.includes('dailyWalkCard(Store.todayKey(), false)'),'main Training screen always renders today’s walk card');
+ ok(screens.includes("var body = dailyWalkCard(key, false)"),'training-day detail renders walk on lift, walk, rest and completed days');
+ ok(screens.includes('Past days cannot run a live timer'),'historical day UI explains manual correction instead of offering a live timer');
+ ok(screens.includes('This is available every day — lift, walk or recovery'),'walk card explicitly covers recovery days');
+ for(const action of ['walk-start','walk-stop','walk-save','walk-manual-save','walk-reset']) ok(app.includes(`action === '${action}'`),`${action} has an app handler`);
+ ok(app.includes('Store.dailyWalkElapsedMs')&&app.includes('setInterval(tick, 1000)'),'live day clock updates once per second without Store rerenders');
+ ok(css.includes('.walk-clock')&&css.includes('.walk-state.live'),'walk timer retains dedicated InSync styling');
 }
 
-console.log(`\nWorkout walk tests: ${passed} passed, ${failed} failed.`);
+console.log(`\nDaily workout/recovery walk tests: ${passed} passed, ${failed} failed.`);
 if(failed) process.exit(1);

@@ -1,4 +1,4 @@
-# InSync 5.5.2
+# InSync 5.5.3
 
 InSync is a private, local-first two-person health and fitness PWA. Daily nutrition, training, body tracking, faith/reflection, progression, photos, goals and history live primarily on each phone. A small privacy-controlled subset is exchanged through a dedicated private GitHub repository so Together, expeditions, chat and reactions can work across two devices.
 
@@ -37,10 +37,10 @@ Meal Planner supports:
 - dinner leftovers on selected cook nights;
 - a shopping list derived from the displayed week's actual grocery-bearing recipes.
 
-### Workout walk
-Every active lifting session now opens with a dedicated **Workout walk** block above the exercise list. The walk clock is independent of the overall session clock: Start begins from a persisted timestamp, Stop freezes the elapsed walk, and Resume continues from the accumulated time. Locking the phone, switching InSync screens, or a same-screen render does not reset the walk.
+### Daily walk timer
+Training opens with a dedicated **Walk timer** on every current day, including lifting days, dedicated walk days and recovery/rest days. The same clock also appears above the exercise list during an active lift. Start begins from a persisted timestamp, Stop freezes elapsed time, and Resume continues from the accumulated duration. Locking the phone, switching InSync screens, completing the lifting portion, or a same-screen render does not reset or stop the walk.
 
-After Stop, the user can record flexible **Pace / speed** text (for example `16:00 /mi` or `3.5 mph`) and **Elevation / incline** text (for example `5% incline` or `300 ft`). Completed walk time and those details are stored with the workout and appear in the session-complete and training-history views. Finishing a workout never silently stops a live walk; the user must stop it first so the stored duration remains intentional.
+After Stop, the user can record flexible **Pace / speed** text (for example `16:00 /mi` or `3.5 mph`) and **Elevation / incline** text (for example `5% incline` or `300 ft`). The walk is stored on that calendar day and appears in Training/history independently of whether a workout was completed. Past days offer a manual duration/pace/elevation correction instead of a live timer; future dates cannot start one early.
 
 ### Training progression
 Training derives the next cue from real exercise history. Depending on the record it can recommend holding the load, adding a clean rep, repeating the top of the range, or adding a conservative 5 lb after the top has been achieved twice.
@@ -104,13 +104,18 @@ Use **Create Backup** for the complete personal backup. Backups include applicat
 
 The header bell is neutral when nothing new is waiting, gold with a dot for unread informational activity, and gold with a numbered badge/glow when one or more items require action. Opening Notifications acknowledges informational items; unresolved actions remain counted until the underlying invitation, note, or coach proposal is handled.
 
-Version 5.5.2 uses service-worker cache `insync-v10-11`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
+Version 5.5.3 uses service-worker cache `insync-v10-12`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
 
 ## Version matrix
 
-- App/UI: **5.5.2**
+- App/UI: **5.5.3**
 - Local state: **v10**
 - Partner sync: **schema 6**
-- Service worker: **insync-v10-11**
+- Service worker: **insync-v10-12**
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the release gate and detailed changes.
+
+## Daily walk timer
+
+The Training walk timer belongs to the calendar day, not to a lifting session. It is available on lift days, walk days and recovery/rest days, and it remains available after the lifting portion is marked complete. Start/Stop uses a persisted wall-clock timestamp, so locking the iPhone or moving between InSync screens does not reset elapsed time. Pace/speed and elevation/incline can be saved after stopping. Past days are never allowed to run a live timer; they offer a manual duration/pace/elevation correction instead. Existing 5.5.1/5.5.2 workout-owned walk records migrate into the corresponding day record.
+

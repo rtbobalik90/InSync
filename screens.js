@@ -738,6 +738,7 @@
       art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
+        dailyWalkCard(Store.todayKey(), false) +
         '<article class="card">' +
           '<div class="cardhead">' +
             '<div class="title"><i></i>This week</div>' +
@@ -759,7 +760,7 @@
           '</p>' +
         '</article>' +
 
-        '<article class="card" data-rest-anchor>' +
+        '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Steps today</div>' +
           '<div class="meta">' + Math.round((d.steps / S.targets.steps) * 100) + '% of target</div></div>' +
           '<div class="pad-x" style="padding-top:14px;padding-bottom:15px">' +
@@ -1818,7 +1819,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.2 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.3 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2005,7 +2006,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.5.2</div></div>' +
+            '<div class="meta">Version 5.5.3</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2622,14 +2623,13 @@
         ? (scheduled.name === 'Walk' ? 'Walking day.' : scheduled.name + ' day.')
         : 'Rest day.';
 
-    var body = '';
+    var body = dailyWalkCard(key, false);
 
     if (workouts.length) {
       body += workouts.map(function (w) {
         return '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>' + esc(w.name) + '</div>' +
             '<div class="meta">' + w.minutes + ' min</div></div>' +
-          (w.walk && w.walk.seconds ? '<div class="walk-history"><span>Workout walk</span><strong>' + walkSummaryText(w.walk) + '</strong></div>' : '') +
           ((w.exercises || []).length
             ? w.exercises.map(function (x) {
                 return '<div class="setrow pad-x" style="padding-top:12px;padding-bottom:12px">' +
@@ -2710,6 +2710,95 @@
     return out || 'Walk logged';
   }
 
+
+  function dailyWalkSummaryText(w, ms) {
+    w = w || {};
+    var total = Math.max(0, Math.round((ms != null ? ms : (w.elapsedMs || 0)) / 1000));
+    var mins = Math.floor(total / 60), secs = total % 60;
+    var out = (mins ? mins + ' min' : '') + (secs ? (mins ? ' ' : '') + secs + ' sec' : '');
+    if (w.pace) out += ' · ' + esc(w.pace);
+    if (w.elevation) out += ' · ' + esc(w.elevation);
+    return out || 'No walk recorded';
+  }
+
+  /* One walk clock for the whole day. It deliberately appears on lift days,
+     completed days and recovery days. Only today's card can run live; past
+     days stay editable as a manual correction instead of starting a timer in
+     the wrong calendar day. */
+  function dailyWalkCard(key, compact) {
+    key = key || Store.todayKey();
+    var w = Store.dailyWalk ? Store.dailyWalk(key) : { startedAt: 0, elapsedMs: 0, pace: '', elevation: '' };
+    var ms = Store.dailyWalkElapsedMs ? Store.dailyWalkElapsedMs(key) : (w.elapsedMs || 0);
+    var running = !!w.startedAt;
+    var hasWalk = ms > 0 || !!w.stoppedAt || !!w.pace || !!w.elevation;
+    var today = Store.todayKey();
+    var isToday = key === today;
+    var activeSession = Store.session ? Store.session() : null;
+    var liveAllowed = isToday || !!(activeSession && activeSession.date === key && key === Store.shift(today, -1));
+    var state = running ? 'LIVE' : (hasWalk ? 'STOPPED' : 'READY');
+    var title = compact ? 'Workout walk' : 'Walk timer';
+
+    if (key > today) {
+      return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+        '<div class="cardhead"><div class="title"><i></i>Walk</div><div class="meta walk-state">UPCOMING</div></div>' +
+        '<div class="walk-body"><div class="walk-clock">00:00</div>' +
+        '<p class="small walk-copy">The walk timer will be ready when this day arrives.</p></div></article>';
+    }
+
+    if (!liveAllowed) {
+      var mins = ms ? Math.round((ms / 60000) * 10) / 10 : '';
+      return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+        '<div class="cardhead"><div class="title"><i></i>Walk</div><div class="meta walk-state ' + (hasWalk ? 'done' : '') + '">' + (hasWalk ? 'LOGGED' : 'PAST DAY') + '</div></div>' +
+        '<div class="walk-body">' +
+          '<div class="walk-clock">' + walkClockText(ms) + '</div>' +
+          '<p class="small walk-copy">Past days cannot run a live timer. Add or correct the walk here if you need to fix the record.</p>' +
+          '<div class="walk-details historical">' +
+            '<label class="field compact"><span class="field-label">Duration <em>minutes</em></span>' +
+              '<input class="field-input" data-walk-minutes inputmode="decimal" value="' + esc(String(mins)) + '" placeholder="30" /></label>' +
+            '<label class="field compact"><span class="field-label">Pace / speed</span>' +
+              '<input class="field-input" data-walk-pace value="' + esc(w.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
+            '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
+              '<input class="field-input" data-walk-elevation value="' + esc(w.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
+            '<div class="btnrow">' +
+              '<button class="btn ghost sm" data-action="walk-manual-save" data-walk-date="' + esc(key) + '">Save correction</button>' +
+              (hasWalk ? '<button class="btn ghost sm danger" data-action="walk-reset" data-walk-date="' + esc(key) + '">Clear walk</button>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+    }
+
+    return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+      '<div class="cardhead"><div class="title"><i></i>' + title + '</div>' +
+        '<div class="meta walk-state ' + (running ? 'live' : (hasWalk ? 'done' : '')) + '">' + state + '</div></div>' +
+      '<div class="walk-body">' +
+        '<div class="walk-clock" data-walk-clock data-walk-date="' + esc(key) + '">' + walkClockText(ms) + '</div>' +
+        '<p class="small walk-copy">' +
+          (running
+            ? 'Keep moving. The clock is tied to the saved start time, so locking the phone or moving around InSync will not reset it.'
+            : hasWalk
+              ? 'Walk stopped. Add the pace and incline/elevation if you want the complete record, or resume if you are not finished.'
+              : 'This is available every day — lift, walk or recovery. Start it when you begin and it keeps counting until you stop it.') +
+        '</p>' +
+        (running
+          ? '<button class="btn block walk-stop" data-action="walk-stop" data-walk-date="' + esc(key) + '">Stop walk</button>'
+          : '<button class="btn block" data-action="walk-start" data-walk-date="' + esc(key) + '">' + (hasWalk ? 'Resume walk' : 'Start walk') + '</button>') +
+        (hasWalk && !running
+          ? '<div class="walk-details">' +
+              '<label class="field compact"><span class="field-label">Pace / speed</span>' +
+                '<input class="field-input" data-walk-pace value="' + esc(w.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
+              '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
+                '<input class="field-input" data-walk-elevation value="' + esc(w.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
+              '<div class="btnrow">' +
+                '<button class="btn ghost sm" data-action="walk-save" data-walk-date="' + esc(key) + '">Save walk details</button>' +
+                '<button class="btn ghost sm danger" data-action="walk-reset" data-walk-date="' + esc(key) + '">Reset walk</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
+      '</div>' +
+    '</article>';
+  }
+
   /* ---- The session, as a list he ticks off ------------------------------- */
   /* The brief: "The workout is a list he ticks off, tapping into an exercise
      to log each set" and "one tap to repeat the last set". State lives in the
@@ -2723,41 +2812,7 @@
     var loggedAny = sn.items.some(function (i) { return i.sets.length; });
     var elapsed = Math.max(1, Math.round((Date.now() - sn.startedAt) / 60000));
     var open = location.hash.split('/')[1];
-    var walk = sn.walk || { startedAt: 0, elapsedMs: 0, pace: '', elevation: '' };
-    var walkMs = Store.sessionWalkElapsedMs ? Store.sessionWalkElapsedMs() : (walk.elapsedMs || 0);
-    var walkRunning = !!walk.startedAt;
-    var walkDone = !walkRunning && walkMs > 0;
-
-    var walkCard = '<article class="card walk-card">' +
-      '<div class="cardhead"><div class="title"><i></i>Workout walk</div>' +
-        '<div class="meta walk-state ' + (walkRunning ? 'live' : (walkDone ? 'done' : '')) + '">' +
-          (walkRunning ? 'LIVE' : (walkDone ? 'STOPPED' : 'READY')) + '</div></div>' +
-      '<div class="walk-body">' +
-        '<div class="walk-clock" data-walk-clock>' + walkClockText(walkMs) + '</div>' +
-        '<p class="small walk-copy">' +
-          (walkRunning
-            ? 'Keep moving. Lock the phone or open another InSync screen if you need to — the clock is tied to the saved start time.'
-            : walkDone
-              ? 'Walk stopped. Add the treadmill pace or outdoor pace and the incline/elevation you used, then keep lifting.'
-              : 'Start this when the walk begins. It keeps counting until you stop it, independently of the lifting clock.') +
-        '</p>' +
-        (walkRunning
-          ? '<button class="btn block walk-stop" data-action="walk-stop">Stop walk</button>'
-          : '<button class="btn block" data-action="walk-start">' + (walkDone ? 'Resume walk' : 'Start walk') + '</button>') +
-        (walkDone
-          ? '<div class="walk-details">' +
-              '<label class="field compact"><span class="field-label">Pace / speed</span>' +
-                '<input class="field-input" data-walk-pace value="' + esc(walk.pace || '') + '" placeholder="16:00 /mi or 3.5 mph" /></label>' +
-              '<label class="field compact"><span class="field-label">Elevation / incline</span>' +
-                '<input class="field-input" data-walk-elevation value="' + esc(walk.elevation || '') + '" placeholder="5% incline or 300 ft" /></label>' +
-              '<div class="btnrow">' +
-                '<button class="btn ghost sm" data-action="walk-save">Save walk details</button>' +
-                '<button class="btn ghost sm danger" data-action="walk-reset">Reset walk</button>' +
-              '</div>' +
-            '</div>'
-          : '') +
-      '</div>' +
-    '</article>';
+    var walkCard = dailyWalkCard(sn.date || Store.todayKey(), true);
 
     var body = sn.items.map(function (it, idx) {
       var complete = it.sets.length >= it.targetSets;
@@ -3152,7 +3207,8 @@
     var rows=Store.pointRows(key), meals=x.meals||[], workouts=x.workouts||[], photos=x.photos||[];
     var body='<article class="card"><div class="cardhead"><div class="title"><i></i>Score</div><div class="meta">'+x.points+' of 10</div></div>'+rows.map(function(r){return '<div class="setrow"><div><div class="setname">'+esc(r.label)+'</div><div class="small">'+r.value+' point'+(r.value===1?'':'s')+'</div></div><span class="tick">'+(r.done?icon('check'):'')+'</span></div>';}).join('')+'</article>';
     body+='<div class="rulehead"><span class="kicker sage">Meals</span><span></span><span class="note">'+meals.length+'</span></div><article class="card">'+(meals.length?meals.map(function(meal){return '<button class="setrow" data-route="meal/'+esc(meal.id||'')+'"><div><div class="setname">'+esc(meal.slot||'Meal')+' · '+esc(meal.name)+'</div><div class="small">'+Math.round(+meal.kcal||0)+' kcal · '+Math.round(+meal.protein||0)+' g protein</div></div><span class="chev">›</span></button>';}).join(''):'<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No meals recorded.</p>')+'</article>';
-    body+='<div class="rulehead"><span class="kicker sage">Training &amp; movement</span><span></span></div><article class="card">'+(workouts.length?workouts.map(function(w){return '<div class="setrow"><div><div class="setname">'+esc(w.name)+'</div><div class="small">'+(w.minutes||0)+' min'+((w.exercises||[]).length?' · '+w.exercises.length+' movements':'')+'</div></div></div>';}).join(''):'<div class="setrow"><div><div class="setname">No training session</div></div></div>')+'<div class="setrow"><div><div class="setname">Steps</div><div class="small">'+x.steps.toLocaleString()+'</div></div></div><div class="setrow"><div><div class="setname">Trail distance</div><div class="small">'+Store.fmtDistance(x.trailMiles)+' from that day’s logged steps</div></div></div></article>';
+    var histWalk=Store.dailyWalk?Store.dailyWalk(key):null, histWalkMs=Store.dailyWalkElapsedMs?Store.dailyWalkElapsedMs(key):0;
+    body+='<div class="rulehead"><span class="kicker sage">Training &amp; movement</span><span></span></div><article class="card">'+(workouts.length?workouts.map(function(w){return '<div class="setrow"><div><div class="setname">'+esc(w.name)+'</div><div class="small">'+(w.minutes||0)+' min'+((w.exercises||[]).length?' · '+w.exercises.length+' movements':'')+'</div></div></div>';}).join(''):'<div class="setrow"><div><div class="setname">No training session</div></div></div>')+(histWalkMs||histWalk&&((histWalk.pace||'')||(histWalk.elevation||''))?'<div class="setrow"><div><div class="setname">Walk</div><div class="small">'+dailyWalkSummaryText(histWalk,histWalkMs)+'</div></div></div>':'')+'<div class="setrow"><div><div class="setname">Steps</div><div class="small">'+x.steps.toLocaleString()+'</div></div></div><div class="setrow"><div><div class="setname">Trail distance</div><div class="small">'+Store.fmtDistance(x.trailMiles)+' from that day’s logged steps</div></div></div></article>';
     body+='<article class="card pad"><div class="kicker">Body &amp; reflection</div><div class="recipefacts" style="margin-top:12px"><div><span class="note">Weight</span><strong>'+(x.weight==null?'—':Store.fmtWeight(x.weight))+'</strong></div><div><span class="note">Sleep</span><strong>'+(x.sleepHr==null?'—':x.sleepHr+' h')+'</strong></div><div><span class="note">Resting HR</span><strong>'+(x.restingHr==null?'—':x.restingHr+' bpm')+'</strong></div><div><span class="note">Verse</span><strong>'+(x.verseRead?'Read':'—')+'</strong></div></div>'+(x.reflection?'<div class="rulehead" style="margin-top:17px"><span class="kicker sage">Evening reflection</span><span></span></div><p class="small" style="white-space:pre-wrap">'+esc(x.reflection)+'</p>':'<p class="small" style="margin-top:14px">No evening reflection recorded.</p>')+'</article>';
     if (photos.length) body+='<div class="rulehead"><span class="kicker sage">Progress photos</span><span></span><span class="note">'+photos.length+'</span></div><article class="card pad"><div class="photogrid">'+photos.map(function(ph){return '<div class="photoframe" data-photo="'+esc(ph.id)+'"></div>';}).join('')+'</div></article>';
     return UI.screen({tab:null,rest:270,blur:true,header:{back:'calendar/'+key.slice(0,7),title:'Day history',right:'<div style="width:34px"></div>'},art:'assets/art/coach-desk.webp',photoPosition:'center 42%',overlay:'<div class="eyebrow">'+esc(pretty)+'</div><p class="verse" style="font-size:25px">'+x.points+' of 10 · '+x.totals.kcal.toLocaleString()+' kcal · '+x.totals.protein+' g protein</p>',body:body});

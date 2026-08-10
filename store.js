@@ -303,6 +303,16 @@
         w.walk = sanitizeWorkoutWalk(w.walk);
         return w;
       }) : [];
+      /* Walks are a property of the calendar day, not of whether the user lifted.
+         Migrate the old workout-owned walk once so 5.5.1/5.5.2 history is not lost. */
+      var legacyWalk = null;
+      for (var wi = 0; wi < d.workouts.length && !legacyWalk; wi++) {
+        if (d.workouts[wi].walk && d.workouts[wi].walk.seconds) legacyWalk = d.workouts[wi].walk;
+      }
+      d.walk = sanitizeSessionWalk(d.walk);
+      if (!d.walk.elapsedMs && !d.walk.startedAt && legacyWalk) {
+        d.walk = sanitizeSessionWalk({ elapsedMs: legacyWalk.seconds * 1000, pace: legacyWalk.pace, elevation: legacyWalk.elevation });
+      }
       d.steps = Math.max(0, Math.round(finiteOr(d.steps, 0, 0, 500000)));
       d.weight = d.weight == null ? null : finiteOr(d.weight, null, 20, 1500);
       d.restingHr = d.restingHr == null ? null : Math.round(finiteOr(d.restingHr, null, 20, 300));
@@ -659,6 +669,14 @@
       S.session.name = shortText(S.session.name, 120) || 'Session';
       S.session.startedAt = finiteOr(S.session.startedAt, Date.now(), 0, Number.MAX_SAFE_INTEGER);
       S.session.walk = sanitizeSessionWalk(S.session.walk);
+      /* Upgrade an in-flight 5.5.2 workout walk into the day-level clock. */
+      var sessionDay = S.days[S.session.date];
+      if (!sessionDay) sessionDay = S.days[S.session.date] = { meals: [], workouts: [], walk: blankSessionWalk(), steps: 0, weight: null, restingHr: null, sleepHr: null, reflection: '', noteToPartner: '' };
+      sessionDay.walk = sanitizeSessionWalk(sessionDay.walk);
+      if (!sessionDay.walk.startedAt && !sessionDay.walk.elapsedMs && (S.session.walk.startedAt || S.session.walk.elapsedMs)) {
+        sessionDay.walk = clone(S.session.walk);
+      }
+      S.session.walk = clone(sessionDay.walk);
       S.session.items = S.session.items.filter(plainObject).map(function (it) {
         it.id = shortText(it.id, 120); it.name = shortText(it.name, 160) || 'Exercise';
         it.sets = Array.isArray(it.sets) ? it.sets.filter(plainObject).map(function (set) {
@@ -749,7 +767,9 @@
       if (k === today) return;
       var d = S.days[k];
       if (!d) return;
+      var dw = sanitizeSessionWalk(d.walk);
       var empty = !(d.meals || []).length && !(d.workouts || []).length && !d.steps &&
+        !(dw.elapsedMs || dw.startedAt || dw.pace || dw.elevation) &&
         d.weight == null && d.restingHr == null && d.sleepHr == null &&
         !(d.reflection || '').trim() && !(d.noteToPartner || '');
       if (empty) delete S.days[k];
@@ -802,10 +822,11 @@
 
   function day(key) {
     key = key || todayKey();
-    if (!S.days[key]) S.days[key] = { meals: [], workouts: [], steps: 0, weight: null, restingHr: null, sleepHr: null, reflection: '', noteToPartner: '' };
+    if (!S.days[key]) S.days[key] = { meals: [], workouts: [], walk: blankSessionWalk(), steps: 0, weight: null, restingHr: null, sleepHr: null, reflection: '', noteToPartner: '' };
     var dd = S.days[key];
     if (!dd.meals) dd.meals = [];
     if (!dd.workouts) dd.workouts = [];
+    dd.walk = sanitizeSessionWalk(dd.walk);
     return S.days[key];
   }
 
@@ -822,7 +843,9 @@
   function logged(key) {
     var d = S.days[key];
     if (!d) return false;
-    return (d.meals || []).length > 0 || (d.workouts || []).length > 0 || (d.steps || 0) > 0 || d.weight != null || !!(d.reflection || '').trim();
+    return (d.meals || []).length > 0 || (d.workouts || []).length > 0 || (d.steps || 0) > 0 ||
+      !!(d.walk && (d.walk.elapsedMs || d.walk.startedAt || d.walk.pace || d.walk.elevation)) ||
+      d.weight != null || !!(d.reflection || '').trim();
   }
 
   function streak() {
@@ -1146,7 +1169,7 @@
       name: planName || 'Session',
       startedAt: Date.now(),
       scoreBasis: clone(makeScoreBasis(todayKey())),
-      walk: blankSessionWalk(),
+      walk: clone(dailyWalk(todayKey())),
       items: items.map(function (e) {
         return {
           id: e.id, name: e.name, gif: e.gif || null,
@@ -1166,40 +1189,97 @@
     if (S.session && S.session.date < shift(todayKey(), -1)) { S.session = null; save(); }
     return S.session || null;
   }
-  function sessionWalkElapsedMs() {
-    var s = S.session; if (!s) return 0;
-    var w = sanitizeSessionWalk(s.walk);
+  /* A walk belongs to the calendar day. It is intentionally independent of a
+     lifting session so rest/recovery days and already-completed workout days can
+     still time a walk. Live timing is allowed only for today (or a session that
+     legitimately crossed midnight); past dates accept manual corrections only. */
+  function dailyWalk(key) {
+    key = key || todayKey();
+    var d = S.days[key], w = sanitizeSessionWalk(d && d.walk);
+    /* One-release compatibility for an in-memory 5.5.2 session that still owns
+       the walk object. This also protects a resume immediately after upgrading. */
+    if (!w.startedAt && !w.elapsedMs && S.session && S.session.date === key) {
+      var legacy = sanitizeSessionWalk(S.session.walk);
+      if (legacy.startedAt || legacy.elapsedMs || legacy.pace || legacy.elevation) w = legacy;
+    }
+    return w;
+  }
+  function dailyWalkElapsedMs(key) {
+    var w = dailyWalk(key);
     return Math.max(0, w.elapsedMs + (w.startedAt ? Date.now() - w.startedAt : 0));
   }
-  function startSessionWalk() {
-    var s = S.session; if (!s) return false;
-    s.walk = sanitizeSessionWalk(s.walk);
-    if (s.walk.startedAt) return true;
-    s.walk.startedAt = Date.now();
-    s.walk.stoppedAt = 0;
+  function canRunWalkOn(key) {
+    key = key || todayKey();
+    return key === todayKey() || !!(S.session && S.session.date === key && key === shift(todayKey(), -1));
+  }
+  function mirrorSessionWalk(key, walk) {
+    if (S.session && S.session.date === key) S.session.walk = clone(sanitizeSessionWalk(walk));
+  }
+  function startDailyWalk(key) {
+    key = key || todayKey();
+    if (!validDateKey(key) || !canRunWalkOn(key)) return false;
+    var d = day(key); d.walk = sanitizeSessionWalk(d.walk);
+    if (d.walk.startedAt) return true;
+    d.walk.startedAt = Date.now();
+    d.walk.stoppedAt = 0;
+    ensureScoreBasis(key);
+    mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
-  function stopSessionWalk() {
-    var s = S.session; if (!s) return false;
-    s.walk = sanitizeSessionWalk(s.walk);
-    if (!s.walk.startedAt) return false;
-    s.walk.elapsedMs = Math.min(86400000, s.walk.elapsedMs + Math.max(0, Date.now() - s.walk.startedAt));
-    s.walk.startedAt = 0;
-    s.walk.stoppedAt = Date.now();
+  function stopDailyWalk(key) {
+    key = key || todayKey();
+    if (!validDateKey(key) || !canRunWalkOn(key)) return false;
+    var d = day(key); d.walk = sanitizeSessionWalk(d.walk);
+    if (!d.walk.startedAt) return false;
+    d.walk.elapsedMs = Math.min(86400000, d.walk.elapsedMs + Math.max(0, Date.now() - d.walk.startedAt));
+    d.walk.startedAt = 0;
+    d.walk.stoppedAt = Date.now();
+    mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
-  function updateSessionWalk(patch) {
-    var s = S.session; if (!s || !plainObject(patch)) return false;
-    s.walk = sanitizeSessionWalk(s.walk);
-    if (patch.pace != null) s.walk.pace = shortText(String(patch.pace), 80).trim();
-    if (patch.elevation != null) s.walk.elevation = shortText(String(patch.elevation), 80).trim();
+  function updateDailyWalk(patch, key) {
+    key = key || todayKey();
+    if (!validDateKey(key) || key > todayKey() || !plainObject(patch)) return false;
+    var d = day(key); d.walk = sanitizeSessionWalk(d.walk);
+    if (patch.pace != null) d.walk.pace = shortText(String(patch.pace), 80).trim();
+    if (patch.elevation != null) d.walk.elevation = shortText(String(patch.elevation), 80).trim();
+    if (patch.elapsedMs != null && !d.walk.startedAt) d.walk.elapsedMs = Math.round(finiteOr(patch.elapsedMs, d.walk.elapsedMs, 0, 86400000));
+    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation) ensureScoreBasis(key);
+    mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
-  function resetSessionWalk() {
-    var s = S.session; if (!s) return false;
-    s.walk = blankSessionWalk();
+  function setDailyWalkManual(key, minutes, pace, elevation) {
+    key = key || todayKey();
+    if (!validDateKey(key) || key > todayKey()) return false;
+    var mins = finiteOr(minutes, null, 0, 1440);
+    if (mins == null) return false;
+    var d = day(key); d.walk = sanitizeSessionWalk(d.walk);
+    if (d.walk.startedAt) return false;
+    d.walk.elapsedMs = Math.round(mins * 60000);
+    d.walk.pace = shortText(String(pace || ''), 80).trim();
+    d.walk.elevation = shortText(String(elevation || ''), 80).trim();
+    d.walk.stoppedAt = d.walk.elapsedMs ? Date.now() : 0;
+    if (d.walk.elapsedMs || d.walk.pace || d.walk.elevation) ensureScoreBasis(key);
+    mirrorSessionWalk(key, d.walk);
     save(); emit(); return true;
   }
+  function resetDailyWalk(key) {
+    key = key || todayKey();
+    if (!validDateKey(key) || key > todayKey()) return false;
+    var d = day(key);
+    if (d.walk && d.walk.startedAt && !canRunWalkOn(key)) return false;
+    d.walk = blankSessionWalk();
+    mirrorSessionWalk(key, d.walk);
+    save(); emit(); return true;
+  }
+
+  /* Compatibility names keep older call sites/backups safe while 5.5.3 moves
+     the canonical clock to the day record. */
+  function sessionWalkElapsedMs() { return dailyWalkElapsedMs(S.session ? S.session.date : todayKey()); }
+  function startSessionWalk() { return S.session ? startDailyWalk(S.session.date) : false; }
+  function stopSessionWalk() { return S.session ? stopDailyWalk(S.session.date) : false; }
+  function updateSessionWalk(patch) { return S.session ? updateDailyWalk(patch, S.session.date) : false; }
+  function resetSessionWalk() { return S.session ? resetDailyWalk(S.session.date) : false; }
 
   function logSet(itemIndex, set) {
     var s = S.session; if (!s || !s.items[itemIndex] || !plainObject(set)) return;
@@ -1235,10 +1315,8 @@
      screen states facts rather than re-deriving them. */
   function finishSession() {
     var s = S.session; if (!s) return null;
-    s.walk = sanitizeSessionWalk(s.walk);
-    /* The user owns the walk clock. Finishing a lift must never silently stop
-       a walk that they intended to keep timing. */
-    if (s.walk.startedAt) return null;
+    /* The daily walk is deliberately independent of lifting. Finishing the
+       weights never stops that clock; it keeps running until the user stops it. */
     var logged = s.items.filter(function (i) { return i.sets.length; });
     if (!logged.length) return null;
 
@@ -1259,10 +1337,11 @@
       return { id: i.id || '', name: i.name, weight: top ? top.weight : 0, reps: top ? top.reps : 0, sets: i.sets.length };
     });
 
+    var dayWalk = dailyWalk(key);
     var walk = sanitizeWorkoutWalk({
-      seconds: Math.round((s.walk.elapsedMs || 0) / 1000),
-      pace: s.walk.pace,
-      elevation: s.walk.elevation
+      seconds: Math.round(dailyWalkElapsedMs(key) / 1000),
+      pace: dayWalk.pace,
+      elevation: dayWalk.elevation
     });
     d.workouts.push({ name: s.name, minutes: minutes, exercises: exercises, walk: walk });
     S.session = null;
@@ -1828,6 +1907,8 @@
     points: points, pointRows: pointRows, timeOfDay: timeOfDay, nextStep: nextStep,
     addMeal: addMeal, findMeal: findMeal, updateMeal: updateMeal, removeMeal: removeMeal, addWorkout: addWorkout, setSteps: setSteps, setMorning: setMorning,
     startSession: startSession, session: session, logSet: logSet, dropSet: dropSet,
+    dailyWalk: dailyWalk, dailyWalkElapsedMs: dailyWalkElapsedMs, startDailyWalk: startDailyWalk, stopDailyWalk: stopDailyWalk,
+    updateDailyWalk: updateDailyWalk, setDailyWalkManual: setDailyWalkManual, resetDailyWalk: resetDailyWalk,
     sessionWalkElapsedMs: sessionWalkElapsedMs, startSessionWalk: startSessionWalk,
     stopSessionWalk: stopSessionWalk, updateSessionWalk: updateSessionWalk, resetSessionWalk: resetSessionWalk,
     addSessionItem: addSessionItem, dropSessionItem: dropSessionItem,

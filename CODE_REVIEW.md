@@ -1,10 +1,10 @@
-# InSync 5.5.2 — Code Review
+# InSync 5.5.3 — Code Review
 
 ## Release assessment
 
 **Code release gate: PASS**, subject to the real-device acceptance checks documented in `TEST_REPORT.md`.
 
-The 5.5.2 build preserves the 5.5.0 architecture and extends the existing local-first architecture rather than creating parallel data systems. `Store` remains the persistence boundary, `Insights` derives cross-cutting facts from that store, `Cloud` owns Claude/GitHub I/O, and screen/action modules remain presentation and interaction layers.
+The 5.5.3 build preserves the 5.5.0 architecture and extends the existing local-first architecture rather than creating parallel data systems. `Store` remains the persistence boundary, `Insights` derives cross-cutting facts from that store, `Cloud` owns Claude/GitHub I/O, and screen/action modules remain presentation and interaction layers.
 
 ## Workout-walk design review
 
@@ -35,7 +35,7 @@ The app can detect an updated service worker without forcing an immediate reload
 
 `insights.js` is intentionally a derivation layer rather than another state owner. That keeps weekly review, progression, calendar, activity and sync-health logic testable without further expanding `screens.js` or `store.js` responsibilities.
 
-The largest legacy modules (`screens.js`, `store.js`, `cloud.js`, `app.js`) are still substantial. They should be split by domain during a future major architectural release, not immediately after a stable production pass. A speculative refactor now would add regression risk without improving the user-facing 5.5.2 release.
+The largest legacy modules (`screens.js`, `store.js`, `cloud.js`, `app.js`) are still substantial. They should be split by domain during a future major architectural release, not immediately after a stable production pass. A speculative refactor now would add regression risk without improving the user-facing 5.5.3 release.
 
 ## Known platform boundary
 
@@ -44,4 +44,9 @@ Automated tests can validate data, rendering contracts, sync serialization and b
 
 ## Notification-state review
 
-5.5.2 keeps notification read-state local to each phone. Informational notifications use stable ids and a bounded 200-item seen list; they are acknowledged by opening the Notification Centre. Action-required notifications are derived from unresolved domain state instead of a dismiss flag, so viewing the centre cannot accidentally clear an expedition invitation, unread partner note, or coach proposal. The header prioritizes action count over informational state when both exist.
+5.5.3 keeps notification read-state local to each phone. Informational notifications use stable ids and a bounded 200-item seen list; they are acknowledged by opening the Notification Centre. Action-required notifications are derived from unresolved domain state instead of a dismiss flag, so viewing the centre cannot accidentally clear an expedition invitation, unread partner note, or coach proposal. The header prioritizes action count over informational state when both exist.
+
+
+## 5.5.3 daily-walk boundary
+
+The walk clock was moved from `session.walk` to `days[date].walk`, which matches the product behavior: walking happens on recovery days and can continue after lifting is complete. Live timing is bounded to today (plus the existing one-night cross-midnight session exception), while historical dates use a manual correction API. Legacy workout/session walk objects are migrated and compatibility wrappers remain for one release so an in-flight update cannot lose timing data. The day-pruning predicate and `logged()` predicate both recognize walk-only activity, preventing a manually corrected past walk from being silently removed.

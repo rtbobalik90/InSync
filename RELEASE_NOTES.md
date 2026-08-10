@@ -1,6 +1,15 @@
-# InSync 5.5.2 — Notification Visibility
+# InSync 5.5.3 — Daily Walk
 
-InSync 5.5.2 builds on 5.5.0, which completes the core weekly operating loop around the existing daily tracker, nutrition planner, training system, Together expedition and private two-phone sync.
+InSync 5.5.3 builds on 5.5.0, which completes the core weekly operating loop around the existing daily tracker, nutrition planner, training system, Together expedition and private two-phone sync.
+
+## Added in 5.5.3 — walk belongs to the day
+
+- The walk timer is now visible on every Training day: lifting, dedicated walk, recovery/rest, and a workout day whose lifting portion is already complete.
+- The clock is stored on the calendar day rather than inside the active lifting session. Finishing the weights no longer stops or removes a running walk.
+- Pace/speed and elevation/incline remain editable after Stop.
+- Past dates show the saved walk and allow a manual duration/pace/elevation correction; they cannot start a live timer. Future dates are display-only until that day arrives.
+- Existing completed and in-progress walk data from 5.5.1/5.5.2 migrates into the new day-level record.
+- A walk-only day now counts as real logged activity for history/streak purposes and survives the empty-day pruning pass.
 
 ## Added in 5.5.2 — notification visibility
 
@@ -11,17 +20,15 @@ InSync 5.5.2 builds on 5.5.0, which completes the core weekly operating loop aro
 - Notification controls include accessible labels describing whether activity or required actions are waiting.
 
 
-## Carried forward from 5.5.1
+## Carried forward and expanded from 5.5.1
 
-### Persistent Workout Walk
-- Every active lifting session now places a **Workout walk** card above the movement list.
-- **Start walk** uses a persisted wall-clock timestamp rather than an in-memory counter, so screen renders, phone locking and PWA suspension do not reset elapsed time.
-- **Stop walk** freezes the accumulated time. **Resume walk** continues from that exact duration.
-- After stopping, the user can save **Pace / speed** and **Elevation / incline** using the notation that matches the treadmill or outdoor walk.
-- A live walk cannot be silently ended by **Finish session**; the app requires an explicit Stop first.
-- Completed walk duration, pace/speed and elevation/incline are stored inside that workout and surface on Session Complete and historical Training views.
-- **Reset walk** intentionally clears only the walk portion of the current workout.
-- Live/imported walk fields are bounded and normalized alongside the rest of the local-first Store.
+### Persistent walk clock
+- The persisted wall-clock Start / Stop / Resume behavior remains, so screen renders, phone locking and PWA suspension do not reset elapsed time.
+- Pace/speed and elevation/incline remain optional free-form fields after Stop.
+- 5.5.3 moves the canonical record from the workout session to the calendar day, so recovery days and post-workout walking use the same clock.
+- Finishing the lifting portion no longer stops or removes a live walk; the timer continues until the user explicitly stops it.
+- Reset intentionally clears only that day’s walk record.
+- Live/imported walk fields remain bounded and normalized alongside the rest of the local-first Store.
 
 ## Added in 5.5.0
 
@@ -72,7 +79,7 @@ InSync 5.5.2 builds on 5.5.0, which completes the core weekly operating loop aro
 - The existing local-date boundary, historical score snapshots, private sync, rolling chat, expedition leg reconciliation, backups/restores, IndexedDB photo storage and iPhone viewport/scroll corrections remain intact.
 
 ## Version matrix
-- App/UI: **5.5.2**
+- App/UI: **5.5.3**
 - Local state schema: **v10** (`insync.v10`)
 - Partner sync schema: **6**
-- Service-worker cache: **insync-v10-11**
+- Service-worker cache: **insync-v10-12**

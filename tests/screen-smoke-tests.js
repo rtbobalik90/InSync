@@ -138,6 +138,22 @@ context.location.hash='#train';const walkHtml=context.Screens.train();
 if (!walkHtml.includes('Walking day complete') || !walkHtml.includes('1 of 4')) { failed += 1; console.error('FAIL completed walk day is not counted toward the weekly training frequency'); } else passed += 1;
 Store.set('plan',[]);Store.set('planMeta',{});Store.setSteps(0);
 
+// The day-level walk remains available even when today is a recovery day.
+context.location.hash='#train'; const recoveryWalkHtml=context.Screens.train();
+if (!recoveryWalkHtml.includes('Walk timer') || !recoveryWalkHtml.includes('data-action="walk-start"')) {
+  failed += 1; console.error('FAIL recovery day does not expose the live walk timer');
+} else passed += 1;
+
+// Past training days are editable history, not live timers; future days are inert.
+const pastWalkKey=Store.shift(Store.todayKey(),-1); context.location.hash='#trainday/'+pastWalkKey; const pastWalkHtml=context.Screens.trainDay();
+if (!pastWalkHtml.includes('Past days cannot run a live timer') || !pastWalkHtml.includes('data-action="walk-manual-save"') || pastWalkHtml.includes('data-action="walk-start"')) {
+  failed += 1; console.error('FAIL past training day does not use manual walk correction safely');
+} else passed += 1;
+const futureWalkKey=Store.shift(Store.todayKey(),1); context.location.hash='#trainday/'+futureWalkKey; const futureWalkHtml=context.Screens.trainDay();
+if (!futureWalkHtml.includes('UPCOMING') || futureWalkHtml.includes('data-action="walk-start"')) {
+  failed += 1; console.error('FAIL future training day exposes a live walk timer');
+} else passed += 1;
+
 // The training strip is locked to the current Monday–Sunday calendar week.
 context.location.hash='#train';
 const calendarWeekHtml=context.Screens.train();

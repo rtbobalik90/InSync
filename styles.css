@@ -1173,7 +1173,7 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .goalrow{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule);font-size:11.5px}.goalrow:last-child{border-bottom:0}.goalrow span{min-width:0}.goalrow b{font-family:var(--serif);font-size:15px;font-weight:500;color:var(--gold-mid);flex:none}
 
 /* ---- Workout walk timer -------------------------------------------------
-   A persistent walk belongs to the active lifting session. The clock itself
+   A persistent walk belongs to the calendar day, including lift and recovery days. The clock itself
    updates without re-rendering the screen, so the user can keep the exercise
    list open while the timer runs. */
 .walk-card { overflow: hidden; }

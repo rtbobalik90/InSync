@@ -32,16 +32,18 @@
   function bindSessionWalkClock() {
     if (sessionWalkTicker) { clearInterval(sessionWalkTicker); sessionWalkTicker = null; }
     var clock = app.querySelector('[data-walk-clock]');
-    var sn = Store.session && Store.session();
-    if (!clock || !sn || !sn.walk || !sn.walk.startedAt) return;
+    if (!clock) return;
+    var key = clock.getAttribute('data-walk-date') || Store.todayKey();
+    var walk = Store.dailyWalk ? Store.dailyWalk(key) : null;
+    if (!walk || !walk.startedAt) return;
     function tick() {
-      var currentSession = Store.session && Store.session();
-      if (!clock.isConnected || !currentSession || !currentSession.walk || !currentSession.walk.startedAt) {
+      var currentWalk = Store.dailyWalk ? Store.dailyWalk(key) : null;
+      if (!clock.isConnected || !currentWalk || !currentWalk.startedAt) {
         if (sessionWalkTicker) clearInterval(sessionWalkTicker);
         sessionWalkTicker = null;
         return;
       }
-      clock.textContent = formatSessionWalkClock(Store.sessionWalkElapsedMs ? Store.sessionWalkElapsedMs() : 0);
+      clock.textContent = formatSessionWalkClock(Store.dailyWalkElapsedMs ? Store.dailyWalkElapsedMs(key) : 0);
     }
     tick();
     sessionWalkTicker = setInterval(tick, 1000);
@@ -659,24 +661,37 @@
       return;
     }
     if (action === 'walk-start') {
-      Store.startSessionWalk();
+      Store.startDailyWalk(el.getAttribute('data-walk-date') || Store.todayKey());
       return;
     }
     if (action === 'walk-stop') {
-      Store.stopSessionWalk();
+      Store.stopDailyWalk(el.getAttribute('data-walk-date') || Store.todayKey());
       return;
     }
     if (action === 'walk-save') {
-      var paceEl = app.querySelector('[data-walk-pace]');
-      var elevationEl = app.querySelector('[data-walk-elevation]');
-      Store.updateSessionWalk({
+      var walkHost = el.closest('[data-walk-card]') || app;
+      var paceEl = walkHost.querySelector('[data-walk-pace]');
+      var elevationEl = walkHost.querySelector('[data-walk-elevation]');
+      Store.updateDailyWalk({
         pace: paceEl ? paceEl.value : '',
         elevation: elevationEl ? elevationEl.value : ''
-      });
+      }, el.getAttribute('data-walk-date') || Store.todayKey());
+      return;
+    }
+    if (action === 'walk-manual-save') {
+      var manualHost = el.closest('[data-walk-card]') || app;
+      var manualMinutes = manualHost.querySelector('[data-walk-minutes]');
+      var manualPace = manualHost.querySelector('[data-walk-pace]');
+      var manualElevation = manualHost.querySelector('[data-walk-elevation]');
+      var manualValue = parseFloat(manualMinutes && manualMinutes.value);
+      if (!isFinite(manualValue) || manualValue < 0 || manualValue > 1440) { alert('Enter a walk duration from 0 to 1,440 minutes.'); return; }
+      Store.setDailyWalkManual(el.getAttribute('data-walk-date') || Store.todayKey(), manualValue,
+        manualPace ? manualPace.value : '', manualElevation ? manualElevation.value : '');
       return;
     }
     if (action === 'walk-reset') {
-      if (confirm('Reset this workout walk? The timer and its pace/elevation details will be cleared.')) Store.resetSessionWalk();
+      var resetDate = el.getAttribute('data-walk-date') || Store.todayKey();
+      if (confirm('Clear this day’s walk timer and its pace/elevation details?')) Store.resetDailyWalk(resetDate);
       return;
     }
     if (action === 'add-set' || action === 'repeat-set') {
@@ -723,19 +738,16 @@
     }
     if (action === 'finish-session') {
       var activeSession = Store.session && Store.session();
-      if (activeSession && activeSession.walk && activeSession.walk.startedAt) {
-        alert('Stop the workout walk first so InSync can save the correct time.');
-        return;
-      }
-      /* Treat typed walk details as committed when the workout is finished,
-         even if the user never tapped the optional Save details button. */
-      var finishPace = app.querySelector('[data-walk-pace]');
-      var finishElevation = app.querySelector('[data-walk-elevation]');
-      if (activeSession && activeSession.walk && (finishPace || finishElevation)) {
-        Store.updateSessionWalk({
-          pace: finishPace ? finishPace.value : activeSession.walk.pace,
-          elevation: finishElevation ? finishElevation.value : activeSession.walk.elevation
-        });
+      /* The walk is a daily clock now, so finishing the weights does not stop it.
+         If its detail fields are visible, commit them before closing the lift. */
+      var finishWalkHost = app.querySelector('[data-walk-card]');
+      var finishPace = finishWalkHost && finishWalkHost.querySelector('[data-walk-pace]');
+      var finishElevation = finishWalkHost && finishWalkHost.querySelector('[data-walk-elevation]');
+      if (activeSession && (finishPace || finishElevation)) {
+        Store.updateDailyWalk({
+          pace: finishPace ? finishPace.value : '',
+          elevation: finishElevation ? finishElevation.value : ''
+        }, activeSession.date || Store.todayKey());
       }
       var res = Store.finishSession();
       if (!res) return;
@@ -1111,7 +1123,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'5.5.2', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'5.5.3', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {
