@@ -114,7 +114,8 @@
      measured against the nav so the first card always clears it. */
   function screen(opts) {
     var art = asset(opts.art || CAMP[Store.timeOfDay()]);
-    var photoStyle = 'background-image:' + SCRIM + ',url(\'' + art + '\')';
+    var scrim = opts.scrim || SCRIM;
+    var photoStyle = 'background-image:' + scrim + ',url(\'' + art + '\')';
     if (opts.photoHeight) photoStyle += ';height:' + opts.photoHeight;
     if (opts.photoPos) photoStyle += ';background-position:' + opts.photoPos;
     if (opts.photoPosition) photoStyle += ';background-position:' + opts.photoPosition;

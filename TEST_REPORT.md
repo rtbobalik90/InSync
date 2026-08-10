@@ -1,89 +1,59 @@
-# InSync 5.5.3 — Release Test Report
+# InSync 5.5.4 — Release Test Report
 
-## Automated release gate
+## Release gate
 
-The 5.5.3 working tree passed the complete automated suite before packaging:
+The production working tree and the final packaged ZIP were each run through the complete automated suite in a clean Node environment.
 
-- Stabilization / data-integrity / static-contract checks: **496 / 496**
-- Two-phone cloud sync / concurrency checks: **30 / 30**
-- Meal Planner checks: **25 / 25**
-- Weekly-rhythm completion-feature checks: **57 / 57**
-- Screen / malformed-state render checks: **71 / 71**
-- Daily walk persistence / migration / recovery-day / UI-contract checks: **42 / 42**
-- Notification bell state / read-persistence checks: **10 / 10**
+| Suite | Passed | Failed |
+|---|---:|---:|
+| Core stabilization / persistence / migrations / assets / wiring | 496 | 0 |
+| Two-phone cloud sync / concurrency | 30 | 0 |
+| Weekly rhythm / history / coaching / reactions | 57 | 0 |
+| Meal planner / recipes / meal-prep memory | 25 | 0 |
+| Notification bell states | 10 | 0 |
+| Screen and malformed-state smoke rendering | 71 | 0 |
+| Daily Walk / recovery-day timer | 42 | 0 |
+| Next-week setup + Train rework | 23 | 0 |
+| **Total** | **754** | **0** |
 
-**Total: 731 / 731 passed, 0 failed.**
+## 5.5.4-specific coverage
 
-## What 5.5.3 specifically tests
+The new next-week/Train suite verifies that:
 
-The new release coverage includes:
-- neutral / informational / action-required notification-bell states;
-- informational activity clearing only after the Notification Centre is opened;
-- unresolved action counts remaining visible until the underlying action is actually resolved;
-- persistent bounded informational read-state and accessible notification labels;
-- day-level walk initialization, Start, Stop, Resume accumulation and Reset without requiring a lifting session;
-- a running walk surviving a full localStorage reload without losing elapsed time;
-- lifting-session completion leaving a live day-level walk running until the user stops it;
-- completed walk duration, pace/speed and elevation/incline being stored on the calendar day;
-- malformed imported walk duration/text being rejected or bounded;
-- the walk block rendering on recovery days, completed workout days and above the active movement list, with live and stopped UI states;
-- all five walk actions resolving to real delegated handlers and the visible clock updating without Store rerenders;
-- batch-prep lunches and dinner leftovers;
-- Monday fresh-dinner anchoring;
-- preference-aware favorites and thumbs-down exclusions;
-- reversible meal and movement exclusion memory;
-- progression from actual lift history;
-- same-group exercise substitution and future-plan avoidance;
-- Monday–Sunday Training week behavior and step-completed walk days;
-- weekly review statistics and grounded Claude review structure;
-- exact weekly badge/favorite evidence;
-- exactly two measurable next-week goals;
-- staging and one-time activation of future training weeks;
-- complete date-history with nutrition, training, body, reflection, trail distance and photos;
-- proactive Coach pattern detection;
-- sync-health acknowledgement timestamps;
-- schema-6 activity and reactions;
-- invalid/prototype-polluting activity and reaction input rejection;
-- impossible calendar-date activity IDs;
-- malformed partner timestamps;
-- serialized GitHub writes and SHA-conflict retry behavior;
-- same-screen scroll retention and iPhone standalone viewport behavior;
-- safe service-worker update activation outside active edits/workouts/modals;
-- literal production actions/routes resolving to real handlers/screens.
+- a Walk/Cardio placeholder cannot consume one of the selected gym days;
+- a valid five-day lifting split is accepted as five lifting days;
+- malformed/unsafe first training output receives exactly one automatic repair attempt;
+- biceps/triceps recovery does not falsely reject a normal Push/Pull sequence;
+- staged future training retains all requested lifting days;
+- `Store.planFor()` resolves a staged future week before Monday promotion;
+- 28 valid meals remain saved when training subsequently fails;
+- retrying setup skips the already-saved meal half and retries only training;
+- successful setup creates exactly two measurable goals;
+- the training-session goal matches the configured lifting frequency;
+- stale future-plan metadata cannot claim training is ready without real plan rows;
+- 28 arbitrary meal rows cannot claim meal setup is complete without the exact seven-date × four-slot matrix;
+- Train uses the compact daily Walk timer and anchors its resting fold through **This week**;
+- Train can use its lower custom hero scrim without changing other screens;
+- staged next-week training is visibly previewable without becoming active early;
+- onboarding no longer teaches that walking replaces a gym day.
 
-## Static/package gates
+## Static production checks
 
-The release also requires:
-- every production and test JavaScript file parses with Node;
-- manifest JSON parses;
-- CSS parses without stylesheet errors;
-- every production image decodes;
-- all 41 exercise demonstrations remain animated WebP;
-- zero zero-byte production files;
-- zero exact duplicate production image hashes;
-- all literal production asset references resolve;
-- no production `debugger`, debug console calls, TODO/FIXME leftovers or demo-data actions;
-- version agreement: app **5.5.3**, state **v10**, sync schema **6**, service-worker cache **insync-v10-12**.
+- Production JavaScript parses successfully.
+- `manifest.webmanifest` parses successfully.
+- 126/126 production raster/WebP images decode.
+- 41/41 exercise demonstration WebPs remain animated.
+- 0 zero-byte files.
+- 0 duplicate production-image hash groups.
+- production action/route/asset wiring remains covered by the stabilization/smoke suites.
+- version agreement: app **5.5.4**, local state **v10**, partner sync **schema 6**, service-worker cache **insync-v10-13**.
 
-## Clean-room exact-ZIP gate
+## Physical-device acceptance still worth checking
 
-**PASS.** The release candidate ZIP was extracted into a fresh directory and the complete 731-check automated suite passed again with 0 failures. The clean-room static gate also passed: 126/126 production images decoded, 41/41 exercise demonstrations remained animated, all JavaScript parsed, manifest and CSS parsed, zero zero-byte files and zero duplicate production-image hashes.
+Automated tests cannot reproduce every iOS Home Screen PWA lifecycle behavior. On the two real phones, the most useful acceptance checks are:
 
-## Real-device acceptance boundary
-
-Automated testing cannot substitute for the final physical-device checks on two iPhones. After deployment, verify:
-1. both phones display version 5.5.3;
-2. the dedicated private sync repository reports healthy on both;
-3. a chat message and reaction cross phone A → repo → phone B and back;
-4. a real photo can be captured, reopened, backed up and restored;
-5. Claude can generate a weekly review, meal week and future training week using the configured real key;
-6. iOS background/foreground resume catches up automatically;
-7. an available service-worker update waits for a safe screen rather than interrupting an active workout/edit;
-8. start a real Workout Walk, lock/background the iPhone for at least one minute, return and verify the timer catches up; then Stop, enter pace/elevation, finish the workout and reopen the day to verify those details persisted.
-
-Those are hardware/service acceptance checks. The packaged code has no unresolved automated release-gate failure.
-
-
-## 5.5.3 walk-specific acceptance
-
-Automated coverage now proves a walk can start with no lifting session, survives reload/lock-style time gaps, remains running when weights finish, renders on a recovery day, supports manual historical correction, blocks live timing on past/future dates, migrates old workout-owned walk data, and rejects malformed imported walk metadata.
+1. open Weekly Review and run **Set up my next week** with the real Claude key;
+2. confirm progress moves through meals and training and the ready state survives closing/reopening the PWA;
+3. verify the coming Train week contains the selected number of lifting sessions, not a Walk placeholder;
+4. on a rest day, confirm the Train hero shows more artwork, the Walk timer sits higher, and **This week** is visible in the opening composition;
+5. if the PWA remains open across Sunday night into Monday, confirm staged training activates without requiring a reinstall/reload.

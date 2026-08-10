@@ -891,8 +891,23 @@
   // frozen the first time real activity is written, so later plan/target changes
   // cannot rewrite history or completed Together challenges.
   function planFor(key) {
-    var wd = WEEKDAYS[new Date((key || todayKey()) + 'T12:00:00').getDay()];
-    return (S.plan || []).filter(function (p) { return p.day === wd; })[0] || null;
+    key = key || todayKey();
+    var wk = weekStart(key), currentWeek = weekStart(todayKey()), list = [];
+    /* A staged Sunday-night plan belongs to the coming Monday. Before this,
+       planFor(nextMonday) still read the active week's plan until promotion,
+       which made next-week previews and any future-day logic lie about what
+       had actually been prepared. */
+    if (S.futurePlanMeta && S.futurePlanMeta.weekOf === wk && Array.isArray(S.futurePlan) && S.futurePlan.length) {
+      list = S.futurePlan;
+    } else if (S.planMeta && S.planMeta.weekOf === wk && Array.isArray(S.plan)) {
+      list = S.plan;
+    } else if (wk === currentWeek && Array.isArray(S.plan)) {
+      /* Legacy/template plans may not have a week stamp yet. They still own
+         the current week, but must never be projected backward or forward. */
+      list = S.plan;
+    }
+    var wd = WEEKDAYS[new Date(key + 'T12:00:00').getDay()];
+    return list.filter(function (p) { return p.day === wd; })[0] || null;
   }
   function validScoreBasis(b) {
     return !!b && b.version === 1 && b.targets &&
@@ -1273,7 +1288,7 @@
     save(); emit(); return true;
   }
 
-  /* Compatibility names keep older call sites/backups safe while 5.5.3 moves
+  /* Compatibility names keep older call sites/backups safe while 5.5.4 keeps
      the canonical clock to the day record. */
   function sessionWalkElapsedMs() { return dailyWalkElapsedMs(S.session ? S.session.date : todayKey()); }
   function startSessionWalk() { return S.session ? startDailyWalk(S.session.date) : false; }

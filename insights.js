@@ -221,11 +221,27 @@
     return Store.set('weeklyReviews', all);
   }
   function nextWeekStatus(weekOf) {
-    var next = Store.shift(weekOf, 7), s = state(), count = 0;
-    Object.keys(s.mealPlan || {}).forEach(function (k) {
-      var d = k.slice(0,10); if (d >= next && d <= Store.shift(next,6) && s.mealPlan[k]) count++;
+    var next = Store.shift(weekOf, 7), s = state(), slots = ['Breakfast','Lunch','Dinner','Snack'], count = 0;
+    /* Readiness is semantic, not just a row count. Twenty-eight arbitrary meal
+       keys or a stale training metadata stamp must never make Setup report a
+       finished week when one of the actual dated slots/days is missing. */
+    for (var i=0;i<7;i++) {
+      var date = Store.shift(next,i);
+      slots.forEach(function (slot) {
+        var m=(s.mealPlan||{})[date+'|'+slot];
+        if (m && m.date===date && m.slot===slot) count++;
+      });
+    }
+    var candidate=[];
+    if (s.futurePlanMeta && s.futurePlanMeta.weekOf===next && Array.isArray(s.futurePlan)) candidate=s.futurePlan;
+    else if (s.planMeta && s.planMeta.weekOf===next && Array.isArray(s.plan)) candidate=s.plan;
+    var freq=Math.max(2,Math.min(6,+s.frequency||4));
+    var seen={};
+    var training=candidate.length===freq && candidate.every(function(p){
+      if(!p || !p.day || !p.name || /walk|cardio/i.test(p.name)) return false;
+      if(seen[p.day]) return false; seen[p.day]=true;
+      return Array.isArray(p.ex) && p.ex.length>=3 && p.ex.length<=5;
     });
-    var training = !!((s.planMeta && s.planMeta.weekOf === next) || (s.futurePlanMeta && s.futurePlanMeta.weekOf === next));
     return { weekOf: next, training: training, meals: count === 28, mealCount: count };
   }
 
@@ -317,7 +333,7 @@
     else if(s.planMeta&&s.planMeta.weekOf===weekOf) plan=s.plan||[];
     var lifts=plan.filter(function(p){return p && !/walk/i.test(p.name||'');}).length;
     if(lifts) return lifts;
-    var f=Math.max(2,Math.min(6,+s.frequency||4)); return f>=4 ? f-1 : f;
+    var f=Math.max(2,Math.min(6,+s.frequency||4)); return f;
   }
   function suggestedGoals(weekOf) {
     var patterns=patternInsights(), ids=patterns.map(function(x){return x.id;}), out=[], liftGoal=liftingTarget(weekOf);

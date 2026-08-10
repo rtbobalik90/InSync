@@ -367,21 +367,32 @@
       return;
     }
     if (action === 'setup-next-week') {
-      var baseWeek = el.getAttribute('data-week') || Insights.reviewWeekKey(), nextWeek = Store.shift(baseWeek, 7);
-      var setupText = el.textContent; el.disabled = true; el.textContent = 'Planning meals…';
-      Cloud.planMealsWeek(nextWeek, function (mealErr, weekMap) {
-        if (mealErr) { el.disabled=false; el.textContent=setupText; alert(mealErr.message); return; }
-        el.textContent = 'Writing training…';
-        Cloud.writePlan(nextWeek, function (planErr) {
-          el.disabled=false; el.textContent=setupText;
-          if (planErr) { alert(planErr.message); return; }
-          var merged=Object.assign({},Store.state().mealPlan||{}), end=Store.shift(nextWeek,6);
-          Object.keys(merged).forEach(function(k){var d=k.slice(0,10); if(d>=nextWeek&&d<=end) delete merged[k];});
-          Object.keys(weekMap||{}).forEach(function(k){merged[k]=weekMap[k];});
-          Store.set('mealPlan',merged); Store.set('mealPlannerWeek',nextWeek); Store.set('shopTicked',{});
-          if (window.Insights && Insights.setNextWeekGoals) Insights.setNextWeekGoals(baseWeek);
-          render();
-        });
+      var baseWeek = el.getAttribute('data-week') || Insights.reviewWeekKey();
+      var setupText = el.textContent;
+      el.disabled = true;
+      function stageText(stage) {
+        if (stage === 'meals') return 'Planning meals…';
+        if (stage === 'meals-ready') return 'Meals ready · writing training…';
+        if (stage === 'training') return 'Writing training…';
+        if (stage === 'done') return 'Next week ready';
+        return 'Setting up next week…';
+      }
+      Cloud.setupNextWeek(baseWeek, function (stage) {
+        if (el && el.isConnected) el.textContent = stageText(stage);
+      }, function (err, status) {
+        if (el && el.isConnected) { el.disabled = false; el.textContent = setupText; }
+        render();
+        if (!err) return;
+        status = status || {};
+        var kept = [];
+        if (status.meals) kept.push('all 28 meals are saved');
+        if (status.training) kept.push('training is saved');
+        var lead = err.stage === 'training'
+          ? 'The meal week finished, but training needs another try.'
+          : err.stage === 'meals'
+            ? 'The meal week could not be completed.'
+            : 'Next week did not finish cleanly.';
+        alert(lead + (kept.length ? ' ' + kept.join(' and ') + '.' : '') + '\n\n' + err.message + '\n\nTap “Set up my next week” again. InSync will keep finished pieces and retry only what is missing.');
       });
       return;
     }
@@ -1084,6 +1095,7 @@
   if (Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
   window.addEventListener('online', function () { if (window.Cloud && Cloud.autoSync) Cloud.autoSync(true); });
   document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && window.Insights && Insights.activateScheduledPlan) Insights.activateScheduledPlan();
     if (!document.hidden && Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
   });
 
@@ -1092,6 +1104,7 @@
      Together behave like a conversation without requiring Settings > Sync Now.
      The existing Cloud throttle/queue still serializes GitHub writes. */
   setInterval(function () {
+    if (!document.hidden && window.Insights && Insights.activateScheduledPlan) Insights.activateScheduledPlan();
     if (document.hidden || !navigator.onLine || !Store.state().onboarded) return;
     /* Poll is read-only. Local changes already push immediately/debounced, so
        a chat refresh must not create an empty Git commit every minute. */
@@ -1123,7 +1136,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'5.5.3', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'5.5.4', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

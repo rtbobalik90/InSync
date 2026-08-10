@@ -1211,3 +1211,14 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
   .walk-details, .walk-facts { grid-template-columns: 1fr; }
   .walk-facts > div + div { border-left:0; border-top:1px solid var(--rule); }
 }
+
+/* 5.5.4 Train landing: keep the daily walk and real Monday-Sunday week in the
+   first phoneful without burying the trail artwork under an oversized card. */
+.walk-card.compact .cardhead { padding-top: 13px; padding-bottom: 13px; }
+.walk-card.compact .walk-body { padding: 13px 17px 15px; }
+.walk-card.compact .walk-clock { font-size: clamp(36px, 10vw, 48px); margin: 0 0 7px; }
+.walk-card.compact .walk-copy { margin-bottom: 11px; line-height: 1.45; }
+.walk-card.compact .btn.block { min-height: 45px; }
+.wk.future { opacity: .86; }
+.next-training .meta.ready { color: var(--sage-lt, #B5C6AA); }
+.next-training .small.pad-x { margin: 9px 0 14px; }

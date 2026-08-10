@@ -685,11 +685,9 @@
   function train() {
     var d = Store.day(), done = d.workouts.length > 0;
     var S = Store.state();
-    var plan = S.plan || [];
     var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     var todayName = DOW[new Date().getDay()];
-    var todaysPlan = null;
-    for (var p = 0; p < plan.length; p++) if (plan[p].day === todayName) todaysPlan = plan[p];
+    var todaysPlan = Store.planFor ? Store.planFor(Store.todayKey()) : null;
 
     var week = [], weekStartKey=Store.weekStart(Store.todayKey()), todayKey=Store.todayKey();
     /* This strip is the real Monday–Sunday training week, not a rolling seven
@@ -699,8 +697,7 @@
       var k = Store.shift(weekStartKey, i);
       var dt = new Date(k + 'T12:00:00');
       var dayName = DOW[dt.getDay()];
-      var scheduled = null;
-      for (var q = 0; q < plan.length; q++) if (plan[q].day === dayName) scheduled = plan[q];
+      var scheduled = Store.planFor ? Store.planFor(k) : null;
       var isFuture=k>todayKey;
       week.push({
         letter: dayName.charAt(0),
@@ -734,12 +731,13 @@
         : 'Rest day. Nothing scheduled.';
 
     return UI.screen({
-      tab: 'train', rest: 340, restMeasure: true, photoHeight: '340px',
-      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
+      tab: 'train', rest: 310, restMeasure: true, photoHeight: '390px',
+      art: 'assets/art/train-banner.webp', photoPosition: 'center 42%',
+      scrim: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
       overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
-        dailyWalkCard(Store.todayKey(), false) +
-        '<article class="card">' +
+        dailyWalkCard(Store.todayKey(), 'train') +
+        '<article class="card" data-rest-anchor>' +
           '<div class="cardhead">' +
             '<div class="title"><i></i>This week</div>' +
             '<div class="meta">' + sessions + ' of ' + target + '</div>' +
@@ -759,6 +757,8 @@
               : (target - sessions) + ' more to hit ' + target + ' this week.') +
           '</p>' +
         '</article>' +
+
+        futureTrainingCard() +
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Steps today</div>' +
@@ -824,6 +824,27 @@
         '<button class="btn ghost block" data-route="exercises">Exercise library</button>' +
         '<button class="btn ghost block" data-route="body">Body &mdash; weight, photos, sleep</button>'
     });
+  }
+
+
+  function futureTrainingCard() {
+    var S = Store.state(), meta = S.futurePlanMeta || {}, plan = Array.isArray(S.futurePlan) ? S.futurePlan : [];
+    var nextWeek = Store.shift(Store.weekStart(Store.todayKey()), 7);
+    if (meta.weekOf !== nextWeek || !plan.length) return '';
+    var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var cells = [];
+    for (var i=0;i<7;i++) {
+      var key=Store.shift(nextWeek,i), dn=DOW[new Date(key+'T12:00:00').getDay()], scheduled=null;
+      for (var j=0;j<plan.length;j++) if(plan[j].day===dn) scheduled=plan[j];
+      cells.push('<button class="wk future" data-route="trainday/' + key + '">' +
+        '<span class="wk-mark"></span><span class="wk-day">' + dn.charAt(0) + '</span>' +
+        '<span class="wk-plan">' + esc(scheduled ? scheduled.name : 'Rest') + '</span></button>');
+    }
+    return '<article class="card next-training">' +
+      '<div class="cardhead"><div class="title"><i></i>Next week</div><div class="meta ready">READY</div></div>' +
+      '<div class="weekstrip">' + cells.join('') + '</div>' +
+      '<p class="small pad-x">Prepared for ' + dateLabel(nextWeek) + '. Your walk stays available every day and does not replace a gym session.</p>' +
+    '</article>';
   }
 
 
@@ -1784,12 +1805,15 @@
         (hasClaude && ready ? '<button class="btn block" data-action="generate-weekly-review" data-week="' + week + '">Write my weekly review</button>' :
           !hasClaude ? '<button class="btn ghost block" data-route="settings">Connect Claude to write it</button>' : '<p class="note">The current week is still in progress.</p>') + '</article>';
     }
+    var nextPartial = (next.training || next.meals) && !(next.training && next.meals);
     body += '<article class="card pad"><div class="kicker sage">Next week</div><p class="lede" style="margin:9px 0 7px">' +
-      (next.training && next.meals ? 'Training and all 28 meal slots are ready.' : 'Set up the next week from the habits, preferences and progression InSync already knows.') + '</p>' +
+      (next.training && next.meals ? 'Training and all 28 meal slots are ready.' : nextPartial ? 'Part of next week is already saved. InSync will finish only what is missing.' : 'Set up the next week from the habits, preferences and progression InSync already knows.') + '</p>' +
       '<p class="small" style="margin:0 0 14px">Training: ' + (next.training ? 'ready' : 'not written') + ' · Meals: ' + next.mealCount + ' of 28 planned.</p>' +
       '<div style="border-top:1px solid var(--rule);padding-top:12px;margin-top:4px"><div class="kicker">Two goals</div>' +
         (nextGoals.length ? nextGoals : suggestedGoals.map(function(g){return {label:g.label,value:0,target:g.target,done:false};})).map(function(g){ return '<div class="goalrow"><span>' + (g.done ? '✓ ' : '') + esc(g.label) + '</span><b>' + g.value + '/' + g.target + '</b></div>'; }).join('') + '</div>' +
-      (next.training && next.meals ? '<button class="btn ghost block" style="margin-top:14px" data-route="planner">Open next week</button>' : hasClaude ? '<button class="btn block" style="margin-top:14px" data-action="setup-next-week" data-week="' + week + '">Set up my next week</button>' : '<button class="btn ghost block" style="margin-top:14px" data-route="settings">Connect Claude to set it up</button>') +
+      (next.training && next.meals
+        ? '<div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-route="planner">View meals</button><button class="btn ghost" data-route="train">View training</button></div>'
+        : hasClaude ? '<button class="btn block" style="margin-top:14px" data-action="setup-next-week" data-week="' + week + '">' + (nextPartial ? 'Finish setting up next week' : 'Set up my next week') + '</button>' : '<button class="btn ghost block" style="margin-top:14px" data-route="settings">Connect Claude to set it up</button>') +
       '</article>';
     return UI.screen({ tab:null, rest:300, blur:true, header:{back:'home',title:'Weekly review',right:'<div style="width:34px"></div>'},
       art:'assets/art/coach-desk.webp', photoPosition:'center 34%', overlay:'<div class="eyebrow">' + esc(label) + '</div><p class="verse" style="font-size:25px">Look back once. Then move the week forward.</p>', body:body });
@@ -1819,7 +1843,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.3 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.4 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2006,7 +2030,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.5.3</div></div>' +
+            '<div class="meta">Version 5.5.4</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2613,8 +2637,7 @@
     var isToday = key === Store.todayKey();
     var isPast = key < Store.todayKey();
 
-    var scheduled = null;
-    (S.plan || []).forEach(function (p) { if (p.day === dayName) scheduled = p; });
+    var scheduled = Store.planFor ? Store.planFor(key) : null;
 
     var workouts = rec.workouts || [];
     var headline = workouts.length
@@ -2726,6 +2749,9 @@
      days stay editable as a manual correction instead of starting a timer in
      the wrong calendar day. */
   function dailyWalkCard(key, compact) {
+    var mode = compact || '';
+    compact = !!compact;
+    var cardClass = 'card walk-card' + (compact ? ' compact' : '');
     key = key || Store.todayKey();
     var w = Store.dailyWalk ? Store.dailyWalk(key) : { startedAt: 0, elapsedMs: 0, pace: '', elevation: '' };
     var ms = Store.dailyWalkElapsedMs ? Store.dailyWalkElapsedMs(key) : (w.elapsedMs || 0);
@@ -2736,10 +2762,10 @@
     var activeSession = Store.session ? Store.session() : null;
     var liveAllowed = isToday || !!(activeSession && activeSession.date === key && key === Store.shift(today, -1));
     var state = running ? 'LIVE' : (hasWalk ? 'STOPPED' : 'READY');
-    var title = compact ? 'Workout walk' : 'Walk timer';
+    var title = mode === 'session' ? 'Workout walk' : 'Walk timer';
 
     if (key > today) {
-      return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+      return '<article class="' + cardClass + '" data-walk-card data-walk-date="' + esc(key) + '">' +
         '<div class="cardhead"><div class="title"><i></i>Walk</div><div class="meta walk-state">UPCOMING</div></div>' +
         '<div class="walk-body"><div class="walk-clock">00:00</div>' +
         '<p class="small walk-copy">The walk timer will be ready when this day arrives.</p></div></article>';
@@ -2747,7 +2773,7 @@
 
     if (!liveAllowed) {
       var mins = ms ? Math.round((ms / 60000) * 10) / 10 : '';
-      return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+      return '<article class="' + cardClass + '" data-walk-card data-walk-date="' + esc(key) + '">' +
         '<div class="cardhead"><div class="title"><i></i>Walk</div><div class="meta walk-state ' + (hasWalk ? 'done' : '') + '">' + (hasWalk ? 'LOGGED' : 'PAST DAY') + '</div></div>' +
         '<div class="walk-body">' +
           '<div class="walk-clock">' + walkClockText(ms) + '</div>' +
@@ -2768,17 +2794,17 @@
       '</article>';
     }
 
-    return '<article class="card walk-card" data-walk-card data-walk-date="' + esc(key) + '">' +
+    return '<article class="' + cardClass + '" data-walk-card data-walk-date="' + esc(key) + '">' +
       '<div class="cardhead"><div class="title"><i></i>' + title + '</div>' +
         '<div class="meta walk-state ' + (running ? 'live' : (hasWalk ? 'done' : '')) + '">' + state + '</div></div>' +
       '<div class="walk-body">' +
         '<div class="walk-clock" data-walk-clock data-walk-date="' + esc(key) + '">' + walkClockText(ms) + '</div>' +
         '<p class="small walk-copy">' +
           (running
-            ? 'Keep moving. The clock is tied to the saved start time, so locking the phone or moving around InSync will not reset it.'
+            ? (compact ? 'Keeps counting until you stop — even if the phone locks.' : 'Keep moving. The clock is tied to the saved start time, so locking the phone or moving around InSync will not reset it.')
             : hasWalk
-              ? 'Walk stopped. Add the pace and incline/elevation if you want the complete record, or resume if you are not finished.'
-              : 'This is available every day — lift, walk or recovery. Start it when you begin and it keeps counting until you stop it.') +
+              ? (compact ? 'Stopped. Add pace and elevation below, or resume.' : 'Walk stopped. Add the pace and incline/elevation if you want the complete record, or resume if you are not finished.')
+              : (compact ? 'Available every day. Start it when you begin.' : 'This is available every day — lift, walk or recovery. Start it when you begin and it keeps counting until you stop it.')) +
         '</p>' +
         (running
           ? '<button class="btn block walk-stop" data-action="walk-stop" data-walk-date="' + esc(key) + '">Stop walk</button>'
@@ -2812,7 +2838,7 @@
     var loggedAny = sn.items.some(function (i) { return i.sets.length; });
     var elapsed = Math.max(1, Math.round((Date.now() - sn.startedAt) / 60000));
     var open = location.hash.split('/')[1];
-    var walkCard = dailyWalkCard(sn.date || Store.todayKey(), true);
+    var walkCard = dailyWalkCard(sn.date || Store.todayKey(), 'session');
 
     var body = sn.items.map(function (it, idx) {
       var complete = it.sets.length >= it.targetSets;

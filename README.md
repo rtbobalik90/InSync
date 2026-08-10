@@ -1,4 +1,4 @@
-# InSync 5.5.3
+# InSync 5.5.4
 
 InSync is a private, local-first two-person health and fitness PWA. Daily nutrition, training, body tracking, faith/reflection, progression, photos, goals and history live primarily on each phone. A small privacy-controlled subset is exchanged through a dedicated private GitHub repository so Together, expeditions, chat and reactions can work across two devices.
 
@@ -17,11 +17,12 @@ InSync is a private, local-first two-person health and fitness PWA. Daily nutrit
 On Sunday evening/night, or afterward, InSync can review the completed/current closing week. It uses only evidence present in the log: points, workouts, logged nutrition, steps, weight direction, expedition miles, newly recorded badges and favorites added that week.
 
 The review can then **Set up my next week**:
-1. Build a complete 7-day × 4-slot meal week.
-2. Stage the next training week without replacing the current one early.
-3. Create exactly two measurable personal goals.
+1. Build and immediately save a complete 7-day × 4-slot meal week.
+2. Write exactly the selected number of **lifting** days; the daily walk never consumes a gym day.
+3. Stage future training without replacing the active week early.
+4. Create exactly two measurable personal goals.
 
-When the new Monday arrives, the staged training week promotes automatically.
+Setup is resumable. If meals finish but training fails validation or the network/API call fails, the 28 meals stay saved; the next tap retries only training. Training receives one automatic repair pass when Claude returns malformed JSON, an invented exercise, a walk/cardio placeholder, or an unsafe recovery layout. The readiness check verifies real meal slots and real plan rows rather than trusting stale metadata. When the new Monday arrives, the staged training week promotes automatically, including while the PWA remains open across the week boundary.
 
 ### Meal prep
 Meal Planner supports:
@@ -46,6 +47,9 @@ After Stop, the user can record flexible **Pace / speed** text (for example `16:
 Training derives the next cue from real exercise history. Depending on the record it can recommend holding the load, adding a clean rep, repeating the top of the range, or adding a conservative 5 lb after the top has been achieved twice.
 
 Before sets are logged, an exercise can be swapped. Occupancy swaps are temporary; discomfort/dislike swaps are remembered so future Coach plans avoid those movements. The Training page lets the user allow a remembered movement again.
+
+### Train landing screen
+The Train landing view intentionally keeps the expedition/training artwork visible longer, uses a compact daily Walk timer near the top, and places **This week** directly beneath it so the current Monday–Sunday plan is visible in the opening phoneful. If next week has already been staged, a separate **Next week — Ready** strip previews those seven days without activating them early.
 
 ## History and calendar
 
@@ -104,14 +108,14 @@ Use **Create Backup** for the complete personal backup. Backups include applicat
 
 The header bell is neutral when nothing new is waiting, gold with a dot for unread informational activity, and gold with a numbered badge/glow when one or more items require action. Opening Notifications acknowledges informational items; unresolved actions remain counted until the underlying invitation, note, or coach proposal is handled.
 
-Version 5.5.3 uses service-worker cache `insync-v10-12`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
+Version 5.5.4 uses service-worker cache `insync-v10-13`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
 
 ## Version matrix
 
-- App/UI: **5.5.3**
+- App/UI: **5.5.4**
 - Local state: **v10**
 - Partner sync: **schema 6**
-- Service worker: **insync-v10-12**
+- Service worker: **insync-v10-13**
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the release gate and detailed changes.
 

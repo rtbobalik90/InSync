@@ -1,85 +1,38 @@
-# InSync 5.5.3 — Daily Walk
+# InSync 5.5.4 — Next Week + Train
 
-InSync 5.5.3 builds on 5.5.0, which completes the core weekly operating loop around the existing daily tracker, nutrition planner, training system, Together expedition and private two-phone sync.
+## Why this release exists
 
-## Added in 5.5.3 — walk belongs to the day
+The 5.5.3 daily-walk redesign exposed an older assumption inside **Set up my next week**: the training writer still believed a Walk day could consume one of the selected gym days. The setup flow also held a valid 28-meal result in memory until training finished, so a later training failure could make the whole operation appear to have done nothing. This release fixes those behaviors and tightens the Train landing screen from the real iPhone feedback.
 
-- The walk timer is now visible on every Training day: lifting, dedicated walk, recovery/rest, and a workout day whose lifting portion is already complete.
-- The clock is stored on the calendar day rather than inside the active lifting session. Finishing the weights no longer stops or removes a running walk.
-- Pace/speed and elevation/incline remain editable after Stop.
-- Past dates show the saved walk and allow a manual duration/pace/elevation correction; they cannot start a live timer. Future dates are display-only until that day arrives.
-- Existing completed and in-progress walk data from 5.5.1/5.5.2 migrates into the new day-level record.
-- A walk-only day now counts as real logged activity for history/streak purposes and survives the empty-day pruning pass.
+## Set up my next week
 
-## Added in 5.5.2 — notification visibility
+- The selected weekly frequency now means exactly that many **lifting sessions**. Walking is separate every day and can never replace a gym day.
+- Claude is explicitly told to return only lifting days and to keep Sunday as recovery. Walk/cardio placeholders are rejected at validation.
+- Recovery validation now distinguishes biceps from triceps even though both are presented under the app's broader **Arms** UI category. This prevents a normal Push/Pull split from being falsely rejected as back-to-back Arms training.
+- Training generation receives one automatic repair attempt when the first response is malformed or fails the plan contract.
+- The 28-meal week is committed as soon as it passes validation. If training fails afterward, the meal week remains saved. Re-running setup retries only the missing half.
+- Next-week readiness now verifies the actual four meal slots on each of seven dates and the actual number of lifting-plan rows. Stale metadata or arbitrary rows cannot masquerade as a completed setup.
+- Future-plan lookup can resolve staged training for future dates before Monday, which makes previewing next week accurate.
+- Staged training promotes when its Monday arrives at launch, on foreground return, or during the visible-app periodic check.
+- Weekly training goals now match the full selected lifting frequency rather than subtracting a day for walking.
 
-- Bell now has three explicit states: neutral when quiet, gold with a dot for unread informational activity, and gold with a numbered badge/glow when something requires action.
-- Opening Notifications acknowledges informational items so the gold dot clears after they have been seen.
-- Action-required items are not cleared merely by opening Notifications; their numbered badge remains until the invitation, partner note, or coach proposal is actually handled.
-- Informational read-state is persisted locally with stable notification ids and bounded to the most recent 200 items.
-- Notification controls include accessible labels describing whether activity or required actions are waiting.
+## Train screen rework
 
+- The dark hero gradient is delayed/lowered so more of the training artwork remains visible.
+- The daily Walk timer uses a more compact Train presentation and sits higher in the opening composition.
+- **This week** is anchored directly below the Walk timer and participates in the measured resting position, so the current week is part of the initial screen instead of being buried below a large dead band.
+- When the coming training week has been staged, Train shows a **Next week — Ready** Monday–Sunday preview without activating it early.
+- A future training-day detail view reads the staged future plan rather than incorrectly falling back to the active week.
 
-## Carried forward and expanded from 5.5.1
+## Preserved behavior
 
-### Persistent walk clock
-- The persisted wall-clock Start / Stop / Resume behavior remains, so screen renders, phone locking and PWA suspension do not reset elapsed time.
-- Pace/speed and elevation/incline remain optional free-form fields after Stop.
-- 5.5.3 moves the canonical record from the workout session to the calendar day, so recovery days and post-workout walking use the same clock.
-- Finishing the lifting portion no longer stops or removes a live walk; the timer continues until the user explicitly stops it.
-- Reset intentionally clears only that day’s walk record.
-- Live/imported walk fields remain bounded and normalized alongside the rest of the local-first Store.
+- Daily Walk remains available on lift, walk and recovery days and stays independent of lifting completion.
+- Nutrition preferences, favorites, meal-prep logic, history, weekly review, Coach patterns, Together reactions, notification bell states, private GitHub sync and backup behavior are unchanged except where required for the setup fixes above.
+- No local-state schema or partner-sync schema bump was required.
 
-## Added in 5.5.0
+## Version contract
 
-### Weekly Review + next-week setup
-- A grounded weekly review becomes available Sunday evening/night and remains available the following week.
-- The review summarizes points, training, nutrition, steps, weight trend, expedition miles, favorites and newly recorded badges from the actual logged week.
-- Claude can turn those facts into a concise review without inventing measurements that are not in the log.
-- **Set up my next week** stages the next training week, builds the next 28-slot meal week and creates exactly two measurable personal goals.
-- Future training is staged separately and activates when its Monday arrives; planning next week cannot overwrite the current training week.
-
-### Meal-prep planning
-- Weekly generation supports batch-prep lunches from 2–5 weekdays.
-- Dinner-leftover mode cooks on selected nights and plans reheats between them. Monday is always a real fresh cook night when leftovers are enabled.
-- Grocery-bearing source meals are distinguished from leftovers so the shopping list does not purchase the same batch repeatedly.
-- Favorites, cuisine/protein choices, like/avoid keywords and thumbs-down history still shape generation.
-- Meal dislikes can now be reviewed and explicitly **allowed again**.
-
-### Training progression + substitutions
-- Each movement can surface a factual next-session cue from actual lift history: start controlled, add a rep, repeat the top of the range, or add a conservative 5 lb after owning the top twice.
-- During an active session, an unlogged movement can be swapped for a same-group alternative.
-- **Machine occupied** is session-only. **Does not feel right** and **I do not like this movement** are remembered for future coach plans.
-- Remembered movement exclusions can be reviewed on Training and explicitly allowed again.
-- The weekly Training strip is the real Monday–Sunday week. Scheduled walks complete from their step requirement rather than fake workout records.
-
-### History + calendar
-- History now includes a true month calendar and complete date detail.
-- A day can show score, meals/macros, workouts, steps, trail distance, body metrics, verse/reflection and progress-photo evidence.
-- Calendar markers identify nutrition, training, reflection, body/weight and photo activity.
-
-### Proactive Coach memory
-- The Coach can notice repeated protein gaps, repeated step misses, training consistency/attention, meaningful weight direction and accumulated meal dislikes.
-- Those same grounded observations are included in Claude coach context, so proactive copy and conversational answers use the same evidence.
-
-### Sync Health
-- Settings now reports connection state, last successful exchange, partner update recency, acknowledgement of the data the partner has received, app version and update status.
-- A failed sync surfaces as a visible health problem instead of silently looking current.
-- Partner activity, reactions and acknowledgement timestamps are sanitized before they can enter local state.
-
-### Together reactions
-- The shared activity layer can surface 10/10 days and, when the matching privacy permission is enabled, workouts, protein-target days and step-target days.
-- Partner activity can receive ❤️, 👏 or 🔥.
-- Reactions synchronize through the same dedicated private GitHub repository and can be toggled off.
-
-## Reliability and data-integrity hardening
-- State normalization now rejects malformed activity IDs, reaction keys and invalid partner update timestamps even when they arrive through a hand-edited backup.
-- Service-worker updates wait for a safe Home/Settings moment rather than reloading over an active workout, modal or edit.
-- Learned meal and movement exclusions are reversible.
-- The existing local-date boundary, historical score snapshots, private sync, rolling chat, expedition leg reconciliation, backups/restores, IndexedDB photo storage and iPhone viewport/scroll corrections remain intact.
-
-## Version matrix
-- App/UI: **5.5.3**
-- Local state schema: **v10** (`insync.v10`)
-- Partner sync schema: **6**
-- Service-worker cache: **insync-v10-12**
+- App/UI: **5.5.4**
+- Local state: **v10**
+- Partner sync: **schema 6**
+- Service-worker cache: **insync-v10-13**

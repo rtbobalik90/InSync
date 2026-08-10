@@ -1,52 +1,55 @@
-# InSync 5.5.3 — Code Review
+# InSync 5.5.4 — Code Review
 
-## Release assessment
+## Scope
 
-**Code release gate: PASS**, subject to the real-device acceptance checks documented in `TEST_REPORT.md`.
+This review focused on the complete **Set up my next week** path and the Train landing screen. The work stays inside the existing local-first architecture: Store remains the persistence boundary, Insights derives readiness/progression facts, Cloud owns Claude I/O, and Screens/UI own presentation.
 
-The 5.5.3 build preserves the 5.5.0 architecture and extends the existing local-first architecture rather than creating parallel data systems. `Store` remains the persistence boundary, `Insights` derives cross-cutting facts from that store, `Cloud` owns Claude/GitHub I/O, and screen/action modules remain presentation and interaction layers.
+## Root causes found
 
-## Workout-walk design review
+### 1. Walking still consumed a gym-frequency day
+The training prompt and validator inherited the older design where a high-frequency week could contain a dedicated Walk day. After 5.5.3 made walking a daily independent activity, that behavior became incorrect. A five-day gym preference could therefore produce only four lifting sessions.
 
-The walk timer is stored inside the existing `session` object rather than in DOM memory or a second timer database. `startedAt` is persisted and elapsed time is derived from wall-clock time, so iOS suspension or a full app reload cannot make the displayed duration drift backward. Stopping converts the live interval into accumulated milliseconds; resuming starts a new live interval on top of that accumulated duration.
+**Fix:** the writer now requires exactly the selected number of lifting days, rejects Walk/Cardio day names, and explains to Claude that walking is tracked separately.
 
-Completed walk metadata is archived inside the same workout record as the lift summary. Pace/speed and elevation/incline are intentionally bounded strings rather than falsely normalized measurements because a user may enter treadmill speed (`3.5 mph`), running-style pace (`16:00 /mi`), incline (`5%`) or actual elevation gain (`300 ft`). This keeps the record faithful to what the device or treadmill reports.
+### 2. Valid meals were lost when training failed
+The old setup transaction generated all 28 meals, kept them only in memory, then requested training. If training failed afterward, no meal plan was committed and the next tap restarted the expensive meal generation.
 
-`finishSession()` independently refuses to close a workout while the walk is live. That rule lives in the Store as well as the UI handler, so a stale screen or future code path cannot silently truncate a running walk.
+**Fix:** setup is now a resumable two-part coordinator. Each successful half is persisted immediately. A retry inspects semantic readiness and runs only the missing half.
 
-## Architecture decisions
+### 3. Recovery validation conflated biceps and triceps
+Exercise navigation intentionally groups curls and triceps work under **Arms**, but using that broad UI category for recovery validation caused ordinary consecutive Push/Pull days to be rejected.
 
-### One source of truth
-Weekly reviews, progression, calendar detail, Coach patterns, reactions and sync health derive from the same normalized Store state already used by scoring and history. There is no second analytics database to drift out of sync.
+**Fix:** recovery validation keeps the UI grouping but internally separates Arms movements into Biceps and Triceps.
 
-### Future plans are staged, not destructive
-A training plan generated for next week is stored in `futurePlan`/`futurePlanMeta` and promoted only when that week becomes current. The active week is not overwritten early.
+### 4. Future plan lookup ignored staged plans
+`Store.planFor(date)` previously read only the active plan. A staged plan could exist for next Monday while future-day previews still showed the wrong schedule or Rest.
 
-### Privacy remains field-bounded
-Together activity is generated only from data already eligible for sharing. Workout, calorie/protein and step activities respect their corresponding privacy switches. Exact meals, exact lift details, reflections, progress photos and exact bodyweight are not added to the partner payload.
+**Fix:** plan lookup selects a plan by the requested date's week, preferring the staged plan for its own week and the active plan for its stamped week.
 
-### External input is normalized twice
-GitHub payloads are sanitized in `cloud.js`, while Store normalization independently constrains imported/restored state. Activity IDs, reaction keys, dates, scores, numeric health fields and timestamps are bounded before screens can read them. This protects both sync traffic and user-editable backup JSON.
+### 5. Readiness trusted metadata too much
+A matching `futurePlanMeta.weekOf` could mark training ready even if the plan array was empty, and meal readiness was based on a raw count rather than the required date/slot matrix.
 
-### Service-worker activation is conservative
-The app can detect an updated service worker without forcing an immediate reload. Activation/reload waits until the app is not editing, no modal is open, no workout is active and the user is on Home or Settings.
+**Fix:** readiness now verifies all 28 exact date+slot meal records and the exact configured number of non-Walk lifting-plan rows with exercise arrays.
 
-## Maintainability
+### 6. Week-boundary activation was launch-heavy
+A PWA left open across Sunday night into Monday could retain the staged plan until a full reload.
 
-`insights.js` is intentionally a derivation layer rather than another state owner. That keeps weekly review, progression, calendar, activity and sync-health logic testable without further expanding `screens.js` or `store.js` responsibilities.
+**Fix:** scheduled-plan promotion is also checked on foreground return and in the existing visible-app periodic tick.
 
-The largest legacy modules (`screens.js`, `store.js`, `cloud.js`, `app.js`) are still substantial. They should be split by domain during a future major architectural release, not immediately after a stable production pass. A speculative refactor now would add regression risk without improving the user-facing 5.5.3 release.
+## Train presentation review
 
-## Known platform boundary
+The supplied iPhone screenshot showed a large dark/dead middle band on a rest day: the artwork disappeared too early and the weekly context was below the opening view. The Train screen now uses a lower custom scrim, a compact walk card, and a measured fold anchored at the **This week** card. This preserves the app's visual language while making better use of the hero image. A staged next week gets its own preview card instead of changing the active week early.
 
-Automated tests can validate data, rendering contracts, sync serialization and browser-independent logic, but they cannot certify iOS camera permission prompts, actual Home Screen PWA suspension/resume, real GitHub/Claude credentials, or physical two-iPhone network transitions. Those are the final hardware acceptance gate, not an unresolved code defect.
+## Risk review
 
+- No new external dependency was introduced.
+- Local state remains schema v10.
+- Partner sync remains schema 6.
+- Meal and training setup still uses the existing local Claude credential path.
+- The current active plan is never overwritten by a future plan before its week begins.
+- Partial setup failures now preserve completed work rather than rolling it back.
+- Existing privacy boundaries are unchanged.
 
-## Notification-state review
+## Remaining architectural debt
 
-5.5.3 keeps notification read-state local to each phone. Informational notifications use stable ids and a bounded 200-item seen list; they are acknowledged by opening the Notification Centre. Action-required notifications are derived from unresolved domain state instead of a dismiss flag, so viewing the centre cannot accidentally clear an expedition invitation, unread partner note, or coach proposal. The header prioritizes action count over informational state when both exist.
-
-
-## 5.5.3 daily-walk boundary
-
-The walk clock was moved from `session.walk` to `days[date].walk`, which matches the product behavior: walking happens on recovery days and can continue after lifting is complete. Live timing is bounded to today (plus the existing one-night cross-midnight session exception), while historical dates use a manual correction API. Legacy workout/session walk objects are migrated and compatibility wrappers remain for one release so an in-flight update cannot lose timing data. The day-pruning predicate and `logged()` predicate both recognize walk-only activity, preventing a manually corrected past walk from being silently removed.
+`screens.js`, `store.js`, `cloud.js`, and `app.js` remain large modules. They are stable but should eventually be split by domain during a deliberate major refactor. This release avoids that speculative change because it would add regression risk unrelated to the reported behavior.

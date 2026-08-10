@@ -78,9 +78,9 @@ function plan(w){return new Promise(r=>C.planMealsWeek(w,(err,map)=>r({err,map})
  const nextWeek=S.shift(S.weekStart(today),7);
  const validTraining={days:[
    {day:'Mon',name:'Upper',ex:['push-ups','cable-row','lateral-raise']},
-   {day:'Wed',name:'Lower',ex:['horizontal-leg-press','leg-extension','calf-extension']},
-   {day:'Fri',name:'Arms',ex:['biceps-curl-machine','triceps-pushdown','hammer-curls']},
-   {day:'Sat',name:'Walk',detail:'Treadmill, 45 minutes'}],note:'Progress the week.'};
+   {day:'Tue',name:'Lower',ex:['horizontal-leg-press','leg-extension','calf-extension']},
+   {day:'Thu',name:'Upper',ex:['push-ups','pulldown-machine','shoulder-press-machine']},
+   {day:'Fri',name:'Lower',ex:['linear-leg-press','glute-machine','cable-hip-extension']}],note:'Progress the week.'};
  setAI(validTraining);
  const staged=await new Promise(r=>C.writePlan(nextWeek,(err,v)=>r({err,v})));ok(!staged.err,'future training week is accepted');eq(S.state().futurePlanMeta.weekOf,nextWeek,'future training plan is staged under its own week');ok(S.state().futurePlan.length===4,'staged future plan keeps all scheduled days');
 

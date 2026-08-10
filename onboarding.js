@@ -30,7 +30,7 @@
     2: 'Two full-body sessions. Every machine, every time — it is the only way twice a week works.',
     3: 'Push, pull, legs. One of each, in order, whenever you get there.',
     4: 'Upper and lower, twice each. Enough room to press heavy and still squat.',
-    5: 'Four lifting days and one walk. The walk is not optional — it is where the miles come from.',
+    5: 'Five gym days. Walking is tracked separately every day, so none of your lifting days gets replaced by cardio.',
     6: 'Six days is a lot to hold. The coach will watch for the week you start missing and say so.'
   };
 
@@ -57,7 +57,7 @@
       { day: 'Tue', name: 'Pull', ex: ['pulldown-machine', 'cable-row', 'biceps-curl-machine'] },
       { day: 'Wed', name: 'Legs', ex: ['horizontal-leg-press', 'leg-extension', 'calf-extension'] },
       { day: 'Fri', name: 'Upper', ex: ['dumbbell-chest-press', 'cable-row', 'lateral-raise'] },
-      { day: 'Sat', name: 'Walk', detail: 'Treadmill, 50 minutes, incline 5' }
+      { day: 'Sat', name: 'Lower', ex: ['linear-leg-press', 'calf-extension', 'cable-hip-extension'] }
     ],
     6: [
       { day: 'Mon', name: 'Push', ex: ['dumbbell-chest-press', 'shoulder-press-machine', 'triceps-pushdown'] },
@@ -265,7 +265,7 @@
             '<span class="small">' + esc(d.detail) + '</span></span>' +
           '</div>';
         }).join('') +
-        '<p class="small ob-plan-foot">Machines picked from what Planet Fitness has. Swap any of them when you are standing in front of one that is taken.</p>' +
+        '<p class="small ob-plan-foot">Machines picked from what Planet Fitness has. Your daily walk is separate from these gym days, and you can swap any movement when a machine is taken.</p>' +
       '</article>' +
       '<button class="btn block" data-ob="next">Continue</button>' +
     '</div>';

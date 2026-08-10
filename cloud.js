@@ -165,6 +165,9 @@
     var requestedWeek = typeof weekOrCb === 'string' ? weekOrCb : (Store.weekStart ? Store.weekStart() : Store.todayKey());
     cb = typeof weekOrCb === 'function' ? weekOrCb : cb;
     if (typeof cb !== 'function') cb = function () {};
+    if (!validDateKey(requestedWeek)) requestedWeek = Store.weekStart(Store.todayKey());
+    requestedWeek = Store.weekStart(requestedWeek);
+
     var s = Store.state(), freq = s.frequency || 4;
     var avoided = window.Insights && Insights.avoidedExerciseIds ? Insights.avoidedExerciseIds() : [];
     var menu = Exercises.all.filter(function (e) { return avoided.indexOf(e.id) < 0; }).map(function (e) {
@@ -197,46 +200,66 @@
     var h = +(s.profile.heightIn || 0);
     var body = h ? Math.floor(h / 12) + ' ft ' + (h % 12) + ' in, age ' + (s.profile.age || 'not given') + ', ' + (s.profile.sex || 'sex not given') : 'not given';
 
-    claude([{
-      role: 'user',
-      content:
-        'Write ' + me() + '\'s training week for the Monday beginning ' + requestedWeek + '.\n\n' +
-        'Goal: ' + String(s.goal || '').replace(/-/g, ' ') + '\n' +
-        'Days a week: ' + freq + '\n' +
-        'Body: ' + body + '\n' +
-        'Gym: Planet Fitness — machines and dumbbells, no barbell, no squat rack.\n\n' +
-        history + '\n\n' +
-        (avoided.length ? 'Do not prescribe these movements; they were swapped out because the user disliked them or found them uncomfortable: ' + avoided.join(', ') + '.\n\n' : '') +
-        'Available movements (use these ids exactly, nothing else):\n' + menu + '\n\n' +
-        'Rules:\n' +
-        '- Exactly ' + freq + ' days. Use real weekday abbreviations: Mon Tue Wed Thu Fri Sat. Keep Sunday as the weekly recovery/rest day.\n' +
-        '- 3 to 5 movements a lifting day. Do not repeat a movement within a day.\n' +
-        '- Give every muscle group at least 48 hours before it is trained again.\n' +
-        '- If they train four or more days, one of them may be a walk instead of lifting. ' +
-        'A walk day has no movements and a short instruction like "Treadmill, 45 minutes, incline 5".\n' +
-        '- Name each day for what it trains: Upper, Lower, Push, Pull, Legs, Full body, Walk.\n' +
-        '- Build on what they have been lifting. Do not drop a machine they are progressing on ' +
-        'without replacing it with something that trains the same thing.\n\n' +
-        'Return only JSON: {"days":[{"day":"Mon","name":"Upper","ex":["id","id"]},' +
-        '{"day":"Sat","name":"Walk","detail":"Treadmill, 45 minutes, incline 5"}],' +
-        '"note":"<one sentence to them about why this week looks like this>"}'
-    }], { system: VOICE, maxTokens: 900 }, function (err, text) {
-      if (err) return cb(err);
-      var data;
-      try { data = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]); }
-      catch (e) { return cb(new Error('The coach did not return a plan.')); }
-      var plan = validatePlan(data.days, freq, avoided);
-      if (!plan) return cb(new Error('The coach wrote a plan that could not be read.'));
-      var meta = { writtenBy:'coach', weekOf:requestedWeek, note:(data.note || '').trim() };
+    var basePrompt =
+      'Write ' + me() + '\'s training week for the Monday beginning ' + requestedWeek + '.\n\n' +
+      'Goal: ' + String(s.goal || '').replace(/-/g, ' ') + '\n' +
+      'Gym days a week: ' + freq + '\n' +
+      'Body: ' + body + '\n' +
+      'Gym: Planet Fitness — machines and dumbbells, no barbell, no squat rack.\n\n' +
+      history + '\n\n' +
+      (avoided.length ? 'Do not prescribe these movements; they were swapped out because the user disliked them or found them uncomfortable: ' + avoided.join(', ') + '.\n\n' : '') +
+      'Available movements (use these ids exactly, nothing else):\n' + menu + '\n\n' +
+      'Rules:\n' +
+      '- Exactly ' + freq + ' LIFTING days. Use real weekday abbreviations: Mon Tue Wed Thu Fri Sat. Keep Sunday as the weekly recovery/rest day.\n' +
+      '- Walking is tracked separately every day in InSync. NEVER replace a lifting day with a Walk/cardio day.\n' +
+      '- 3 to 5 movements on every scheduled day. Do not repeat a movement within a day.\n' +
+      '- Give every muscle group at least 48 hours before it is trained again, including the Saturday-to-Monday boundary.\n' +
+      '- Name each day for what it trains: Upper, Lower, Push, Pull, Legs, Full body, Arms, Shoulders. Do not name a day Walk.\n' +
+      '- Build on what they have been lifting. Do not drop a machine they are progressing on without replacing it with something that trains the same thing.\n\n' +
+      'Return only JSON: {"days":[{"day":"Mon","name":"Upper","ex":["id","id","id"]}],"note":"<one sentence to them about why this week looks like this>"}';
+
+    function saveValidated(data) {
+      var plan = validatePlan(data && data.days, freq, avoided);
+      if (!plan) return null;
+      var meta = { writtenBy:'coach', weekOf:requestedWeek, note:String((data && data.note) || '').trim().slice(0,1000) };
       var currentWeek = Store.weekStart(Store.todayKey());
       if (requestedWeek > currentWeek) {
         Store.set('futurePlan', plan); Store.set('futurePlanMeta', meta);
       } else {
         Store.set('plan', plan); Store.set('planMeta', meta);
-        if (Store.state().futurePlanMeta && Store.state().futurePlanMeta.weekOf === requestedWeek) { Store.set('futurePlan', []); Store.set('futurePlanMeta', {}); }
+        if (Store.state().futurePlanMeta && Store.state().futurePlanMeta.weekOf === requestedWeek) {
+          Store.set('futurePlan', []); Store.set('futurePlanMeta', {});
+        }
       }
-      cb(null, plan);
-    });
+      return plan;
+    }
+
+    /* Claude occasionally returns one invented id or breaks the recovery rule.
+       The old flow simply failed after the meal planner had already spent up to
+       90 seconds working. Give the training contract one automatic repair pass
+       before surfacing the failure. */
+    function attempt(n, reason) {
+      var prompt = basePrompt + (n ? '\n\nYour previous answer could not be accepted because ' + reason + '. Rewrite the complete week from scratch and obey every rule exactly.' : '');
+      claude([{ role:'user', content:prompt }], { system: VOICE, maxTokens: 1200, timeoutMs: 60000 }, function (err, text) {
+        if (err) {
+          if (n < 1) return attempt(n + 1, 'the request failed before a valid plan was returned');
+          return cb(err);
+        }
+        var data;
+        try { data = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]); }
+        catch (e) {
+          if (n < 1) return attempt(n + 1, 'the response was not valid JSON');
+          return cb(new Error('The coach did not return a readable training plan after two attempts.'));
+        }
+        var plan = saveValidated(data);
+        if (!plan) {
+          if (n < 1) return attempt(n + 1, 'the days, exercise ids, or 48-hour recovery spacing were invalid');
+          return cb(new Error('The coach could not produce a safe ' + freq + '-day lifting plan after two attempts. Nothing from the active week was overwritten.'));
+        }
+        cb(null, plan);
+      });
+    }
+    attempt(0, '');
   }
 
   var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -254,10 +277,9 @@
       if (DAYS.indexOf(day) < 0 || day === 'Sun' || seen[day]) return null;
       seen[day] = true;
       var name = String(d.name || '').trim().slice(0, 20) || 'Session';
-      if (/walk/i.test(name)) {
-        out.push({ day: day, name: 'Walk', detail: String(d.detail || 'Treadmill, 45 minutes, incline 5').slice(0, 60) });
-        continue;
-      }
+      /* Walking is a separate daily timer now. A coach plan must never spend
+         one of the user's gym-frequency days on a walk-only placeholder. */
+      if (/walk|cardio/i.test(name)) return null;
       var ids = (Array.isArray(d.ex) ? d.ex : []).filter(function (id, n, arr) {
         return Exercises.get(id) && avoidedIds.indexOf(id) < 0 && arr.indexOf(id) === n;
       });
@@ -265,18 +287,27 @@
       out.push({ day: day, name: name, ex: ids });
     }
     if (out.length !== +freq) return null;
-    if (out.filter(function (d) { return d.name === 'Walk'; }).length > 1) return null;
 
     /* Enforce the prompt's 48-hour recovery rule, including the Sunday-to-Monday
        boundary when this weekly plan repeats. Warm-up movements do not count. */
     var groupDays = {};
+    function recoveryGroup(ex) {
+      if (!ex || ex.group === 'Warm-up') return '';
+      /* The library intentionally presents curls and extensions together as
+         “Arms” in the UI, but treating biceps and triceps as one recovery
+         muscle made normal Push/Pull schedules fail validation on consecutive
+         days. Recovery validation needs the physiological split, not the
+         navigation label. */
+      if (ex.group === 'Arms') return /triceps/i.test(ex.id + ' ' + ex.name) ? 'Triceps' : 'Biceps';
+      return ex.group;
+    }
     out.forEach(function (d) {
       if (!d.ex) return;
       var di = DAYS.indexOf(d.day);
       var groups = {};
       d.ex.forEach(function (id) {
-        var ex = Exercises.get(id);
-        if (ex && ex.group !== 'Warm-up') groups[ex.group] = true;
+        var ex = Exercises.get(id), rg = recoveryGroup(ex);
+        if (rg) groups[rg] = true;
       });
       Object.keys(groups).forEach(function (g) {
         if (!groupDays[g]) groupDays[g] = [];
@@ -1221,6 +1252,69 @@
   }
 
 
+  /* Build the reviewed week's successor as two independent, resumable pieces.
+     The old button generated all 28 meals, held them only in memory, then asked
+     Claude for training. If training failed, the successful meal work vanished
+     and the next tap started from zero. This coordinator commits each finished
+     half immediately and skips anything already ready on a retry. */
+  function setupNextWeek(baseWeek, onProgress, cb) {
+    if (typeof onProgress === 'function' && typeof cb !== 'function') { cb = onProgress; onProgress = null; }
+    if (typeof cb !== 'function') cb = function () {};
+    onProgress = typeof onProgress === 'function' ? onProgress : function () {};
+    baseWeek = validDateKey(baseWeek) ? Store.weekStart(baseWeek) : (window.Insights && Insights.reviewWeekKey ? Insights.reviewWeekKey() : Store.weekStart(Store.todayKey()));
+    var nextWeek = Store.shift(baseWeek, 7);
+
+    function status() {
+      return window.Insights && Insights.nextWeekStatus
+        ? Insights.nextWeekStatus(baseWeek)
+        : { weekOf:nextWeek, training:false, meals:false, mealCount:0 };
+    }
+    function fail(stage, err) {
+      var st = status();
+      err = err instanceof Error ? err : new Error(String(err || 'Next-week setup failed.'));
+      err.stage = stage; err.nextWeekStatus = st;
+      cb(err, st);
+    }
+    function commitMeals(map) {
+      var merged = Object.assign({}, Store.state().mealPlan || {}), end = Store.shift(nextWeek, 6);
+      Object.keys(merged).forEach(function (k) {
+        var d = k.slice(0, 10); if (d >= nextWeek && d <= end) delete merged[k];
+      });
+      Object.keys(map || {}).forEach(function (k) { merged[k] = map[k]; });
+      Store.set('mealPlan', merged);
+      Store.set('mealPlannerWeek', nextWeek);
+      /* Shopping checks describe the displayed grocery list, so a newly built
+         week starts clean instead of inheriting checkmarks from another week. */
+      Store.set('shopTicked', {});
+    }
+    function finish() {
+      if (window.Insights && Insights.setNextWeekGoals) Insights.setNextWeekGoals(baseWeek);
+      var st = status();
+      if (!(st.meals && st.training)) return fail('verify', new Error('Next week did not finish cleanly. Tap setup again; completed pieces will be kept.'));
+      onProgress('done', st);
+      cb(null, st);
+    }
+    function training() {
+      var st = status();
+      if (st.training) return finish();
+      onProgress('training', st);
+      writePlan(nextWeek, function (err) {
+        if (err) return fail('training', err);
+        finish();
+      });
+    }
+    var st = status();
+    if (st.meals) return training();
+    onProgress('meals', st);
+    planMealsWeek(nextWeek, function (err, map) {
+      if (err) return fail('meals', err);
+      commitMeals(map);
+      onProgress('meals-ready', status());
+      training();
+    });
+  }
+
+
   /* A real question, answered against the same facts the coach already reads.
      History is passed so a follow-up ("what about tomorrow?") makes sense. */
   function ask(question, history, cb) {
@@ -1308,7 +1402,7 @@
   }
 
   window.Cloud = {
-    suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, recipeForMeal: recipeForMeal,
+    suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, setupNextWeek: setupNextWeek, recipeForMeal: recipeForMeal,
     proposeTargets: proposeTargets,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,
