@@ -1,4 +1,4 @@
-# InSync 5.5.4
+# InSync 5.5.6
 
 InSync is a private, local-first two-person health and fitness PWA. Daily nutrition, training, body tracking, faith/reflection, progression, photos, goals and history live primarily on each phone. A small privacy-controlled subset is exchanged through a dedicated private GitHub repository so Together, expeditions, chat and reactions can work across two devices.
 
@@ -17,12 +17,14 @@ InSync is a private, local-first two-person health and fitness PWA. Daily nutrit
 On Sunday evening/night, or afterward, InSync can review the completed/current closing week. It uses only evidence present in the log: points, workouts, logged nutrition, steps, weight direction, expedition miles, newly recorded badges and favorites added that week.
 
 The review can then **Set up my next week**:
-1. Build and immediately save a complete 7-day × 4-slot meal week.
+1. Build and immediately save a complete 7-day × 4-slot meal week in four bounded Claude batches so one oversized response cannot truncate the whole plan.
 2. Write exactly the selected number of **lifting** days; the daily walk never consumes a gym day.
 3. Stage future training without replacing the active week early.
 4. Create exactly two measurable personal goals.
 
-Setup is resumable. If meals finish but training fails validation or the network/API call fails, the 28 meals stay saved; the next tap retries only training. Training receives one automatic repair pass when Claude returns malformed JSON, an invented exercise, a walk/cardio placeholder, or an unsafe recovery layout. The readiness check verifies real meal slots and real plan rows rather than trusting stale metadata. When the new Monday arrives, the staged training week promotes automatically, including while the PWA remains open across the week boundary.
+Meal generation is bounded and repairable. The 28 recipes are requested as four small date batches (Mon–Tue, Wed–Thu, Fri–Sat, Sun). Each batch gets one automatic repair attempt for request failure, malformed JSON, an output cut off at `max_tokens`, or missing/rejected dated slots. The button shows `Planning meals 1 of 4` through `4 of 4` so the phone never looks frozen during a long build.
+
+Setup is resumable inside the meal week and across the meal/training boundary. Each validated meal batch is saved immediately, so a later batch failure resumes only the missing dates. If all meals finish but training fails validation or the network/API call fails, the 28 meals stay saved and the next tap retries only training. Training receives one automatic repair pass when Claude returns malformed JSON, an invented exercise, a walk/cardio placeholder, or an unsafe recovery layout. The readiness check verifies real meal slots and real plan rows rather than trusting stale metadata. When the new Monday arrives, the staged training week promotes automatically, including while the PWA remains open across the week boundary.
 
 ### Meal prep
 Meal Planner supports:
@@ -96,9 +98,12 @@ A meaningful local change schedules a push. The app also pulls when it launches/
 ### Sync Health
 Settings reports last successful exchange, failures, partner update freshness and whether the partner has acknowledged the version of your data it received.
 
+### Owner and coaching preferences
+Settings exposes the primary goal and weekly gym-day count after onboarding. Changing either leaves the active calendar week intact but invalidates staged future training written under the old preference. A connected owner-name change warns before changing the private sync filename; a material partner-name change clears partner-derived cache so data from a previous identity is never relabeled as the new partner.
+
 ## Backups
 
-Use **Create Backup** for the complete personal backup. Backups include application state and local photos but intentionally exclude GitHub and Claude secret keys. Restore is preflighted and transactional; damaged local bytes are protected by recovery mode rather than overwritten as a blank install.
+Use **Create Backup** for the complete personal backup. Backups include application state and local photos but intentionally exclude GitHub and Claude secret keys. Restore is preflighted and transactional; damaged local bytes are protected by recovery mode rather than overwritten as a blank install. An already-onboarded phone will not restore a backup belonging to a different owner, because retaining the phone's local connection keys while changing its owner identity could make both phones write the same sync file. Use **Start over** first only when intentionally replacing who owns the device.
 
 ## PWA updates
 
@@ -108,14 +113,14 @@ Use **Create Backup** for the complete personal backup. Backups include applicat
 
 The header bell is neutral when nothing new is waiting, gold with a dot for unread informational activity, and gold with a numbered badge/glow when one or more items require action. Opening Notifications acknowledges informational items; unresolved actions remain counted until the underlying invitation, note, or coach proposal is handled.
 
-Version 5.5.4 uses service-worker cache `insync-v10-13`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
+Version 5.5.6 uses service-worker cache `insync-v10-15`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
 
 ## Version matrix
 
-- App/UI: **5.5.4**
+- App/UI: **5.5.6**
 - Local state: **v10**
 - Partner sync: **schema 6**
-- Service worker: **insync-v10-13**
+- Service worker: **insync-v10-15**
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the release gate and detailed changes.
 

@@ -46,6 +46,11 @@
     '</label>';
   }
 
+  function energyField(key, kcal) {
+    return field('Energy', key, Store.energyNum(kcal), Store.state().units.energy)
+      .replace('data-draft="' + key + '"', 'data-draft="' + key + '" data-energy="1"');
+  }
+
   function seg(key, options, active) {
     return '<div class="seg">' + options.map(function (o) {
       return '<button type="button" class="' + (o === active ? 'on' : '') + '" data-draft="' + key + '" data-value="' + esc(o) + '">' + esc(o) + '</button>';
@@ -66,7 +71,7 @@
           (d.aiNote ? '<p class="small" style="margin:10px 0 0">' + esc(d.aiNote) + '</p>' : '') +
           (d.items && d.items.length
             ? '<div class="ailist">' + d.items.map(function (it) {
-                return '<div class="airow"><span>' + esc(it.name) + (it.weight ? ' <em>' + esc(it.weight) + '</em>' : '') + '</span><span class="num">' + Math.round(it.kcal || 0) + '</span></div>';
+                return '<div class="airow"><span>' + esc(it.name) + (it.weight ? ' <em>' + esc(it.weight) + '</em>' : '') + '</span><span class="num">' + Store.energyNum(it.kcal || 0).toLocaleString() + '</span></div>';
               }).join('') + '</div>'
             : '') +
         '</div>'
@@ -78,7 +83,7 @@
           '<div class="quickwrap">' + recent.map(function (m, i) {
             return '<button type="button" class="quick" data-quick="' + i + '">' +
               '<span class="quick-name">' + esc(m.name) + '</span>' +
-              '<span class="quick-macros">' + m.kcal + ' kcal &middot; ' + m.protein + ' g</span>' +
+              '<span class="quick-macros">' + Store.fmtEnergy(m.kcal) + ' &middot; ' + m.protein + ' g</span>' +
             '</button>';
           }).join('') + '</div>'
         : '') +
@@ -88,7 +93,7 @@
       field('What is in it', 'ingredients', d.ingredients, 'for the shopping list', 'text') +
       '<div class="field"><span class="field-label">When</span>' + seg('slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], d.slot) + '</div>' +
       '<div class="fieldgrid">' +
-        field('Calories', 'kcal', d.kcal, 'kcal') +
+        energyField('kcal', d.kcal) +
         field('Protein', 'protein', d.protein, 'g') +
         field('Carbs', 'carbs', d.carbs, 'g') +
         field('Fat', 'fat', d.fat, 'g') +
@@ -114,7 +119,7 @@
     return null;
   }
 
-  /* Last weight and reps logged on a machine, so he types the change, not the number. */
+  /* Last weight and reps logged on a machine, so the user types the change, not the number. */
   function lastFor(machine) {
     var days = Store.state().days, keys = Object.keys(days).sort().reverse();
     for (var i = 0; i < keys.length; i++) {
@@ -132,13 +137,13 @@
       var last = lastFor(ex.name);
       return '<div class="exrow">' +
         '<div class="exname">' + esc(ex.name) +
-          (last ? '<span class="exlast">last ' + last.weight + ' lb &times; ' + last.reps + '</span>' : '<span class="exlast">first time</span>') +
+          (last ? '<span class="exlast">last ' + Store.fmtLift(last.weight) + ' &times; ' + last.reps + '</span>' : '<span class="exlast">first time</span>') +
           '<button type="button" class="exdrop" data-exdrop="' + i + '" aria-label="Remove ' + esc(ex.name) + '">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
           '</button>' +
         '</div>' +
         '<div class="exfields">' +
-          '<label><span>lb</span><input class="field-input sm" data-ex="' + i + '.weight" value="' + esc(ex.weight) + '" inputmode="decimal" /></label>' +
+          '<label><span>' + Store.state().units.weight + '</span><input class="field-input sm" data-ex="' + i + '.weight" value="' + esc(ex.weight) + '" inputmode="decimal" /></label>' +
           '<label><span>reps</span><input class="field-input sm" data-ex="' + i + '.reps" value="' + esc(ex.reps) + '" inputmode="numeric" /></label>' +
           '<label><span>sets</span><input class="field-input sm" data-ex="' + i + '.sets" value="' + esc(ex.sets) + '" inputmode="numeric" /></label>' +
         '</div>' +
@@ -175,7 +180,7 @@
     var lastW = y && y.weight;
     return sheet('This morning', 'Three numbers before breakfast.',
       field('Weight', 'weight', d.weight, Store.state().units.weight) +
-      (lastW ? '<p class="small" style="margin:-4px 2px 12px">Yesterday ' + lastW + ' ' + Store.state().units.weight + '</p>' : '') +
+      (lastW ? '<p class="small" style="margin:-4px 2px 12px">Yesterday ' + Store.fmtWeight(lastW) + '</p>' : '') +
       '<div class="fieldgrid">' +
         field('Resting heart rate', 'restingHr', d.restingHr, 'bpm', 'numeric') +
         field('Sleep', 'sleepHr', d.sleepHr, 'hours') +
@@ -190,7 +195,7 @@
     var t = Store.state().targets.steps;
     return sheet('Steps today', 'What does your phone say?',
       field('Steps', 'steps', d.steps, '', 'numeric') +
-      '<p class="small" style="margin:8px 2px 0">Target is ' + t.toLocaleString() + '. Walking miles also move the expedition.</p>',
+      '<p class="small" style="margin:8px 2px 0">Target is ' + t.toLocaleString() + '. Walking distance also moves the expedition.</p>',
       'Save steps');
   }
 
@@ -229,7 +234,7 @@
         (found
           ? '<div class="ailist"><div class="airow"><span>' + esc(found.name) +
               ' <em>' + esc(found.serving || '') + '</em></span>' +
-              '<span class="num">' + found.kcal + '</span></div></div>'
+              '<span class="num">' + Store.energyNum(found.kcal).toLocaleString() + '</span></div></div>'
           : '') +
       '</div>' +
       '<p class="small" style="margin:4px 2px 0">Scanning works where the browser supports it. Otherwise photograph the label, or type the number beneath the bars.</p>' +
@@ -238,7 +243,7 @@
       field('What is in it', 'ingredients', d.ingredients, 'for the shopping list', 'text') +
       '<div class="field"><span class="field-label">When</span>' + seg('slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], d.slot) + '</div>' +
       '<div class="fieldgrid">' +
-        field('Calories', 'kcal', d.kcal, 'kcal') +
+        energyField('kcal', d.kcal) +
         field('Protein', 'protein', d.protein, 'g') +
         field('Carbs', 'carbs', d.carbs, 'g') +
         field('Fat', 'fat', d.fat, 'g') +
@@ -260,7 +265,7 @@
               return '<button type="button" class="menurow' + (d.picked === id ? ' on' : '') + '" data-pick="' + esc(id) + '">' +
                 '<span><span class="menuname">' + esc(i.name) + '</span>' +
                   '<span class="quick-macros">' + i.protein + ' g protein &middot; ' + i.carbs + ' g carbs &middot; ' + i.fat + ' g fat</span></span>' +
-                '<span class="num">' + i.kcal + '</span></button>';
+                '<span class="num">' + Store.energyNum(i.kcal).toLocaleString() + '</span></button>';
             }).join('');
         }).join('')
       : '';
@@ -295,7 +300,7 @@
       field('What is in it', 'ingredients', d.ingredients, 'for the shopping list', 'text') +
       '<div class="field"><span class="field-label">When</span>' + seg('slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], d.slot) + '</div>' +
       '<div class="fieldgrid">' +
-        field('Calories', 'kcal', d.kcal, 'kcal') +
+        energyField('kcal', d.kcal) +
         field('Protein', 'protein', d.protein, 'g') +
         field('Carbs', 'carbs', d.carbs, 'g') +
         field('Fat', 'fat', d.fat, 'g') +
@@ -369,7 +374,7 @@
             '<div class="quick-macros">' + Math.round(it.protein || 0) + ' g protein &middot; ' +
               Math.round(it.carbs || 0) + ' g carbs &middot; ' + Math.round(it.fat || 0) + ' g fat</div>' +
           '</div>' +
-          '<span class="num">' + Math.round(it.kcal || 0) + '</span>' +
+          '<span class="num">' + Store.energyNum(it.kcal || 0).toLocaleString() + '</span>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -400,7 +405,7 @@
               '<h3 class="scanname">' + esc(d.name || 'Reading\u2026') + '</h3>' +
             '</div>' +
             '<div class="scantotal' + (d.state === 'analysing' ? ' dim' : '') + '">' +
-              '<span class="num big">' + (d.kcal || 0) + '</span><span class="small">kcal</span>' +
+              '<span class="num big">' + Store.energyNum(d.kcal || 0).toLocaleString() + '</span><span class="small">' + Store.state().units.energy + '</span>' +
             '</div>' +
           '</div>' +
           '<div class="fieldgrid three">' +
@@ -423,7 +428,7 @@
           '<div class="field"><span class="field-label">When</span>' +
             seg('slot', ['Breakfast', 'Lunch', 'Dinner', 'Snack'], d.slot) + '</div>' +
           '<div class="fieldgrid">' +
-            field('Calories', 'kcal', d.kcal, 'kcal') +
+            energyField('kcal', d.kcal) +
             field('Protein', 'protein', d.protein, 'g') +
             field('Carbs', 'carbs', d.carbs, 'g') +
             field('Fat', 'fat', d.fat, 'g') +
@@ -452,15 +457,15 @@
         minutes: '', note: '',
         exercises: (t ? t.machines : []).map(function (m) {
           var last = lastFor(m);
-          return { name: m, weight: last ? last.weight : '', reps: last ? last.reps : '', sets: last ? last.sets : 3 };
+          return { name: m, weight: last ? Store.liftNum(last.weight) : '', reps: last ? last.reps : '', sets: last ? last.sets : 3 };
         })
       };
     }
-    if (kind === 'morning') return { weight: d.weight || '', restingHr: d.restingHr || '', sleepHr: d.sleepHr || '', note: '' };
+    if (kind === 'morning') return { weight: d.weight == null ? '' : Store.weightNum(d.weight, Store.state().units.weight === 'kg' ? 1 : 0), restingHr: d.restingHr || '', sleepHr: d.sleepHr || '', note: '' };
     return { steps: d.steps || '' };
   }
 
-  /* A refusal stops being true the moment he changes something. Remove it from
+  /* A refusal stops being true the moment the user changes something. Remove it from
      the page directly rather than repainting, which would drop the caret. */
   function clearNote() {
     if (!open || !open.draft || !open.draft.note) return;
@@ -521,7 +526,7 @@
     var d = open.draft;
     if (open.kind === 'meal' || open.kind === 'barcode' || open.kind === 'restaurant' || open.kind === 'scan') {
       if (anyNegative([d.kcal, d.protein, d.carbs, d.fat])) {
-        d.note = 'Calories and macros cannot be negative. Correct the figures before saving.';
+        d.note = 'Energy and macros cannot be negative. Correct the figures before saving.';
         paint(); return;
       }
       if (!d.name.trim() && !num(d.kcal)) {
@@ -564,17 +569,17 @@
       Store.addWorkout({
         name: d.name.trim() || 'Session',
         minutes: Math.round(nonneg(d.minutes)),
-        exercises: did.map(function (e) { return { name: e.name, weight: nonneg(e.weight), reps: nonneg(e.reps), sets: nonneg(e.sets) || 3 }; })
+        exercises: did.map(function (e) { return { name: e.name, weight: Store.weightToLb(nonneg(e.weight)) || 0, reps: nonneg(e.reps), sets: nonneg(e.sets) || 3 }; })
       });
     } else if (open.kind === 'morning') {
       if (d.weight === '' && d.restingHr === '' && d.sleepHr === '') {
         d.note = 'Fill in at least one of the three.';
         paint(); return;
       }
-      var weight = d.weight === '' ? null : num(d.weight);
+      var weight = d.weight === '' ? null : Store.weightToLb(num(d.weight));
       var restingHr = d.restingHr === '' ? null : num(d.restingHr);
       var sleepHr = d.sleepHr === '' ? null : num(d.sleepHr);
-      if (weight != null && (weight <= 0 || weight > 700)) { d.note = 'Enter a weight between 1 and 700 lb.'; paint(); return; }
+      if (weight != null && (weight < 20 || weight > 1500)) { d.note = 'Enter a realistic weight in ' + Store.state().units.weight + '.'; paint(); return; }
       if (restingHr != null && (restingHr < 20 || restingHr > 300)) { d.note = 'Enter a resting heart rate between 20 and 300 bpm.'; paint(); return; }
       if (sleepHr != null && (sleepHr < 0 || sleepHr > 24)) { d.note = 'Sleep must be between 0 and 24 hours.'; paint(); return; }
       Store.setMorning({
@@ -920,7 +925,7 @@
             return '<button type="button" class="menurow' + (d.picked === id ? ' on' : '') + '" data-pick="' + esc(id) + '">' +
               '<span><span class="menuname">' + esc(i.name) + '</span>' +
                 '<span class="quick-macros">' + i.protein + ' g protein &middot; ' + i.carbs + ' g carbs &middot; ' + i.fat + ' g fat</span></span>' +
-              '<span class="num">' + i.kcal + '</span></button>';
+              '<span class="num">' + Store.energyNum(i.kcal).toLocaleString() + '</span></button>';
           }).join('');
       }).join('');
     }
@@ -942,7 +947,7 @@
     var last = lastFor(ex.name);
     open.draft.exercises.push({
       name: ex.name,
-      weight: last ? last.weight : '', reps: last ? last.reps : '', sets: last ? last.sets : 3
+      weight: last ? Store.liftNum(last.weight) : '', reps: last ? last.reps : '', sets: last ? last.sets : 3
     });
     clearNote();
     paint();
@@ -954,7 +959,7 @@
     clearNote();
     var k = el.getAttribute('data-draft');
     if (k) {
-      open.draft[k] = el.value;
+      open.draft[k] = el.hasAttribute('data-energy') ? Store.energyToKcal(el.value) : el.value;
       // Live-filter the local menu without repainting the sheet (which would drop focus).
       if (open.kind === 'restaurant' && k === 'q') refreshMenu();
       return;

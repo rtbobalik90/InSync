@@ -172,7 +172,7 @@
         '<div class="meta">' + esc(timeWord()) + '</div>' +
       '</div>' +
       '<div class="ledger">' +
-        '<div><div class="label">Calories</div><div class="figure">' + t.kcal.toLocaleString() + '</div>' + foot(t.kcal, tg.calories) + '</div>' +
+        '<div><div class="label">Energy</div><div class="figure">' + Store.energyNum(t.kcal).toLocaleString() + '</div>' + foot(Store.energyNum(t.kcal), Store.energyNum(tg.calories), ' ' + Store.state().units.energy) + '</div>' +
         '<div><div class="label">Protein</div><div class="figure">' + t.protein + '<small>g</small></div>' + foot(t.protein, tg.protein, ' g') + '</div>' +
         '<div><div class="label">Steps</div><div class="figure">' + d.steps.toLocaleString() + '</div>' + foot(d.steps, tg.steps) + '</div>' +
       '</div>' +
@@ -247,10 +247,10 @@
     '</article>';
   }
 
-  // Only appears when there is something new from her.
-  /* Only when there is something new from her. Yesterday's totals are not news,
-     so a stale file leaves Home about him — which is what the brief asks for.
-     A note is news whatever its age, until he has opened Together. */
+  // Only appears when there is something new from the partner.
+  /* Only when there is something new from the partner. Yesterday's totals are not news,
+     so a stale file leaves Home focused on the owner — which is what the brief asks for.
+     A note is news whatever its age, until the owner has opened Together. */
   function partnerCard() {
     var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData;
     if (!pd) return '';
@@ -309,7 +309,7 @@
       '<div class="cardhead"><div class="title"><i></i>Nothing logged yet</div>' +
       '<div class="meta">Day one</div></div>' +
       '<div class="ledger">' +
-        '<div><div class="label">Calories</div><div class="figure" style="color:#4E4A3E">&mdash;</div><div class="foot">of ' + tg.calories.toLocaleString() + '</div></div>' +
+        '<div><div class="label">Energy</div><div class="figure" style="color:#4E4A3E">&mdash;</div><div class="foot">of ' + Store.fmtEnergy(tg.calories) + '</div></div>' +
         '<div><div class="label">Protein</div><div class="figure" style="color:#4E4A3E">&mdash;</div><div class="foot">of ' + tg.protein + ' g</div></div>' +
         '<div><div class="label">Steps</div><div class="figure" style="color:#4E4A3E">&mdash;</div><div class="foot">of ' + tg.steps.toLocaleString() + '</div></div>' +
       '</div>' +
@@ -492,7 +492,7 @@
   /* Chapters: the coach looking back on a week. Written, stored, kept. */
   function chaptersBlock() {
     var list = (Store.state().chapters || []).slice().reverse();
-    var thisWeek = Store.shift(Store.todayKey(), -6);
+    var thisWeek = Store.weekStart(Store.todayKey());
     var written = list.filter(function (c) { return c.from === thisWeek; })[0];
 
     var head = '<div class="rulehead"><span class="kicker sage">Chapters</span>' +
@@ -532,7 +532,7 @@
         '<h4>' + esc(m.name) + '</h4>' +
         '<div class="macros">' + m.protein + ' g protein &middot; ' + m.carbs + ' g carbs &middot; ' + m.fat + ' g fat</div>' +
       '</div>' +
-      '<div class="kcal">' + m.kcal + '<small>kcal</small></div>' +
+      '<div class="kcal">' + Store.energyNum(m.kcal).toLocaleString() + '<small>' + Store.state().units.energy + '</small></div>' +
     '</button>';
   }
 
@@ -564,9 +564,10 @@
     var yd = Store.dayAt(-1);
     var gap = Math.max(0, tg.protein - t.protein);
     var kcalLeft = Math.max(0, tg.calories - t.kcal);
+    var energyLeft = Store.energyNum(kcalLeft);
 
     var bars = [
-      { label: 'Calories', value: t.kcal, target: tg.calories, unit: '', color: 'var(--gold)' },
+      { label: 'Energy', value: Store.energyNum(t.kcal), target: Store.energyNum(tg.calories), unit: Store.state().units.energy, color: 'var(--gold)' },
       { label: 'Protein', value: t.protein, target: tg.protein, unit: 'g', color: 'var(--gold)' },
       { label: 'Carbs', value: t.carbs, target: Math.round(tg.calories * 0.4 / 4), unit: 'g', color: 'var(--sage)' },
       { label: 'Fat', value: t.fat, target: Math.round(tg.calories * 0.28 / 9), unit: 'g', color: 'var(--sage)' }
@@ -613,7 +614,7 @@
       var label = slot === 'Snack' ? 'Add a snack' : 'Add ' + slot.toLowerCase();
       return '<article class="card mealslotcard">' +
         '<div class="cardhead"><div class="title"><i></i>' + slot + '</div>' +
-          '<div class="meta">' + (meals.length ? st.kcal.toLocaleString() + ' kcal · ' + st.protein + ' g' : 'open') + '</div></div>' +
+          '<div class="meta">' + (meals.length ? Store.fmtEnergy(st.kcal) + ' · ' + st.protein + ' g' : 'open') + '</div></div>' +
         '<div class="rowlist">' +
           (meals.length
             ? meals.map(function (m) { return mealRow(m); }).join('')
@@ -638,7 +639,7 @@
           '<span>g</span></div>' +
         '<p class="bigsub">' +
           (gap > 0
-            ? 'of protein still open, with ' + kcalLeft.toLocaleString() + ' calories left to spend on it.'
+            ? 'of protein still open, with ' + energyLeft.toLocaleString() + ' ' + Store.state().units.energy + ' of energy left to spend on it.'
             : 'of protein logged. The day is carried.') +
         '</p>',
       body:
@@ -656,7 +657,7 @@
 
         (yd.meals.length
           ? '<div class="rulehead"><span class="kicker sage">Yesterday</span><span></span>' +
-              '<span class="note">' + ydTotal.k.toLocaleString() + ' kcal &middot; ' + ydTotal.p + ' g protein</span></div>' +
+              '<span class="note">' + Store.fmtEnergy(ydTotal.k) + ' &middot; ' + ydTotal.p + ' g protein</span></div>' +
             '<article class="card rowlist">' +
               byTime(yd.meals).map(function (m) { return mealRow(m, { noThumb: true }); }).join('') +
               '<div class="pad-x" style="padding:12px 17px 15px">' +
@@ -726,7 +727,7 @@
       ? 'Session done. That is the day carried.'
       : todaysPlan
         ? (todaysPlan.name === 'Walk'
-            ? (todayTrainingStatus.done ? 'Walking day complete. The miles are in.' : 'Walking day. ' + todaysPlan.detail + '.')
+            ? (todayTrainingStatus.done ? 'Walking day complete. The distance is in.' : 'Walking day. ' + todaysPlan.detail + '.')
             : todaysPlan.name + ' day. ' + machines.length + ' movements, about ' + (machines.length * 8) + ' minutes.')
         : 'Rest day. Nothing scheduled.';
 
@@ -786,7 +787,7 @@
           : todaysPlan && todaysPlan.name === 'Walk'
             ? '<article class="card pad">' +
                 '<div class="kicker sage" style="margin-bottom:11px">Walking day</div>' +
-                '<p class="lede">' + esc(todaysPlan.detail || 'Get the miles in.') + '</p>' +
+                '<p class="lede">' + esc(todaysPlan.detail || 'Get the distance in.') + '</p>' +
                 '<p class="small" style="margin:9px 0 0">Nothing to lift. Steps are the session \u2014 they count toward the leg you and ' + esc(Store.partnerName()) + ' are walking.</p>' +
               '</article>'
           : !todaysPlan
@@ -1034,14 +1035,14 @@
       .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
 
     var macroCells = [
-      ['Calories', 'kcal', m.kcal, ''],
-      ['Protein', 'protein', m.protein, 'g'],
-      ['Carbs', 'carbs', m.carbs, 'g'],
-      ['Fat', 'fat', m.fat, 'g']
+      ['Energy', 'kcal', Store.energyNum(m.kcal), Store.state().units.energy, true],
+      ['Protein', 'protein', m.protein, 'g', false],
+      ['Carbs', 'carbs', m.carbs, 'g', false],
+      ['Fat', 'fat', m.fat, 'g', false]
     ].map(function (c) {
       return '<label class="field">' +
         '<span class="field-label">' + c[0] + (c[3] ? ' <em>' + c[3] + '</em>' : '') + '</span>' +
-        '<input class="field-input" data-meal-edit="' + c[1] + '" inputmode="decimal" ' +
+        '<input class="field-input" data-meal-edit="' + c[1] + '"' + (c[4] ? ' data-energy="1"' : '') + ' inputmode="decimal" ' +
           'value="' + UI.esc(String(c[2] == null ? '' : c[2])) + '" />' +
       '</label>';
     }).join('');
@@ -1111,8 +1112,8 @@
 
         '<div class="rulehead"><span class="kicker faint">Remove</span><span></span></div>' +
         '<article class="card"><div class="pad">' +
-          '<p class="cardnote" style="margin:0 0 12px">Deleting takes ' + m.kcal +
-            ' kcal and ' + m.protein + ' g of protein back off ' +
+          '<p class="cardnote" style="margin:0 0 12px">Deleting takes ' + Store.fmtEnergy(m.kcal) +
+            ' and ' + m.protein + ' g of protein back off ' +
             (isToday ? 'today' : 'that day') + '.</p>' +
           '<button class="btn ghost block danger" data-meal-delete>Delete this meal</button>' +
         '</div></article>'
@@ -1122,7 +1123,7 @@
   // ---------------- The handshake ----------------
   /* An expedition needs two yeses. Which of the four states you see is the
      proposal's own state, never a switch on this screen: no proposal is a
-     proposal to make, yours unanswered is waiting, hers unanswered is an
+     proposal to make, an owner proposal unanswered is waiting, and a partner proposal unanswered is an
      invitation, and answered is agreed. There is no decline anywhere — the
      alternative to accepting is proposing somewhere else. */
   function routeMiles(r) {
@@ -1323,7 +1324,7 @@
         '</article>' +
         '<article class="card pad">' +
           '<div class="kicker faint" style="margin-bottom:10px">While you wait</div>' +
-          '<p class="note">Your logging carries on as normal, and the miles you walk today still count once the expedition begins. Only the route is on hold.</p>' +
+          '<p class="note">Your logging carries on as normal, and the distance you walk today still counts once the expedition begins. Only the route is on hold.</p>' +
         '</article>';
     }
 
@@ -1412,7 +1413,7 @@
   }
 
   // ---------------- Together ----------------
-  /* Together. Every figure here is derived — hers from the file she synced,
+  /* Together. Every figure here is derived — partner data from the partner sync file,
      never a constant, and the week from the points each day actually earned. */
   function together() {
     var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData;
@@ -1487,8 +1488,8 @@
     '</article>';
   }
 
-  /* Seven paired days. Hers is drawn only where a synced file exists for that
-     day, so a blank column means she has not synced — not that she did nothing. */
+  /* Seven paired days. Partner score is drawn only where a synced file exists for that
+     day, so a blank column means the partner has not synced — not that nothing was done. */
   function weekCard(S, p) {
     var hist = S.partnerHistory || {}, today = Store.todayKey(), start = Store.weekStart(today);
     var mineStart = Store.startKey ? Store.startKey() : today;
@@ -1696,7 +1697,7 @@
   }
 
   /* Earned badges are computed from the log, not stored — so this cannot
-     drift from the Badges screen. Hers come from the file she synced. */
+     drift from the Badges screen. Partner badges come from the partner sync file. */
   function badgeStrip(S, p) {
     var t = Badges.totals();
     var earned = Badges.all().filter(function (b) { return b.earned; }).slice(-6).reverse();
@@ -1761,7 +1762,7 @@
     var review = Insights.reviewFor(week), stats = Insights.weekStats(week);
     return '<article class="card pad' + (onCoach ? '' : ' accent') + '">' +
       '<div class="kicker' + (onCoach ? '' : ' sage') + '">Weekly review ready</div>' +
-      '<p class="lede" style="margin:8px 0 7px">' + (review ? esc(review.carry || review.summary) : stats.points + ' points · ' + stats.workouts + ' sessions · ' + stats.expeditionMiles + ' miles walked') + '</p>' +
+      '<p class="lede" style="margin:8px 0 7px">' + (review ? esc(review.carry || review.summary) : stats.points + ' points · ' + stats.workouts + ' sessions · ' + Store.fmtDistance(stats.expeditionMiles) + ' walked') + '</p>' +
       '<p class="small" style="margin:0 0 13px">Close the week, notice the pattern, then set up training and meals for the next one.</p>' +
       '<button class="btn ghost block" data-route="weekly-review">Open weekly review</button>' +
     '</article>';
@@ -1777,11 +1778,11 @@
       '<div class="ledger">' +
         '<div><div class="label">Points</div><div class="figure">' + st.points + '</div><div class="foot">of ' + (st.daysAvailable * 10) + ' available</div></div>' +
         '<div><div class="label">Sessions</div><div class="figure">' + st.workouts + '</div><div class="foot">training</div></div>' +
-        '<div><div class="label">Miles</div><div class="figure">' + st.expeditionMiles + '</div><div class="foot">from steps</div></div>' +
+        '<div><div class="label">Distance</div><div class="figure">' + Store.fmtDistance(st.expeditionMiles) + '</div><div class="foot">from steps</div></div>' +
       '</div></article>' +
       '<article class="card pad"><div class="kicker">Recorded averages</div>' +
         '<div class="recipefacts" style="margin-top:12px">' +
-          '<div><span class="note">Calories</span><strong>' + st.avgCalories.toLocaleString() + '</strong></div>' +
+          '<div><span class="note">Energy</span><strong>' + Store.fmtEnergy(st.avgCalories) + '</strong></div>' +
           '<div><span class="note">Protein</span><strong>' + st.avgProtein + ' g</strong></div>' +
           '<div><span class="note">Steps</span><strong>' + st.avgSteps.toLocaleString() + '</strong></div>' +
           '<div><span class="note">Logged days</span><strong>' + st.loggedDays + '</strong></div>' +
@@ -1792,7 +1793,7 @@
         '</div></div><b>' + (st.badgesEarned || []).length + '</b></div>' +
         '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Favorites added</div><div class="small">' + ((st.favoriteMealsAdded || []).length ? st.favoriteMealsAdded.map(esc).join(' · ') : 'None recorded this week') + '</div></div><b>' + (st.favoriteMealsAdded || []).length + '</b></div>' +
         '<div class="setrow" style="padding-left:0;padding-right:0"><div><div class="setname">Cookbook total</div><div class="small">Recipes currently saved to bring back into future plans.</div></div><b>' + st.favorites + '</b></div>' +
-        (st.weightChange == null ? '' : '<p class="small" style="margin:13px 0 0">Weight moved ' + (st.weightChange > 0 ? '+' : '') + st.weightChange.toFixed(1) + ' lb between the first and last weigh-in that week.</p>') +
+        (st.weightChange == null ? '' : '<p class="small" style="margin:13px 0 0">Weight moved ' + (st.weightChange > 0 ? '+' : '') + Store.weightNum(st.weightChange, 1) + ' ' + Store.state().units.weight + ' between the first and last weigh-in that week.</p>') +
       '</article>';
     if (review) {
       body += '<article class="card pad accent"><div class="kicker sage">Coach review</div><p class="lede" style="margin:9px 0 13px">' + esc(review.summary) + '</p>' +
@@ -1843,7 +1844,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.4 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.6 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -1896,6 +1897,13 @@
           }).join('') +
         '</div></div>';
     }
+    function preferenceRow(label, note, action, opts, current) {
+      return '<div class="setpref"><div><div class="setname">' + esc(label) + '</div>' +
+        (note ? '<div class="small">' + esc(note) + '</div>' : '') + '</div>' +
+        '<div class="setprefchips">' + opts.map(function (o) {
+          return '<button class="ob-chip' + (current === o[0] ? ' on' : '') + '" data-action="' + action + '" data-value="' + esc(o[0]) + '">' + esc(o[1]) + '</button>';
+        }).join('') + '</div></div>';
+    }
     function keyField(label, secretName, value, placeholder, note) {
       return '<div class="keyfield">' +
         '<label class="kicker">' + esc(label) + '</label>' +
@@ -1915,13 +1923,17 @@
               '<div class="kicker" style="margin-bottom:11px">The coach has a proposal</div>' +
               '<p class="lede" style="margin:0 0 14px">' + esc(prop.why || prop.summary || 'New targets to approve') + '</p>' +
               '<div style="border:1px solid var(--rule);border-radius:2px;overflow:hidden;margin-bottom:15px">' +
-                [['calories', 'Calories', ''], ['protein', 'Protein', ' g'], ['steps', 'Steps', ''], ['weightGoal', 'Weight goal', ' ' + S.units.weight]]
+                [['calories', 'Energy', ' ' + S.units.energy], ['protein', 'Protein', ' g'], ['steps', 'Steps', ''], ['weightGoal', 'Weight goal', ' ' + S.units.weight]]
                   .filter(function (f) { return prop.targets[f[0]] !== S.targets[f[0]]; })
                   .map(function (f) {
+                    var currentValue = f[0] === 'weightGoal' ? Store.weightNum(S.targets.weightGoal, S.units.weight === 'kg' ? 1 : 0)
+                      : f[0] === 'calories' ? Store.energyNum(S.targets.calories) : S.targets[f[0]];
+                    var proposedValue = f[0] === 'weightGoal' ? Store.weightNum(prop.targets.weightGoal, S.units.weight === 'kg' ? 1 : 0)
+                      : f[0] === 'calories' ? Store.energyNum(prop.targets.calories) : prop.targets[f[0]];
                     return '<div class="setrow" style="padding:11px 15px">' +
                       '<span class="small">' + f[1] + '</span>' +
-                      '<span style="flex:none;font-size:12.5px"><span class="small">' + S.targets[f[0]].toLocaleString() + f[2] + '</span>' +
-                      ' &rarr; <span style="color:var(--gold)">' + prop.targets[f[0]].toLocaleString() + f[2] + '</span></span>' +
+                      '<span style="flex:none;font-size:12.5px"><span class="small">' + currentValue.toLocaleString() + f[2] + '</span>' +
+                      ' &rarr; <span style="color:var(--gold)">' + proposedValue.toLocaleString() + f[2] + '</span></span>' +
                     '</div>';
                   }).join('') +
               '</div>' +
@@ -1983,8 +1995,12 @@
         '</article>' +
 
         '<article class="card">' +
-          '<div class="cardhead"><div class="title"><i></i>Targets</div><div class="meta">Yours to change</div></div>' +
-          row('Daily calories', 'Goal: ' + esc(S.goal.replace(/-/g, ' ')), numField('targets.calories', S.targets.calories)) +
+          '<div class="cardhead"><div class="title"><i></i>Goals & targets</div><div class="meta">Yours to change</div></div>' +
+          preferenceRow('Primary goal', 'A goal change keeps this week intact and rebuilds any staged training week.', 'set-goal',
+            [['lose-fat','Lose fat'],['build','Build'],['hold','Hold'],['strong','Stronger']], S.goal) +
+          preferenceRow('Gym days', 'Your daily walk is separate. This number is lifting sessions per week.', 'set-frequency',
+            [['2','2'],['3','3'],['4','4'],['5','5'],['6','6']], String(S.frequency)) +
+          row('Daily energy', 'Goal: ' + esc(S.goal.replace(/-/g, ' ')), numField('targets.calories', Store.energyNum(S.targets.calories), S.units.energy, 'energy')) +
           row('Daily protein', '', numField('targets.protein', S.targets.protein, 'g')) +
           row('Daily steps', '', numField('targets.steps', S.targets.steps)) +
           row('Weight goal', '', numField('targets.weightGoal', Store.weightNum(S.targets.weightGoal, 0), S.units.weight, 'weight')) +
@@ -1995,7 +2011,7 @@
           '<div class="cardhead"><div class="title sage"><i></i>What ' + esc(Store.partnerName()) + ' sees</div>' +
             '<div class="meta sage">' + shared + ' of 4 shared</div></div>' +
           row('Weight', 'Only the recent change; never your exact daily weight', toggle('privacy.weight', S.privacy.weight)) +
-          row('Calories and protein', 'Daily totals only, never the meals', toggle('privacy.calories', S.privacy.calories)) +
+          row('Energy and protein', 'Daily totals only, never the meals', toggle('privacy.calories', S.privacy.calories)) +
           row('Workouts', 'That you trained, not what you lifted', toggle('privacy.workouts', S.privacy.workouts)) +
           row('Steps and walks', 'Daily total and distance', toggle('privacy.steps', S.privacy.steps)) +
           row('Progress photos', 'Never shared. There is no switch for this.', '<span class="lockmark">' + icon('lock') + '</span>') +
@@ -2030,7 +2046,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.5.4</div></div>' +
+            '<div class="meta">Version 5.5.6</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2164,7 +2180,7 @@
   }
 
   /* Timeline. The first photograph stays pinned on the left, so every
-     comparison is against where he started rather than against last fortnight. */
+     comparison is against the owner starting point rather than against last fortnight. */
   function photos() {
     var list = (Store.state().photos || []);
     var unit = Store.state().units.weight;
@@ -2444,11 +2460,11 @@
       ? 'No steps recorded yet.'
       : comparable
         ? (thisWeek.miles >= lastWeek.miles
-            ? 'Up ' + (thisWeek.miles - lastWeek.miles).toFixed(1) + ' miles on last week.'
-            : (lastWeek.miles - thisWeek.miles).toFixed(1) + ' miles behind last week.')
+            ? 'Up ' + Store.fmtDistance(thisWeek.miles - lastWeek.miles) + ' on last week.'
+            : Store.fmtDistance(lastWeek.miles - thisWeek.miles) + ' behind last week.')
         : thisWeek.days
-          ? thisWeek.miles.toFixed(1) + ' miles this week, across ' + thisWeek.days + ' day' + (thisWeek.days === 1 ? '' : 's') + '.'
-          : totalMiles.toFixed(1) + ' miles walked so far.';
+          ? Store.fmtDistance(thisWeek.miles) + ' this week, across ' + thisWeek.days + ' day' + (thisWeek.days === 1 ? '' : 's') + '.'
+          : Store.fmtDistance(totalMiles) + ' walked so far.';
 
     var maxMiles = Math.max.apply(null, weeks.map(function (w) { return w.miles; }).concat([1]));
 
@@ -2465,17 +2481,17 @@
           '</article>'
         : '<article class="card">' +
             '<div class="ledger">' +
-              '<div class="cell"><div class="kicker">Total</div><div class="num">' + totalMiles.toFixed(0) + '</div>' +
-                '<div class="foot">miles</div></div>' +
-              '<div class="cell"><div class="kicker">This week</div><div class="num">' + thisWeek.miles.toFixed(1) + '</div>' +
-                '<div class="foot">miles</div></div>' +
+              '<div class="cell"><div class="kicker">Total</div><div class="num">' + Store.fmtDistance(totalMiles, 0) + '</div>' +
+                '<div class="foot">walking distance</div></div>' +
+              '<div class="cell"><div class="kicker">This week</div><div class="num">' + Store.fmtDistance(thisWeek.miles) + '</div>' +
+                '<div class="foot">walking distance</div></div>' +
               '<div class="cell"><div class="kicker">Best week</div><div class="num sage">' +
-                (best ? best.miles.toFixed(1) : '\u2014') + '</div><div class="foot">miles</div></div>' +
+                (best ? Store.fmtDistance(best.miles) : '\u2014') + '</div><div class="foot">walking distance</div></div>' +
             '</div>' +
           '</article>' +
 
           '<article class="card pad">' +
-            '<div class="kicker" style="margin-bottom:13px">Miles a week</div>' +
+            '<div class="kicker" style="margin-bottom:13px">Distance a week</div>' +
             '<div class="weekbars">' + weeks.map(function (w) {
               var pct = Math.round((w.miles / maxMiles) * 100);
               return '<div class="weekbar">' +
@@ -2484,7 +2500,7 @@
               '</div>';
             }).join('') + '</div>' +
             '<p class="small" style="margin:13px 0 0">' +
-              (best ? 'Best week was ' + best.miles.toFixed(1) + ' miles, beginning ' + dateLabel(best.start) + '.' : '') +
+              (best ? 'Best week was ' + Store.fmtDistance(best.miles) + ', beginning ' + dateLabel(best.start) + '.' : '') +
             '</p>' +
           '</article>' +
 
@@ -2538,8 +2554,8 @@
               '<div class="kicker sage" style="margin-bottom:8px">Next</div>' +
               '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 6px">' +
                 esc(next.from) + ' &rarr; ' + esc(next.to) + '</h3>' +
-              '<p class="small" style="margin:0">' + next.miles.toFixed(1) + ' miles' +
-                (next.climb ? ' &middot; ' + next.climb + ' ft of climbing' : '') + '</p>' +
+              '<p class="small" style="margin:0">' + Store.fmtDistance(next.miles) +
+                (next.ft ? ' &middot; ' + Store.fmtClimb(next.ft) + ' of climbing' : '') + '</p>' +
             '</article>'
           : '<article class="card pad">' +
               '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
@@ -2668,7 +2684,7 @@
     } else if (scheduled && scheduled.name === 'Walk') {
       body += '<article class="card pad">' +
         '<div class="kicker sage" style="margin-bottom:11px">Walking day</div>' +
-        '<p class="lede">' + esc(scheduled.detail || 'Get the miles in.') + '</p>' +
+        '<p class="lede">' + esc(scheduled.detail || 'Get the distance in.') + '</p>' +
       '</article>';
     } else if (scheduled) {
       var mv = scheduled.ex && scheduled.ex.length ? Exercises.expand(scheduled.ex) : [];
@@ -2825,8 +2841,8 @@
     '</article>';
   }
 
-  /* ---- The session, as a list he ticks off ------------------------------- */
-  /* The brief: "The workout is a list he ticks off, tapping into an exercise
+  /* ---- The session, as a list the user ticks off ------------------------- */
+  /* The brief: "The workout is a list the user ticks off, tapping into an exercise
      to log each set" and "one tap to repeat the last set". State lives in the
      store, so locking the phone between sets loses nothing. */
   function session() {
@@ -2866,7 +2882,7 @@
                 ? '<div class="setlist">' + it.sets.map(function (st, si) {
                     return '<div class="setrow">' +
                       '<span class="setno">' + (si + 1) + '</span>' +
-                      '<span class="setval">' + st.weight + ' lb</span>' +
+                      '<span class="setval">' + Store.fmtLift(st.weight) + '</span>' +
                       '<span class="setval">' + st.reps + ' reps</span>' +
                       '<button class="linkbtn danger" data-action="drop-set" data-i="' + idx + '" data-s="' + si + '">Remove</button>' +
                     '</div>';
@@ -2952,7 +2968,7 @@
           }).join('') +
           (r.best
             ? '<p class="small pad-x" style="padding-bottom:15px">Heaviest of the session: ' + esc(r.best.name) +
-              ' at ' + r.best.weight + ' lb.</p>'
+              ' at ' + Store.fmtLift(r.best.weight) + '.</p>'
             : '<div style="height:10px"></div>') +
         '</article>' +
 
@@ -3232,12 +3248,12 @@
     var pretty=new Date(key+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     var rows=Store.pointRows(key), meals=x.meals||[], workouts=x.workouts||[], photos=x.photos||[];
     var body='<article class="card"><div class="cardhead"><div class="title"><i></i>Score</div><div class="meta">'+x.points+' of 10</div></div>'+rows.map(function(r){return '<div class="setrow"><div><div class="setname">'+esc(r.label)+'</div><div class="small">'+r.value+' point'+(r.value===1?'':'s')+'</div></div><span class="tick">'+(r.done?icon('check'):'')+'</span></div>';}).join('')+'</article>';
-    body+='<div class="rulehead"><span class="kicker sage">Meals</span><span></span><span class="note">'+meals.length+'</span></div><article class="card">'+(meals.length?meals.map(function(meal){return '<button class="setrow" data-route="meal/'+esc(meal.id||'')+'"><div><div class="setname">'+esc(meal.slot||'Meal')+' · '+esc(meal.name)+'</div><div class="small">'+Math.round(+meal.kcal||0)+' kcal · '+Math.round(+meal.protein||0)+' g protein</div></div><span class="chev">›</span></button>';}).join(''):'<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No meals recorded.</p>')+'</article>';
+    body+='<div class="rulehead"><span class="kicker sage">Meals</span><span></span><span class="note">'+meals.length+'</span></div><article class="card">'+(meals.length?meals.map(function(meal){return '<button class="setrow" data-route="meal/'+esc(meal.id||'')+'"><div><div class="setname">'+esc(meal.slot||'Meal')+' · '+esc(meal.name)+'</div><div class="small">'+Store.fmtEnergy(+meal.kcal||0)+' · '+Math.round(+meal.protein||0)+' g protein</div></div><span class="chev">›</span></button>';}).join(''):'<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No meals recorded.</p>')+'</article>';
     var histWalk=Store.dailyWalk?Store.dailyWalk(key):null, histWalkMs=Store.dailyWalkElapsedMs?Store.dailyWalkElapsedMs(key):0;
     body+='<div class="rulehead"><span class="kicker sage">Training &amp; movement</span><span></span></div><article class="card">'+(workouts.length?workouts.map(function(w){return '<div class="setrow"><div><div class="setname">'+esc(w.name)+'</div><div class="small">'+(w.minutes||0)+' min'+((w.exercises||[]).length?' · '+w.exercises.length+' movements':'')+'</div></div></div>';}).join(''):'<div class="setrow"><div><div class="setname">No training session</div></div></div>')+(histWalkMs||histWalk&&((histWalk.pace||'')||(histWalk.elevation||''))?'<div class="setrow"><div><div class="setname">Walk</div><div class="small">'+dailyWalkSummaryText(histWalk,histWalkMs)+'</div></div></div>':'')+'<div class="setrow"><div><div class="setname">Steps</div><div class="small">'+x.steps.toLocaleString()+'</div></div></div><div class="setrow"><div><div class="setname">Trail distance</div><div class="small">'+Store.fmtDistance(x.trailMiles)+' from that day’s logged steps</div></div></div></article>';
     body+='<article class="card pad"><div class="kicker">Body &amp; reflection</div><div class="recipefacts" style="margin-top:12px"><div><span class="note">Weight</span><strong>'+(x.weight==null?'—':Store.fmtWeight(x.weight))+'</strong></div><div><span class="note">Sleep</span><strong>'+(x.sleepHr==null?'—':x.sleepHr+' h')+'</strong></div><div><span class="note">Resting HR</span><strong>'+(x.restingHr==null?'—':x.restingHr+' bpm')+'</strong></div><div><span class="note">Verse</span><strong>'+(x.verseRead?'Read':'—')+'</strong></div></div>'+(x.reflection?'<div class="rulehead" style="margin-top:17px"><span class="kicker sage">Evening reflection</span><span></span></div><p class="small" style="white-space:pre-wrap">'+esc(x.reflection)+'</p>':'<p class="small" style="margin-top:14px">No evening reflection recorded.</p>')+'</article>';
     if (photos.length) body+='<div class="rulehead"><span class="kicker sage">Progress photos</span><span></span><span class="note">'+photos.length+'</span></div><article class="card pad"><div class="photogrid">'+photos.map(function(ph){return '<div class="photoframe" data-photo="'+esc(ph.id)+'"></div>';}).join('')+'</div></article>';
-    return UI.screen({tab:null,rest:270,blur:true,header:{back:'calendar/'+key.slice(0,7),title:'Day history',right:'<div style="width:34px"></div>'},art:'assets/art/coach-desk.webp',photoPosition:'center 42%',overlay:'<div class="eyebrow">'+esc(pretty)+'</div><p class="verse" style="font-size:25px">'+x.points+' of 10 · '+x.totals.kcal.toLocaleString()+' kcal · '+x.totals.protein+' g protein</p>',body:body});
+    return UI.screen({tab:null,rest:270,blur:true,header:{back:'calendar/'+key.slice(0,7),title:'Day history',right:'<div style="width:34px"></div>'},art:'assets/art/coach-desk.webp',photoPosition:'center 42%',overlay:'<div class="eyebrow">'+esc(pretty)+'</div><p class="verse" style="font-size:25px">'+x.points+' of 10 · '+Store.fmtEnergy(x.totals.kcal)+' · '+x.totals.protein+' g protein</p>',body:body});
   }
 
   /* ---- Badges ----------------------------------------------------------- */
@@ -3365,7 +3381,7 @@
   }
 
   /* ---- Reflection -------------------------------------------------------
-     The morning's verse becomes the evening's prompt. The page is his; the
+     The morning's verse becomes the evening prompt. The page belongs to the owner; the
      day's numbers sit under it, present but not the point. Every past night
      carries the verse it was actually written against — Store.verse takes a
      date, so a night from Tuesday shows Tuesday's. */
@@ -3376,7 +3392,7 @@
     var d = Store.day(key), t = Store.totals(key), out = [];
     if (d.weight != null) out.push({ label: 'Weighed', value: Store.fmtWeight(d.weight) });
     if (d.sleepHr != null) out.push({ label: 'Slept', value: d.sleepHr + ' hr' });
-    if (t.kcal) out.push({ label: 'Calories', value: t.kcal.toLocaleString() });
+    if (t.kcal) out.push({ label: 'Energy', value: Store.fmtEnergy(t.kcal) });
     if (t.protein) out.push({ label: 'Protein', value: t.protein + ' g' });
     if (d.steps) out.push({ label: 'Steps', value: d.steps.toLocaleString() });
     if ((d.workouts || []).length) {
@@ -3670,8 +3686,8 @@
                 : '<strong>' + Store.fmtDistance(walked) + '</strong> of ' + Store.fmtDistance(currentLeg.miles) + ' walked on this leg.')
           : '<strong>' + esc(r.name) + '</strong> is complete. All ' + r.legs.length + ' legs are finished.',
         evidence: currentLeg ? [
-          { figure: Store.fmtDistance(Store.legMine()), text: 'your miles on this leg' },
-          { figure: Store.fmtDistance(Store.legHers()), text: Store.partnerName() + '&rsquo;s miles' },
+          { figure: Store.fmtDistance(Store.legMine()), text: 'your distance on this leg' },
+          { figure: Store.fmtDistance(Store.legHers()), text: Store.partnerName() + '&rsquo;s distance' },
           { figure: (e.legIndex) + '', text: 'legs finished' }
         ] : [
           { figure: r.legs.length + '', text: 'legs finished' },
@@ -3728,7 +3744,7 @@
           '<h4>' + esc(m.name) + '</h4>' +
           '<div class="macros">' + m.protein + ' g protein &middot; ' + m.carbs + ' g carbs &middot; ' + m.fat + ' g fat</div>' +
         '</div>' +
-        '<div class="kcal">' + m.kcal + '<small>kcal</small></div>' +
+        '<div class="kcal">' + Store.energyNum(m.kcal).toLocaleString() + '<small>' + Store.state().units.energy + '</small></div>' +
       '</div>';
     }
 
@@ -3845,14 +3861,14 @@
       var dayProtein = dayMeals.reduce(function (a, m) { return a + (+m.protein || 0); }, 0);
       return '<div class="planday">' +
         '<div class="pdhead"><span>' + full + ' <em>' + shortDate + '</em></span>' +
-          '<span class="note">' + (dayMeals.length ? dayKcal.toLocaleString() + ' kcal · ' + dayProtein + ' g' : 'open') + '</span></div>' +
+          '<span class="note">' + (dayMeals.length ? Store.fmtEnergy(dayKcal) + ' · ' + dayProtein + ' g' : 'open') + '</span></div>' +
         PLAN_SLOTS.map(function (sl) {
           var key = planKey(date, sl), m = plan[key];
           return m
             ? '<button class="planslot filled" data-route="planned-meal/' + date + '/' + encodeURIComponent(sl) + '">' +
                 '<span class="pslabel">' + sl + '</span>' +
                 '<span class="psmeal">' + esc(m.name) + '</span>' +
-                '<span class="pskcal">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
+                '<span class="pskcal">' + Store.fmtEnergy(+m.kcal || 0) + ' · ' + Math.round(+m.protein || 0) + ' g protein' +
                   (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') +
                   (m.leftoverOf ? ' · LEFTOVER' : m.batchSource ? ' · BATCH PREP' : '') + '</span>' +
               '</button>'
@@ -3977,7 +3993,7 @@
       overlay:
         '<div class="eyebrow">' + esc(when) + ' · ' + esc(slot) + '</div>' +
         '<p class="verse">' + esc(m.name) + '</p>' +
-        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Math.round(+m.kcal || 0) + ' kcal · ' + Math.round(+m.protein || 0) + ' g protein' +
+        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Store.fmtEnergy(+m.kcal || 0) + ' · ' + Math.round(+m.protein || 0) + ' g protein' +
           (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + (m.cuisine ? ' · ' + esc(m.cuisine) : '') + '</p>',
       body:
         (m.leftoverOf ? '<article class="card pad accent"><div class="kicker sage">Leftover meal</div><p class="lede" style="margin:8px 0 0">Already cooked as part of ' + esc(m.leftoverOf) + '. Reheat and log it — no second grocery run.</p></article>' :
@@ -3985,7 +4001,7 @@
         '<article class="card pad">' +
           '<div class="kicker">Nutrition</div>' +
           '<div class="recipefacts">' +
-            [['Calories', Math.round(+m.kcal || 0)], ['Protein', Math.round(+m.protein || 0) + ' g'],
+            [['Energy', Store.fmtEnergy(+m.kcal || 0)], ['Protein', Math.round(+m.protein || 0) + ' g'],
              ['Carbs', Math.round(+m.carbs || 0) + ' g'], ['Fat', Math.round(+m.fat || 0) + ' g']].map(function (r) {
               return '<div><span class="note">' + r[0] + '</span><strong>' + r[1] + '</strong></div>';
             }).join('') +
@@ -4047,7 +4063,7 @@
       var dt = new Date(k + 'T12:00:00');
       var label = dt.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
       return '<div class="rulehead"><span class="kicker">' + esc(label) + '</span><span></span>' +
-          '<span class="note">' + t.k.toLocaleString() + ' kcal &middot; ' + t.p + ' g</span></div>' +
+          '<span class="note">' + Store.fmtEnergy(t.k) + ' &middot; ' + t.p + ' g</span></div>' +
         '<article class="card rowlist">' +
           byTime(d.meals).map(function (m) { return mealRow(m, { noThumb: true }); }).join('') +
         '</article>';

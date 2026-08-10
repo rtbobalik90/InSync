@@ -166,6 +166,7 @@
     if (!f) return;
     var key = f.getAttribute('data-meal-edit');
     var val = key === 'name' ? f.value.trim() : Math.round(num(f.value));
+    if (key === 'kcal' && f.hasAttribute('data-energy')) val = Store.energyToKcal(val);
     var patch = {}; patch[key] = val;
     Store.updateMeal(currentMealId(), patch);
   });
@@ -269,7 +270,7 @@
       // Opening the Notification Centre acknowledges informational items, but
       // unresolved actions stay live until their underlying task is completed.
       if (route === 'notifications' && window.Screens && Screens.markInformationalRead) Screens.markInformationalRead();
-      // Opening Together is how her note stops being news.
+      // Opening Together is how a partner note stops being news.
       if (route === 'together') {
         var pd = Store.state().partnerData;
         if (pd && pd.note) Store.set('partnerNoteSeen', (pd.noteDate || pd.date) + '|' + pd.note);
@@ -370,15 +371,16 @@
       var baseWeek = el.getAttribute('data-week') || Insights.reviewWeekKey();
       var setupText = el.textContent;
       el.disabled = true;
-      function stageText(stage) {
+      function stageText(stage, detail) {
         if (stage === 'meals') return 'Planning meals…';
+        if (stage === 'meals-progress') return 'Planning meals ' + ((detail && detail.batch) || 1) + ' of ' + ((detail && detail.total) || 4) + '…';
         if (stage === 'meals-ready') return 'Meals ready · writing training…';
         if (stage === 'training') return 'Writing training…';
         if (stage === 'done') return 'Next week ready';
         return 'Setting up next week…';
       }
-      Cloud.setupNextWeek(baseWeek, function (stage) {
-        if (el && el.isConnected) el.textContent = stageText(stage);
+      Cloud.setupNextWeek(baseWeek, function (stage, detail) {
+        if (el && el.isConnected) el.textContent = stageText(stage, detail);
       }, function (err, status) {
         if (el && el.isConnected) { el.disabled = false; el.textContent = setupText; }
         render();
@@ -542,7 +544,11 @@
       if (hasExisting && !confirm('Rebuild this week? The 28 meal slots in this displayed week will be replaced. Other weeks stay untouched.')) return;
       var bw = el, bwText = bw.textContent;
       bw.disabled = true; bw.textContent = 'Building the week…';
-      Cloud.planMealsWeek(buildWeek, function (err, weekMap) {
+      Cloud.planMealsWeek(buildWeek, {
+        onProgress: function (detail) {
+          if (bw && bw.isConnected) bw.textContent = 'Planning meals ' + ((detail && detail.batch) || 1) + ' of ' + ((detail && detail.total) || 4) + '…';
+        }
+      }, function (err, weekMap) {
         bw.disabled = false; bw.textContent = bwText;
         if (err) { alert(err.message); return; }
         var merged = Object.assign({}, Store.state().mealPlan || {});
@@ -803,6 +809,19 @@
           if (!state || typeof state !== 'object' || !state.profile || !state.days) {
             alert('That file does not contain a valid InSync log.'); return;
           }
+          /* On a paired phone, the owner name is infrastructure: it decides
+             which private sync file this device writes. Restoring another
+             person's backup over an active device would silently make both
+             phones capable of writing the same identity while keeping this
+             phone's connection keys. Require an intentional device reset first. */
+          var currentOwner = Store.state().profile && Store.state().profile.name;
+          var incomingOwner = state.profile && state.profile.name;
+          var currentIdentity = Store.identityKey ? Store.identityKey(currentOwner) : String(currentOwner || '').toLowerCase();
+          var incomingIdentity = Store.identityKey ? Store.identityKey(incomingOwner) : String(incomingOwner || '').toLowerCase();
+          if (Store.state().onboarded && currentIdentity && incomingIdentity && currentIdentity !== incomingIdentity) {
+            alert('This backup belongs to ' + incomingOwner + ', but this device is set up for ' + currentOwner + '. InSync will not restore another person\'s backup over an active paired device because it can break two-phone sync. Use Start over first only if you are intentionally changing who owns this phone.');
+            return;
+          }
           if (!confirm('Restore this backup? It will replace the current log and photographs on this device. Connection keys stay unchanged.')) return;
           Media.all(function (oldErr, oldMedia) {
             if (oldErr) { alert('InSync could not protect the current photographs before restoring. Nothing was changed.'); return; }
@@ -871,11 +890,12 @@
     if (action === 'chapter-write') {
       var cb = el, cl = cb.textContent;
       cb.disabled = true; cb.textContent = 'Writing…';
-      Cloud.weeklyNote(function (err, text) {
+      var chapterFrom = Store.weekStart(Store.todayKey());
+      Cloud.weeklyNote(chapterFrom, function (err, text) {
         cb.disabled = false; cb.textContent = cl;
         if (err) { alert(err.message); return; }
         var list = (Store.state().chapters || []).slice();
-        list.push({ from: Store.shift(Store.todayKey(), -6), to: Store.todayKey(), text: text });
+        list.push({ from: chapterFrom, to: Store.todayKey(), text: text });
         Store.set('chapters', list);
       });
       return;
@@ -890,6 +910,14 @@
     if (action === 'log-steps') { Log.open('steps'); return; }
     if (action === 'set-unit') {
       Store.set(el.getAttribute('data-path'), el.getAttribute('data-value'));
+      return;
+    }
+    if (action === 'set-goal') {
+      Store.setGoal(el.getAttribute('data-value'));
+      return;
+    }
+    if (action === 'set-frequency') {
+      Store.setFrequency(el.getAttribute('data-value'));
       return;
     }
     if (action === 'accept-proposal') { Store.acceptProposal(); return; }
@@ -950,7 +978,7 @@
 
   // Text and key fields write straight through to the store on blur.
   app.addEventListener('change', function (e) {
-    /* The evening page saves itself when he leaves the field. Losing an entry
+    /* The evening page saves itself when the user leaves the field. Losing an entry
        to a stray tap is not a thing a journal may do. */
     if (e.target.id === 'reflect') { Store.saveReflection(e.target.value); return; }
     var el = e.target.closest('[data-set]');
@@ -959,8 +987,19 @@
       Store.setSecret(el.getAttribute('data-secret'), el.value.trim());
       return;
     }
-    /* Names carry their avatar initials with them. */
-    if (el.hasAttribute('data-name')) { Store.setProfileName(el.value); return; }
+    /* Names carry their avatar initials and, once sync is connected, the
+       owner's private filename. A material rename is therefore more than a
+       cosmetic edit; make it deliberate instead of silently breaking pairing. */
+    if (el.hasAttribute('data-name')) {
+      var nextName = el.value.trim();
+      var oldName = Store.state().profile.name || '';
+      var oldIdentity = Store.identityKey ? Store.identityKey(oldName) : oldName.toLowerCase();
+      var nextIdentity = Store.identityKey ? Store.identityKey(nextName) : nextName.toLowerCase();
+      if (Store.state().onboarded && oldIdentity && nextIdentity && oldIdentity !== nextIdentity && window.Cloud && Cloud.hasGit && Cloud.hasGit()) {
+        if (!confirm('Changing your name changes the private sync identity this phone writes. Your partner must update your name on their phone to match. Continue?')) { render(); return; }
+      }
+      Store.setProfileName(nextName); return;
+    }
     if (el.hasAttribute('data-partner-name')) { Store.setPartnerName(el.value); return; }
     var setPath = el.getAttribute('data-set');
     if (setPath === 'connections.githubRepo' || setPath === 'connections.githubBranch') {
@@ -970,10 +1009,14 @@
     if (el.hasAttribute('data-num')) {
       var n = Math.round(parseFloat(String(el.value).replace(/[^0-9.\-]/g, '')));
       if (!isFinite(n) || n <= 0) { render(); return; }
-      /* Typed in his units, stored in pounds — the conversion belongs here, not
+      /* Typed in the selected units, stored in pounds — the conversion belongs here, not
          in the field. */
       if (el.getAttribute('data-unit') === 'weight') {
         Store.set(el.getAttribute('data-set'), Store.weightToLb(n));
+        return;
+      }
+      if (el.getAttribute('data-unit') === 'energy') {
+        Store.set(el.getAttribute('data-set'), Store.energyToKcal(n));
         return;
       }
       Store.set(el.getAttribute('data-set'), n);
@@ -1116,7 +1159,7 @@
   (function dailyVerse() {
     if (!window.Cloud || !Cloud.hasClaude()) return;
     var c = Store.state().verseCache;
-    if (!c || c.date !== Store.todayKey()) Cloud.chooseVerse(function () {});
+    if (!c || c.date !== Store.todayKey() || !Store.verse().chosen) Cloud.chooseVerse(function () {});
 
     /* The plan is written for a week. On the first open of a new one, the
        coach rewrites it from what the last week actually looked like. */
@@ -1136,7 +1179,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'5.5.4', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'5.5.6', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

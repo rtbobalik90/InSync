@@ -74,13 +74,16 @@
       .then(function (j) {
         var text = (j.content || []).filter(function (c) { return c.type === 'text'; })
           .map(function (c) { return c.text; }).join('').trim();
-        cb(null, text);
+        /* Keep the callback backward-compatible while exposing why a structured
+           reply stopped. Meal-week generation uses this to distinguish a normal
+           parse miss from an output that was physically cut off at max_tokens. */
+        cb(null, text, { stopReason: String(j.stop_reason || ''), usage: j.usage || {} });
       })
       .catch(function (e) { cb(e); });
   }
 
   /* Whose phone this is. Every prompt is written from this, never from a name in
-     the source — on her device the coach writes to her about him. */
+     the source — on either device the coach writes for that device's owner. */
   function me() { return Store.state().profile.name || 'you'; }
 
   var VOICE = 'You write for InSync, a fitness app used by one couple. ' +
@@ -94,12 +97,12 @@
     var k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), s = Store.state();
     var facts = [
       'Day ' + Store.daysIn() + ' of the journey. Current streak ' + Store.streak() + ' days.',
-      'Calories: ' + t.kcal + ' of ' + s.targets.calories + '.',
+      'Energy: ' + Store.fmtEnergy(t.kcal) + ' of ' + Store.fmtEnergy(s.targets.calories) + '.',
       'Protein: ' + t.protein + ' g of ' + s.targets.protein + ' g.',
       'Steps: ' + d.steps + ' of ' + s.targets.steps + '.',
       'Sessions logged today: ' + d.workouts.length + '.',
       'Meals logged today: ' + d.meals.length + (d.meals.length ? ' (' + d.meals.map(function (m) { return m.slot; }).join(', ') + ')' : ''),
-      'Weighed in today: ' + (d.weight != null ? 'yes, ' + d.weight + ' lb' : 'no') + '.',
+      'Weighed in today: ' + (d.weight != null ? 'yes, ' + Store.fmtWeight(d.weight) : 'no') + '.',
       'Goal: ' + s.goal.replace(/-/g, ' ') + '.',
       (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns already visible in the log:\n' + Insights.patternsText() : ''
     ].filter(Boolean).join('\n');
@@ -127,7 +130,7 @@
     for (var i = 6; i >= 0; i--) {
       var key = Store.shift(k, -i);
       var d = Store.day(key), t = Store.totals(key);
-      rows.push(key + ': ' + t.kcal + ' kcal, ' + t.protein + ' g protein, ' +
+      rows.push(key + ': ' + Store.fmtEnergy(t.kcal) + ', ' + t.protein + ' g protein, ' +
         d.steps + ' steps, ' + d.workouts.length + ' session' + (d.workouts.length === 1 ? '' : 's') +
         (d.reflection ? ', wrote that evening' : ''));
     }
@@ -186,7 +189,7 @@
         });
       });
     }
-    var lifted = Object.keys(lifts).map(function (n) { return n + ' at ' + lifts[n] + ' lb'; });
+    var lifted = Object.keys(lifts).map(function (n) { return n + ' at ' + Store.fmtLift(lifts[n]); });
     var progression = window.Insights && Insights.progressionFor ? Object.keys(lifts).slice(0, 12).map(function (n) {
       var pr = Insights.progressionFor(n); return n + ': ' + (pr && pr.detail || 'repeat cleanly');
     }) : [];
@@ -327,16 +330,22 @@
   }
 
   // A written retrospective on the week.
-  function weeklyNote(cb) {
-    var k = Store.todayKey(), rows = [];
-    for (var i = 6; i >= 0; i--) {
-      var key = Store.shift(k, -i), t = Store.totals(key), d = Store.day(key);
-      rows.push(key + ': ' + t.kcal + ' kcal, ' + t.protein + ' g protein, ' + d.steps + ' steps, ' +
+  function weeklyNote(weekOf, cb) {
+    /* Chapters are calendar weeks, not a rolling seven-day window. Keep the
+       old one-argument call shape working for restored/older callers. */
+    if (typeof weekOf === 'function') { cb = weekOf; weekOf = Store.weekStart(Store.todayKey()); }
+    weekOf = /^\d{4}-\d{2}-\d{2}$/.test(String(weekOf || '')) ? String(weekOf) : Store.weekStart(Store.todayKey());
+    var today = Store.todayKey(), end = Store.shift(weekOf, 6);
+    if (end > today) end = today;
+    var rows = [], span = Math.max(0, Math.round((new Date(end + 'T12:00:00') - new Date(weekOf + 'T12:00:00')) / 86400000));
+    for (var i = 0; i <= span; i++) {
+      var key = Store.shift(weekOf, i), t = Store.totals(key), d = Store.day(key);
+      rows.push(key + ': ' + Store.fmtEnergy(t.kcal) + ', ' + t.protein + ' g protein, ' + d.steps + ' steps, ' +
         d.workouts.length + ' session' + (d.workouts.length === 1 ? '' : 's') + ', ' + Store.points(key) + '/10 points');
     }
     claude([{
       role: 'user',
-      content: me() + '\'s last seven days:\n\n' + rows.join('\n') +
+      content: me() + '\'s week beginning ' + weekOf + ':\n\n' + rows.join('\n') +
         '\n\nWrite three sentences about the week. Name one pattern worth noticing and one thing to carry into next week. ' +
         'Use only these figures. Return only the sentences.'
     }], { system: VOICE, maxTokens: 260 }, cb);
@@ -348,14 +357,14 @@
     var facts = [
       'Week beginning ' + st.weekOf + '.',
       st.loggedDays + ' logged day(s), ' + st.points + ' points, ' + st.workouts + ' training session(s).',
-      st.nutritionDays ? 'Nutrition-day averages across ' + st.nutritionDays + ' day(s): ' + st.avgCalories + ' kcal, ' + st.avgProtein + ' g protein.' : '',
+      st.nutritionDays ? 'Nutrition-day averages across ' + st.nutritionDays + ' day(s): ' + Store.fmtEnergy(st.avgCalories) + ', ' + st.avgProtein + ' g protein.' : '',
       st.stepDays ? 'Step average across ' + st.stepDays + ' day(s) with steps recorded: ' + st.avgSteps + '.' : '',
       st.loggedDays ? 'Protein target met on ' + st.proteinMet + ' nutrition day(s); step target met on ' + st.stepsMet + ' day(s) with steps recorded.' : '',
-      'Walking distance represented by logged steps: ' + st.expeditionMiles + ' miles.',
+      'Walking distance represented by logged steps: ' + Store.fmtDistance(st.expeditionMiles) + '.',
       'Badges newly recorded that week: ' + ((st.badgesEarned || []).length) + '.',
       (st.favoriteMealsAdded && st.favoriteMealsAdded.length) ? 'Meals favorited that week: ' + st.favoriteMealsAdded.join(', ') + '.' : 'Meals favorited that week: none recorded.',
       'Cookbook favorites currently saved: ' + (st.favorites || 0) + '.',
-      st.weightChange == null ? '' : 'Weight changed ' + (st.weightChange >= 0 ? '+' : '') + st.weightChange + ' lb between the first and last weigh-in that week.'
+      st.weightChange == null ? '' : 'Weight changed ' + (st.weightChange >= 0 ? '+' : '') + Store.weightNum(st.weightChange, 1) + ' ' + Store.state().units.weight + ' between the first and last weigh-in that week.'
     ].filter(Boolean).join('\n');
     claude([{ role:'user', content:
       'Review ' + me() + '\'s week from these facts only:\n\n' + facts +
@@ -1163,7 +1172,11 @@
      strict: one recipe for every Breakfast/Lunch/Dinner/Snack slot across the
      seven dated days. That lets the UI, shopping list and daily log all point
      at the same objects without guessing what Claude meant. */
-  function planMealsWeek(weekOf, cb) {
+  function planMealsWeek(weekOf, options, cb) {
+    if (typeof options === 'function') { cb = options; options = {}; }
+    options = options || {};
+    if (typeof cb !== 'function') cb = function () {};
+    var progress = typeof options.onProgress === 'function' ? options.onProgress : function () {};
     weekOf = validDateKey(weekOf) ? weekOf : Store.weekStart(Store.todayKey());
     var S = Store.state(), tg = S.targets, dates = [], known = [];
     for (var i = 0; i < 7; i++) dates.push(Store.shift(weekOf, i));
@@ -1174,57 +1187,122 @@
     });
     var prefs = S.mealPrefs || {}, favorites = Array.isArray(S.mealFavorites) ? S.mealFavorites : [];
     var disliked = Array.isArray(S.mealDislikedMeals) ? S.mealDislikedMeals : [];
-    var dayList = dates.map(function (d) {
-      return d + ' (' + new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }) + ')';
-    }).join(', ');
     var favNames = favorites.slice(-12).map(function (m) { return m.name; }).filter(Boolean);
-    var prompt =
-      'Build a complete seven-day HOME-COOKED meal-prep plan for ' + me() + '. Goal: ' + S.goal.replace(/-/g, ' ') + '. ' +
-      'Daily target: about ' + tg.calories + ' kcal and at least ' + tg.protein + ' g protein. ' +
-      'The seven dates are: ' + dayList + '. ' +
-      'NON-NEGOTIABLE: no fast food, restaurant orders, takeout, drive-thru meals, meal-delivery dishes, or restaurant/chain brand names. Every meal must be made from grocery-store ingredients at home. ' +
+    var slots = ['Breakfast', 'Lunch', 'Dinner', 'Snack'], map = {};
+    var existingMap = options.existingMap && Object.prototype.toString.call(options.existingMap) === '[object Object]' ? options.existingMap : {};
+    var onBatch = typeof options.onBatch === 'function' ? options.onBatch : function () {};
+    var batches = [dates.slice(0, 2), dates.slice(2, 4), dates.slice(4, 6), dates.slice(6, 7)];
+    var prepText = '';
+    if (window.Insights && Insights.mealPrepPrefs) {
+      var pp = Insights.mealPrepPrefs();
+      prepText = (pp.lunchPrepDays ? 'They want ' + pp.lunchPrepDays + ' weekday lunches batch-prepped from one recipe. ' : '') +
+        (pp.dinnerLeftovers ? 'Dinner leftovers are welcome. ' : '') +
+        (pp.cookDays.length ? 'Preferred cooking nights: ' + pp.cookDays.join(', ') + '. ' : '');
+    }
+    var preferenceText =
       ((prefs.cuisines || []).length ? 'Selected cuisines for this week: ' + prefs.cuisines.join(', ') + '. Keep the week within these cuisines. ' : 'Cuisine is open; use a varied home-cooked mix. ') +
       ((prefs.proteins || []).length ? 'Selected protein choices: ' + prefs.proteins.join(', ') + '. Use these as the primary proteins for the week. ' : '') +
       (cleanText(prefs.likes, 1200) ? 'Foods/flavors they like: ' + cleanText(prefs.likes, 1200) + '. Lean toward these. ' : '') +
       (cleanText(prefs.avoid, 1200) ? 'Foods/flavors they do NOT like or want: ' + cleanText(prefs.avoid, 1200) + '. Do not use them. ' : '') +
-      (window.Insights && Insights.mealPrepPrefs ? (function(){ var pp=Insights.mealPrepPrefs(); return (pp.lunchPrepDays ? 'They want ' + pp.lunchPrepDays + ' weekday lunches batch-prepped from one recipe. ' : '') + (pp.dinnerLeftovers ? 'Dinner leftovers are welcome. ' : '') + (pp.cookDays.length ? 'Preferred cooking nights: ' + pp.cookDays.join(', ') + '. ' : ''); })() : '') +
+      prepText +
       (disliked.length ? 'Meals they have explicitly thumbs-downed and must NOT return: ' + disliked.slice(-30).join(', ') + '. ' : '') +
       (favNames.length ? 'Favorite meals they want to see again: ' + favNames.join(', ') + '. Reuse compatible favorites naturally instead of always inventing new food. ' : '') +
-      (known.length ? 'Meals they have already logged include: ' + known.slice(0, 14).join(', ') + '. You may reuse a good fit occasionally but do not repeat the same day over and over. ' : '') +
-      'Use practical portions and purposeful ingredient overlap so grocery shopping and batch prep are reasonable. Keep most recipes under 35 minutes and make snacks genuinely snack-sized. ' +
-      'Return EXACTLY 28 meals: Breakfast, Lunch, Dinner and Snack for each of the seven dates. Every meal must contain at least two grocery ingredients and at least one real preparation/cooking instruction. ' +
-      'Ingredient amount belongs in weight (examples: "6 oz", "1 cup", "2 large"). Nutrition values are for one planned serving. Across each full day, aim for 90-105% of the calorie target and at least the protein target. ' +
-      'Return ONLY JSON in this shape: ' +
-      '{"meals":[{"date":"YYYY-MM-DD","slot":"Breakfast","name":"","cuisine":"Mexican","proteins":["Chicken"],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
-      '"servings":1,"prepMinutes":0,"recipeNote":"optional prep/storage note",' +
-      '"items":[{"name":"ingredient","weight":"amount"}],"instructions":["step one","step two"]}]}. Do not use markdown.';
+      (known.length ? 'Meals they have already logged include: ' + known.slice(0, 14).join(', ') + '. You may reuse a good fit occasionally but do not repeat the same day over and over. ' : '');
 
-    claude([{ role: 'user', content: prompt }], { system: VOICE, maxTokens: 7600, timeoutMs: 90000 }, function (err, text) {
-      if (err) return cb(err);
-      var out;
-      try { out = extractJson(text); } catch (e) { return cb(new Error('The coach\'s weekly plan could not be read. Try again.')); }
-      if (!out || !Array.isArray(out.meals)) return cb(new Error('The coach returned no weekly meals. Try again.'));
-      var map = {}, slots = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+    function dayName(d) {
+      return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+    }
+    function batchLabel(batchDates) {
+      if (batchDates.length === 1) return dayName(batchDates[0]);
+      return dayName(batchDates[0]) + '–' + dayName(batchDates[batchDates.length - 1]);
+    }
+    function buildPrompt(batchDates, batchIndex, repairReason) {
+      var requested = [];
+      batchDates.forEach(function (d) { slots.forEach(function (slot) { requested.push(d + ' ' + slot); }); });
+      return 'Build batch ' + (batchIndex + 1) + ' of ' + batches.length + ' for a complete seven-day HOME-COOKED meal-prep plan for ' + me() + '. ' +
+        'Goal: ' + String(S.goal || 'lose-fat').replace(/-/g, ' ') + '. Daily target: about ' + tg.calories + ' kcal and at least ' + tg.protein + ' g protein. ' +
+        'This batch must contain exactly these ' + requested.length + ' dated slots and no others: ' + requested.join('; ') + '. ' +
+        'NON-NEGOTIABLE: no fast food, restaurant orders, takeout, drive-thru meals, meal-delivery dishes, or restaurant/chain brand names. Every meal must be made from grocery-store ingredients at home. ' +
+        preferenceText +
+        'Use practical portions and purposeful ingredient overlap so grocery shopping and batch prep are reasonable. Keep most recipes under 35 minutes and snacks genuinely snack-sized. ' +
+        'Every meal must contain at least two grocery ingredients and 1 to 4 concise preparation/cooking instructions. Ingredient amount belongs in weight (examples: "6 oz", "1 cup", "2 large"). ' +
+        'Nutrition values are for one planned serving. Across each full day in this batch, aim for 90-105% of the calorie target and at least the protein target. ' +
+        'Return ONLY JSON in this shape: {"meals":[{"date":"YYYY-MM-DD","slot":"Breakfast","name":"","cuisine":"Mexican","proteins":["Chicken"],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
+        '"servings":1,"prepMinutes":0,"recipeNote":"optional prep/storage note","items":[{"name":"ingredient","weight":"amount"}],"instructions":["step one","step two"]}]}. Do not use markdown.' +
+        (repairReason ? ' Your previous reply for this same batch could not be used because ' + repairReason + '. Rewrite this batch from scratch and return complete valid JSON.' : '');
+    }
+    function cleanBatch(out, batchDates) {
+      if (!out || !Array.isArray(out.meals)) return { map: {}, missing: ['all requested slots'], reason: 'it did not contain a meals array' };
+      var allowed = {}, batchMap = {};
+      batchDates.forEach(function (d) { slots.forEach(function (slot) { allowed[d + '|' + slot] = true; }); });
       out.meals.forEach(function (m) {
         var cleaned = cleanPlannedRecipe(m, '', '');
-        if (!cleaned || dates.indexOf(cleaned.date) < 0) return;
+        if (!cleaned) return;
+        var key = cleaned.date + '|' + cleaned.slot;
+        if (!allowed[key] || batchMap[key]) return;
         if (fastFoodLike(cleaned)) return;
         if (!cleaned.items || cleaned.items.length < 2 || !cleaned.instructions || !cleaned.instructions.length) return;
         if (conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid))) return;
         if (disliked.some(function (x) { return normalizedMealName(x) === normalizedMealName(cleaned.name); })) return;
-        var key = cleaned.date + '|' + cleaned.slot;
-        if (!map[key]) map[key] = cleaned;
+        batchMap[key] = cleaned;
       });
+      var missing = Object.keys(allowed).filter(function (key) { return !batchMap[key]; });
+      return { map: batchMap, missing: missing, reason: missing.length ? 'it missed or rejected ' + missing.length + ' required slot' + (missing.length === 1 ? '' : 's') : '' };
+    }
+    function finish() {
       var missing = [];
-      dates.forEach(function (d) {
-        slots.forEach(function (sl) { if (!map[d + '|' + sl]) missing.push(d + ' ' + sl); });
-      });
-      if (missing.length) {
-        return cb(new Error('The coach missed or rejected ' + missing.length + ' meal slot' + (missing.length === 1 ? '' : 's') + '. Nothing was replaced; try the week again.'));
-      }
+      dates.forEach(function (d) { slots.forEach(function (slot) { if (!map[d + '|' + slot]) missing.push(d + ' ' + slot); }); });
+      if (missing.length) return cb(new Error('The meal coach did not finish all 28 dated slots. Try again.'));
       map = reintroduceFavorites(map, favorites, prefs, disliked);
       cb(null, applyMealPrep(map, weekOf, prefs));
-    });
+    }
+    function runBatch(index) {
+      if (index >= batches.length) return finish();
+      var batchDates = batches[index], label = batchLabel(batchDates);
+      /* A previous Setup attempt may have finished this entire batch before a
+         later request failed. Validate those persisted rows against today's
+         preferences and skip the network request only when all slots are still
+         genuinely usable. */
+      var existingRows = [];
+      batchDates.forEach(function (d) { slots.forEach(function (slot) {
+        var m = existingMap[d + '|' + slot]; if (m) existingRows.push(m);
+      }); });
+      var resumed = cleanBatch({ meals: existingRows }, batchDates);
+      if (!resumed.missing.length) {
+        Object.keys(resumed.map).forEach(function (key) { map[key] = resumed.map[key]; });
+        progress({ batch: index + 1, total: batches.length, label: label, resumed: true });
+        return runBatch(index + 1);
+      }
+      progress({ batch: index + 1, total: batches.length, label: label, resumed: false });
+      function attempt(n, reason) {
+        claude([{ role: 'user', content: buildPrompt(batchDates, index, reason) }], { system: VOICE, maxTokens: 4200, timeoutMs: 75000 }, function (err, text, meta) {
+          if (err) {
+            if (n < 1) return attempt(n + 1, 'the request failed before a complete batch came back');
+            return cb(new Error('The meal coach could not finish ' + label + ' after two attempts. ' + err.message));
+          }
+          if (meta && meta.stopReason === 'max_tokens') {
+            if (n < 1) return attempt(n + 1, 'the reply was cut off before the JSON finished');
+            return cb(new Error('The meal coach could not finish ' + label + ' because the reply was cut off twice. Try again.'));
+          }
+          var out;
+          try { out = extractJson(text); }
+          catch (e) {
+            if (n < 1) return attempt(n + 1, 'the reply was not complete readable JSON');
+            return cb(new Error('The meal coach could not finish ' + label + ' because the reply was not readable after two attempts. Try again.'));
+          }
+          var cleaned = cleanBatch(out, batchDates);
+          if (cleaned.missing.length) {
+            if (n < 1) return attempt(n + 1, cleaned.reason);
+            return cb(new Error('The meal coach could not finish ' + label + ': ' + cleaned.reason + ' after two attempts. Try again.'));
+          }
+          Object.keys(cleaned.map).forEach(function (key) { map[key] = cleaned.map[key]; });
+          try { onBatch({ batch:index + 1, total:batches.length, label:label, map:cleaned.map }); } catch (batchErr) {}
+          runBatch(index + 1);
+        });
+      }
+      attempt(0, '');
+    }
+    runBatch(0);
   }
 
   function recipeForMeal(meal, cb) {
@@ -1275,17 +1353,24 @@
       err.stage = stage; err.nextWeekStatus = st;
       cb(err, st);
     }
-    function commitMeals(map) {
+    function commitMeals(map, replaceWeek) {
       var merged = Object.assign({}, Store.state().mealPlan || {}), end = Store.shift(nextWeek, 6);
-      Object.keys(merged).forEach(function (k) {
+      if (replaceWeek) Object.keys(merged).forEach(function (k) {
         var d = k.slice(0, 10); if (d >= nextWeek && d <= end) delete merged[k];
       });
       Object.keys(map || {}).forEach(function (k) { merged[k] = map[k]; });
       Store.set('mealPlan', merged);
       Store.set('mealPlannerWeek', nextWeek);
-      /* Shopping checks describe the displayed grocery list, so a newly built
-         week starts clean instead of inheriting checkmarks from another week. */
-      Store.set('shopTicked', {});
+      if (replaceWeek) {
+        /* Shopping checks describe the displayed grocery list, so a newly built
+           week starts clean instead of inheriting checkmarks from another week. */
+        Store.set('shopTicked', {});
+      }
+    }
+    function existingWeekMeals() {
+      var out={}, all=Store.state().mealPlan||{}, end=Store.shift(nextWeek,6);
+      Object.keys(all).forEach(function(k){var d=k.slice(0,10);if(d>=nextWeek&&d<=end)out[k]=all[k];});
+      return out;
     }
     function finish() {
       if (window.Insights && Insights.setNextWeekGoals) Insights.setNextWeekGoals(baseWeek);
@@ -1306,9 +1391,19 @@
     var st = status();
     if (st.meals) return training();
     onProgress('meals', st);
-    planMealsWeek(nextWeek, function (err, map) {
+    planMealsWeek(nextWeek, {
+      existingMap: existingWeekMeals(),
+      onProgress: function (detail) { onProgress('meals-progress', detail || {}); },
+      /* Commit every fully validated batch immediately. If a later Claude call
+         fails or iOS suspends the PWA, the next tap resumes from these rows
+         instead of spending requests rebuilding food that was already done. */
+      onBatch: function (detail) {
+        if (detail && detail.map) commitMeals(detail.map, false);
+        onProgress('meals-batch-ready', detail || {});
+      }
+    }, function (err, map) {
       if (err) return fail('meals', err);
-      commitMeals(map);
+      commitMeals(map, true);
       onProgress('meals-ready', status());
       training();
     });
@@ -1322,10 +1417,10 @@
     var w = Store.recentWeights(14);
     var facts = [
       'Day ' + Store.daysIn() + '. Streak ' + Store.streak() + ' days. Goal: ' + s.goal.replace(/-/g, ' ') + '.',
-      'Today: ' + t.kcal + '/' + s.targets.calories + ' kcal, ' + t.protein + '/' + s.targets.protein + ' g protein, ' +
+      'Today: ' + Store.fmtEnergy(t.kcal) + ' of ' + Store.fmtEnergy(s.targets.calories) + ', ' + t.protein + '/' + s.targets.protein + ' g protein, ' +
         d.steps + '/' + s.targets.steps + ' steps, ' + d.workouts.length + ' session(s), ' + d.meals.length + ' meal(s).',
-      'Weight target ' + s.targets.weightGoal + ' lb.' + (d.weight != null ? ' Weighed ' + d.weight + ' lb today.' : ''),
-      w.length > 1 ? 'Recent weights: ' + w.map(function (x) { return x.weight; }).join(', ') + '.' : '',
+      'Weight target ' + Store.fmtWeight(s.targets.weightGoal) + '.' + (d.weight != null ? ' Weighed ' + Store.fmtWeight(d.weight) + ' today.' : ''),
+      w.length > 1 ? 'Recent weights: ' + w.map(function (x) { return Store.fmtWeight(x.weight); }).join(', ') + '.' : '',
       (window.Insights && Insights.patternsText && Insights.patternsText()) ? 'Patterns visible across recent days:\n' + Insights.patternsText() : ''
     ].filter(Boolean).join('\n');
 
@@ -1362,17 +1457,19 @@
 
     var rows = days.slice(-28).map(function (k) {
       var tt = Store.totals(k), d = s.days[k];
-      return k + ': ' + tt.kcal + ' kcal, ' + tt.protein + ' g protein, ' + (d.steps || 0) + ' steps, ' +
-        (d.workouts || []).length + ' session(s)' + (d.weight != null ? ', ' + d.weight + ' lb' : '');
+      return k + ': ' + Store.fmtEnergy(tt.kcal) + ', ' + tt.protein + ' g protein, ' + (d.steps || 0) + ' steps, ' +
+        (d.workouts || []).length + ' session(s)' + (d.weight != null ? ', ' + Store.fmtWeight(d.weight) : '');
     }).join('\n');
+    var displayWeightGoal = Store.weightNum(t.weightGoal, s.units.weight === 'kg' ? 1 : 0);
+    var displayEnergyTarget = Store.energyNum(t.calories), energyUnit = s.units.energy;
 
     claude([{
       role: 'user',
       content: me() + '\'s goal is ' + s.goal.replace(/-/g, ' ') + '. Their current targets are ' +
-        t.calories + ' kcal, ' + t.protein + ' g protein, ' + t.steps + ' steps, weight goal ' + t.weightGoal + ' lb.\n\n' +
+        displayEnergyTarget + ' ' + energyUnit + ', ' + t.protein + ' g protein, ' + t.steps + ' steps, weight goal ' + displayWeightGoal + ' ' + s.units.weight + '.\n\n' +
         'The last ' + Math.min(28, days.length) + ' logged days:\n' + rows +
         '\n\nPropose targets that fit what they actually do. Keep any target that is already right \u2014 ' +
-        'changing everything is not advice. Reply with JSON only: ' +
+        'changing everything is not advice. The JSON calories field must use the same energy unit shown above (' + energyUnit + '). Reply with JSON only: ' +
         '{"calories":n,"protein":n,"steps":n,"weightGoal":n,"why":"one or two sentences naming the evidence"}'
     }], { system: VOICE, maxTokens: 400 }, function (err, text) {
       if (err) return cb(err);
@@ -1391,10 +1488,10 @@
         why: why,
         summary: (firstSentence ? firstSentence.replace(/\.$/, '') + '.' : 'New targets to approve'),
         targets: {
-          calories: num(out.calories, 1200, 4500, t.calories),
+          calories: Store.energyToKcal(num(out.calories, energyUnit === 'kJ' ? 5000 : 1200, energyUnit === 'kJ' ? 19000 : 4500, displayEnergyTarget)),
           protein: num(out.protein, 80, 300, t.protein),
           steps: num(out.steps, 3000, 25000, t.steps),
-          weightGoal: num(out.weightGoal, 120, 400, t.weightGoal)
+          weightGoal: Store.weightToLb(num(out.weightGoal, s.units.weight === 'kg' ? 27 : 60, s.units.weight === 'kg' ? 272 : 600, displayWeightGoal))
         }
       });
       cb(null, Store.state().proposal);
@@ -1403,7 +1500,7 @@
 
   window.Cloud = {
     suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, setupNextWeek: setupNextWeek, recipeForMeal: recipeForMeal,
-    proposeTargets: proposeTargets,
+    proposeTargets: proposeTargets, validateTrainingPlan: validatePlan,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,
     coachLine: coachLine, chooseVerse: chooseVerse, writePlan: writePlan, weeklyNote: weeklyNote, weeklyReview: weeklyReview, ask: ask,

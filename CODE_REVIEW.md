@@ -1,55 +1,52 @@
-# InSync 5.5.4 — Code Review
+# InSync 5.5.6 — Code Review
 
 ## Scope
 
-This review focused on the complete **Set up my next week** path and the Train landing screen. The work stays inside the existing local-first architecture: Store remains the persistence boundary, Insights derives readiness/progression facts, Cloud owns Claude I/O, and Screens/UI own presentation.
+This was a full second-user code audit, not a planner-only patch. The review traced state normalization and migration, owner/partner identity, two-phone sync direction, privacy boundaries, backup/restore, onboarding targets, units, Coach persistence, weekly chapters, meal generation, future training, Settings preference changes, Daily Walk coexistence and all exported screens.
 
-## Root causes found
+## Canonical storage contract
 
-### 1. Walking still consumed a gym-frequency day
-The training prompt and validator inherited the older design where a high-frequency week could contain a dedicated Walk day. After 5.5.3 made walking a daily independent activity, that behavior became incorrect. A five-day gym preference could therefore produce only four lifting sessions.
+InSync intentionally keeps stable internal units:
 
-**Fix:** the writer now requires exactly the selected number of lifting days, rejects Walk/Cardio day names, and explains to Claude that walking is tracked separately.
+- weight / lifted load: pounds;
+- distance: miles;
+- energy: kilocalories.
 
-### 2. Valid meals were lost when training failed
-The old setup transaction generated all 28 meals, kept them only in memory, then requested training. If training failed afterward, no meal plan was committed and the next tap restarted the expensive meal generation.
+User-facing input/output is converted at the boundary. 5.5.6 closes legacy paths that previously displayed or stored selected kg/kJ values as if they were canonical lb/kcal. Distance and climb output likewise go through the selected-unit formatters.
 
-**Fix:** setup is now a resumable two-part coordinator. Each successful half is persisted immediately. A retry inspects semantic readiness and runs only the missing half.
+This approach avoids rewriting historical records when the user changes units and prevents cumulative rounding drift.
 
-### 3. Recovery validation conflated biceps and triceps
-Exercise navigation intentionally groups curls and triceps work under **Arms**, but using that broad UI category for recovery validation caused ordinary consecutive Push/Pull days to be rejected.
+## State normalization fixes
 
-**Fix:** recovery validation keeps the UI grouping but internally separates Arms movements into Biceps and Triceps.
+The v10 state contract now explicitly normalizes `profile.startWeight`, `coachPending`, `chapters`, chosen-verse cache shape, profile sex and every previously supported goal including `strong`.
 
-### 4. Future plan lookup ignored staged plans
-`Store.planFor(date)` previously read only the active plan. A staged plan could exist for next Monday while future-day previews still showed the wrong schedule or Rest.
+`coachPending` is intentionally reset on load/import because an in-flight browser request cannot survive a killed/suspended PWA. Weekly chapters are canonicalized to Monday calendar weeks and deduplicated by week.
 
-**Fix:** plan lookup selects a plan by the requested date's week, preferring the staged plan for its own week and the active plan for its stamped week.
+No local key/schema bump is required: the v10 merger supplies new defaults and the existing normalization/migration pass safely repairs older shapes in memory before the next save.
 
-### 5. Readiness trusted metadata too much
-A matching `futurePlanMeta.weekOf` could mark training ready even if the plan array was empty, and meal readiness was based on a raw count rather than the required date/slot matrix.
+## Future-week correctness
 
-**Fix:** readiness now verifies all 28 exact date+slot meal records and the exact configured number of non-Walk lifting-plan rows with exercise arrays.
+Readiness is semantic rather than metadata-based. Meals must have all exact date/slot combinations plus usable grocery ingredients and instructions. Training must contain real exercise IDs, obey current exclusions, match the selected lifting frequency and satisfy recovery rules.
 
-### 6. Week-boundary activation was launch-heavy
-A PWA left open across Sunday night into Monday could retain the staged plan until a full reload.
+A future plan can activate only when `futurePlanMeta.weekOf` exactly equals the current Monday. Expired plans are cleared. Meal setup persists each validated batch as it finishes, making retry genuinely resumable within the meal half rather than only between meals and training.
 
-**Fix:** scheduled-plan promotion is also checked on foreground return and in the existing visible-app periodic tick.
+Goal/frequency changes are now atomic Store operations. They leave the current plan alone, clear staged training generated under the old preference and remove the stale next-week lifting goal so the next setup regenerates consistently.
 
-## Train presentation review
+## Identity and restore safety
 
-The supplied iPhone screenshot showed a large dark/dead middle band on a rest day: the artwork disappeared too early and the weekly context was below the opening view. The Train screen now uses a lower custom scrim, a compact walk card, and a measured fold anchored at the **This week** card. This preserves the app's visual language while making better use of the hero image. A staged next week gets its own preview card instead of changing the active week early.
+Owner and partner names are not merely labels; their normalized identity keys determine private sync filenames.
 
-## Risk review
+- Partner identity changes clear partner-derived caches.
+- Material owner renames clear stale sync-health success state.
+- Connected Settings warns before a material owner rename.
+- Restore refuses a different-owner backup over an active onboarded device and refuses an ownerless backup marked onboarded.
 
-- No new external dependency was introduced.
-- Local state remains schema v10.
-- Partner sync remains schema 6.
-- Meal and training setup still uses the existing local Claude credential path.
-- The current active plan is never overwritten by a future plan before its week begins.
-- Partial setup failures now preserve completed work rather than rolling it back.
-- Existing privacy boundaries are unchanged.
+This prevents a particularly dangerous two-phone failure mode where Lizzie's phone could retain Lizzie's local GitHub token/repository settings while importing Robert's owner identity and then begin writing the same sync filename as Robert's phone.
+
+## Privacy review
+
+The partner payload remains schema 6. Full meal plans, meal preferences, exact foods, exact lifted weights, photographs and exact bodyweight remain local. Optional calories/protein, workouts and steps follow their privacy switches; turning steps off also withholds shared expedition mileage. The deep pair test runs both device directions to prevent one-sided privacy assumptions.
 
 ## Remaining architectural debt
 
-`screens.js`, `store.js`, `cloud.js`, and `app.js` remain large modules. They are stable but should eventually be split by domain during a deliberate major refactor. This release avoids that speculative change because it would add regression risk unrelated to the reported behavior.
+The app is still a dependency-free browser PWA with large domain modules. Direct browser-held API credentials remain a deliberate private-app tradeoff. A future major refactor could split planning, sync and Store normalization into smaller modules, but this audit intentionally avoided a broad rewrite that would increase regression risk while repairing production behavior.

@@ -182,7 +182,7 @@
 
     ['together-a-week-together', 'together', 'A week together', 'common', 'Seven days you both logged', function () { return bothLoggedRun() >= 7; }],
     /* A route is only ever set once both of them have agreed it, so the route
-       itself is the evidence — her synced file is not needed to prove it. */
+       itself is the evidence — the partner sync file is not needed to prove it. */
     ['together-expedition-agreed', 'together', 'Expedition agreed', 'common', 'The first invitation accepted', function () { return !!Store.state().expedition.routeId; }],
     ['together-challenge-won', 'together', 'Challenge won', 'hard', 'Win a weekly challenge', function () {
       var w = completedWeek(); return !!w && w.mine > w.partner;

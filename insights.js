@@ -220,28 +220,46 @@
     while (keys.length > 52) delete all[keys.shift()];
     return Store.set('weeklyReviews', all);
   }
+  function preparedMealReady(m, date, slot) {
+    if (!m || m.date !== date || m.slot !== slot || !String(m.name || '').trim()) return false;
+    if (!Array.isArray(m.items) || m.items.length < 2 || !Array.isArray(m.instructions) || !m.instructions.length) return false;
+    if (!m.items.every(function (it) { return it && String(it.name || '').trim(); })) return false;
+    return ['kcal','protein','carbs','fat'].every(function (k) { return isFinite(+m[k]) && +m[k] >= 0; });
+  }
+  function preparedTrainingReady(candidate, freq) {
+    if (window.Cloud && typeof Cloud.validateTrainingPlan === 'function') {
+      var avoided = avoidedExerciseIds();
+      return !!Cloud.validateTrainingPlan(candidate, freq, avoided);
+    }
+    var seen = {}, avoided = avoidedExerciseIds();
+    return Array.isArray(candidate) && candidate.length === freq && candidate.every(function (p) {
+      if (!p || ['Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(p.day) < 0 || !p.name || /walk|cardio/i.test(p.name) || seen[p.day]) return false;
+      seen[p.day] = true;
+      if (!Array.isArray(p.ex) || p.ex.length < 3 || p.ex.length > 5) return false;
+      var ids = {};
+      return p.ex.every(function (id) {
+        if (!Exercises.get(id) || ids[id] || avoided.indexOf(id) >= 0) return false;
+        ids[id] = true; return true;
+      });
+    });
+  }
   function nextWeekStatus(weekOf) {
     var next = Store.shift(weekOf, 7), s = state(), slots = ['Breakfast','Lunch','Dinner','Snack'], count = 0;
-    /* Readiness is semantic, not just a row count. Twenty-eight arbitrary meal
-       keys or a stale training metadata stamp must never make Setup report a
-       finished week when one of the actual dated slots/days is missing. */
+    /* Readiness is semantic, not just a row count. Twenty-eight arbitrary or
+       half-written rows and a stale training metadata stamp must never make
+       Setup report a finished week. */
     for (var i=0;i<7;i++) {
       var date = Store.shift(next,i);
       slots.forEach(function (slot) {
         var m=(s.mealPlan||{})[date+'|'+slot];
-        if (m && m.date===date && m.slot===slot) count++;
+        if (preparedMealReady(m, date, slot)) count++;
       });
     }
     var candidate=[];
     if (s.futurePlanMeta && s.futurePlanMeta.weekOf===next && Array.isArray(s.futurePlan)) candidate=s.futurePlan;
     else if (s.planMeta && s.planMeta.weekOf===next && Array.isArray(s.plan)) candidate=s.plan;
     var freq=Math.max(2,Math.min(6,+s.frequency||4));
-    var seen={};
-    var training=candidate.length===freq && candidate.every(function(p){
-      if(!p || !p.day || !p.name || /walk|cardio/i.test(p.name)) return false;
-      if(seen[p.day]) return false; seen[p.day]=true;
-      return Array.isArray(p.ex) && p.ex.length>=3 && p.ex.length<=5;
-    });
+    var training=preparedTrainingReady(candidate,freq);
     return { weekOf: next, training: training, meals: count === 28, mealCount: count };
   }
 
@@ -271,7 +289,7 @@
     var weights = Store.recentWeights ? Store.recentWeights(14) : [];
     if (weights.length >= 3) {
       var delta = +(weights[weights.length-1].weight - weights[0].weight).toFixed(1);
-      if (Math.abs(delta) >= 1) out.push({ id:'weight', route:'body', title:'Weight has a direction', text:'Across your recent weigh-ins the scale is ' + (delta < 0 ? 'down ' : 'up ') + Math.abs(delta).toFixed(1) + ' lb.' });
+      if (Math.abs(delta) >= 1) out.push({ id:'weight', route:'body', title:'Weight has a direction', text:'Across your recent weigh-ins the scale is ' + (delta < 0 ? 'down ' : 'up ') + Store.weightNum(Math.abs(delta), 1) + ' ' + Store.state().units.weight + '.' });
     }
     var disliked = s.mealDislikedMeals || [];
     if (disliked.length >= 3) out.push({ id:'taste', route:'planner', title:'Your food preferences are getting clearer', text:'You have marked ' + disliked.length + ' meals “not for me,” and the planner now keeps them out.' });
@@ -364,7 +382,18 @@
 
   function activateScheduledPlan() {
     var s=state(), meta=s.futurePlanMeta||{}, currentWeek=Store.weekStart(Store.todayKey());
-    if (!(meta.weekOf && meta.weekOf <= currentWeek && Array.isArray(s.futurePlan) && s.futurePlan.length)) return false;
+    if (!meta.weekOf || !Array.isArray(s.futurePlan) || !s.futurePlan.length) return false;
+    /* A staged week is valid for exactly the Monday it was written for. If a
+       phone stays closed for a week or more, never promote that old schedule as
+       today's plan just because its date is <= the current week. */
+    if (meta.weekOf < currentWeek) {
+      Store.set('futurePlan',[]); Store.set('futurePlanMeta',{}); return false;
+    }
+    if (meta.weekOf !== currentWeek) return false;
+    var freq=Math.max(2,Math.min(6,+s.frequency||4));
+    if (!preparedTrainingReady(s.futurePlan,freq)) {
+      Store.set('futurePlan',[]); Store.set('futurePlanMeta',{}); return false;
+    }
     var plan=s.futurePlan.slice(), nextMeta=Object.assign({},meta);
     Store.set('plan',plan); Store.set('planMeta',nextMeta); Store.set('futurePlan',[]); Store.set('futurePlanMeta',{});
     return true;

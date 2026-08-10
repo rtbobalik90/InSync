@@ -1,59 +1,72 @@
-# InSync 5.5.4 — Release Test Report
+# InSync 5.5.6 — Release Test Report
 
 ## Release gate
 
-The production working tree and the final packaged ZIP were each run through the complete automated suite in a clean Node environment.
+The working tree must pass every automated suite. The production ZIP is then extracted into a separate clean-room directory and the exact same suites are run again against the files that will actually be deployed.
 
 | Suite | Passed | Failed |
 |---|---:|---:|
 | Core stabilization / persistence / migrations / assets / wiring | 496 | 0 |
 | Two-phone cloud sync / concurrency | 30 | 0 |
 | Weekly rhythm / history / coaching / reactions | 57 | 0 |
+| Lizzie-device planner / second-user regression | 50 | 0 |
+| **Lizzie deep-audit state / units / preferences / restore** | **87** | **0** |
+| **Lizzie ↔ Robert pair-symmetry sync** | **14** | **0** |
 | Meal planner / recipes / meal-prep memory | 25 | 0 |
+| Next-week setup + Train | 23 | 0 |
 | Notification bell states | 10 | 0 |
 | Screen and malformed-state smoke rendering | 71 | 0 |
 | Daily Walk / recovery-day timer | 42 | 0 |
-| Next-week setup + Train rework | 23 | 0 |
-| **Total** | **754** | **0** |
+| **Total** | **905** | **0** |
 
-## 5.5.4-specific coverage
+## Deep-audit coverage
 
-The new next-week/Train suite verifies that:
+The 87-check owner-side audit verifies, among other things:
 
-- a Walk/Cardio placeholder cannot consume one of the selected gym days;
-- a valid five-day lifting split is accepted as five lifting days;
-- malformed/unsafe first training output receives exactly one automatic repair attempt;
-- biceps/triceps recovery does not falsely reject a normal Push/Pull sequence;
-- staged future training retains all requested lifting days;
-- `Store.planFor()` resolves a staged future week before Monday promotion;
-- 28 valid meals remain saved when training subsequently fails;
-- retrying setup skips the already-saved meal half and retries only training;
-- successful setup creates exactly two measurable goals;
-- the training-session goal matches the configured lifting frequency;
-- stale future-plan metadata cannot claim training is ready without real plan rows;
-- 28 arbitrary meal rows cannot claim meal setup is complete without the exact seven-date × four-slot matrix;
-- Train uses the compact daily Walk timer and anchors its resting fold through **This week**;
-- Train can use its lower custom hero scrim without changing other screens;
-- staged next-week training is visibly previewable without becoming active early;
-- onboarding no longer teaches that walking replaces a gym day.
+- `strong` goal survives reload;
+- interrupted Coach state cannot remain permanently pending;
+- Claude-selected verse state survives reload;
+- malformed chapter state is normalized and old rolling chapters migrate to true calendar weeks;
+- one-word initials stay consistent;
+- partner identity changes cannot display the previous person's cached data;
+- canonical lb ↔ kg and kcal ↔ kJ conversions are reversible at user input boundaries;
+- every major Lizzie screen renders with kg + km + kJ enabled together;
+- walking trends/review/arrival respect km and metre climb display;
+- lower adult weight proposals and kg/kJ Coach proposals convert safely back to canonical storage;
+- semantic next-week readiness rejects placeholder meals, invented exercises and newly disliked exercises;
+- expired future training cannot activate late;
+- successful meal batches survive a later batch failure and retry resumes only missing batches;
+- all four female goal modes produce bounded finite onboarding targets;
+- every supported 2–6 day built-in lifting plan passes the production validator;
+- post-onboarding goal/frequency changes preserve the active week and invalidate stale staged training;
+- cross-owner backup restore and malformed ownerless onboarded backups are rejected safely;
+- production logic contains no hard-coded Robert or Lizzie identity.
+
+## Pair-symmetry coverage
+
+The 14-check two-device simulation runs separate Lizzie-owner and Robert-owner VMs against one mock private GitHub repository. It verifies both filename directions, shared-step privacy, non-shared meal data, proposal/acceptance flow in both directions, decision ownership, wrong-owner payload rejection and correct network paths.
 
 ## Static production checks
 
-- Production JavaScript parses successfully.
-- `manifest.webmanifest` parses successfully.
-- 126/126 production raster/WebP images decode.
-- 41/41 exercise demonstration WebPs remain animated.
-- 0 zero-byte files.
-- 0 duplicate production-image hash groups.
-- production action/route/asset wiring remains covered by the stabilization/smoke suites.
-- version agreement: app **5.5.4**, local state **v10**, partner sync **schema 6**, service-worker cache **insync-v10-13**.
+The release gate additionally verifies JavaScript syntax, manifest JSON, action/route wiring, service-worker cache contract, zero-byte files, literal production asset references and production image integrity.
 
-## Physical-device acceptance still worth checking
+Version contract:
 
-Automated tests cannot reproduce every iOS Home Screen PWA lifecycle behavior. On the two real phones, the most useful acceptance checks are:
+- app **5.5.6**;
+- local state **v10**;
+- partner sync **schema 6**;
+- service-worker cache **insync-v10-15**.
 
-1. open Weekly Review and run **Set up my next week** with the real Claude key;
-2. confirm progress moves through meals and training and the ready state survives closing/reopening the PWA;
-3. verify the coming Train week contains the selected number of lifting sessions, not a Walk placeholder;
-4. on a rest day, confirm the Train hero shows more artwork, the Walk timer sits higher, and **This week** is visible in the opening composition;
-5. if the PWA remains open across Sunday night into Monday, confirm staged training activates without requiring a reinstall/reload.
+## Physical-device acceptance boundary
+
+Automated tests cannot inspect the literal private localStorage currently on Lizzie's iPhone, call the real Anthropic service with her private key, or perfectly reproduce every iOS Home Screen PWA suspension. This release therefore tests old, malformed, metric, partial-planner and Lizzie-shaped states plus the real truncation failure class, while the final acceptance step remains using the exact deployed build on the physical phones.
+
+## Final package verification
+
+The finalized 5.5.6 ZIP was extracted into a fresh clean-room directory. All **905/905** regression assertions passed again from that extracted package with **0 failures**. The clean-room static gate also found:
+
+- **126/126** production images decode successfully;
+- **41/41** exercise demonstration images remain animated;
+- **0** zero-byte files;
+- **0** duplicate production-image hashes;
+- no production `TODO`, `FIXME`, `debugger`, `console.log` or `console.debug` residue.

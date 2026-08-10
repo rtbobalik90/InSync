@@ -1222,3 +1222,8 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .wk.future { opacity: .86; }
 .next-training .meta.ready { color: var(--sage-lt, #B5C6AA); }
 .next-training .small.pad-x { margin: 9px 0 14px; }
+
+/* Settings preferences that change future coaching, not the current week. */
+.setpref{padding:15px 16px;border-bottom:1px solid var(--rule);display:grid;gap:11px}
+.setprefchips{display:flex;gap:7px;flex-wrap:wrap}
+.setprefchips .ob-chip{flex:1 1 auto;min-width:64px;min-height:38px;padding:0 12px}

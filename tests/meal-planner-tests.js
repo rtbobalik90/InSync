@@ -24,7 +24,11 @@ function weekPayload(week, count=28){
   return {meals};
 }
 function setClaudeResponse(obj){
-  ctx.fetch=()=>Promise.resolve({ok:true,status:200,json:()=>Promise.resolve({content:[{type:'text',text:JSON.stringify(obj)}]})});
+  ctx.fetch=(url,opts)=>{
+    const body=JSON.parse((opts&&opts.body)||'{}'), prompt=((body.messages||[])[0]||{}).content||'';
+    const payload=obj&&Array.isArray(obj.meals)?{meals:obj.meals.filter(m=>prompt.includes(`${m.date} ${m.slot}`))}:obj;
+    return Promise.resolve({ok:true,status:200,json:()=>Promise.resolve({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(payload)}]})});
+  };
 }
 function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>resolve({err,map})));}
 
@@ -42,7 +46,7 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
 
   setClaudeResponse(weekPayload(week,27));
   result=await plan(week);
-  ok(!!result.err && /missed or rejected 1 meal slot/i.test(result.err.message),'an incomplete 27-slot week is rejected atomically');
+  ok(!!result.err && /could not finish|missed or rejected/i.test(result.err.message),'an incomplete 27-slot week is rejected after its bounded repair attempt');
 
   // The generator is home-cooked only: a restaurant/fast-food chain in any slot
   // causes the whole atomic rebuild to be rejected instead of sneaking through.
@@ -60,10 +64,15 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   // User taste preferences must actually reach the prompt and become a hard
   // filter, not just decorate the planner screen.
   S.set('mealPrefs',{cuisines:['Mexican','Indian'],proteins:['Chicken','Beef'],likes:'spicy, rice bowls',avoid:'mushrooms, olives'});
-  let promptBody='';
-  ctx.fetch=(url,opts)=>{ promptBody=JSON.parse(opts.body).messages[0].content; return Promise.resolve({ok:true,status:200,json:()=>Promise.resolve({content:[{type:'text',text:JSON.stringify(weekPayload(week))}]})}); };
+  let promptBodies=[];
+  ctx.fetch=(url,opts)=>{
+    const prompt=JSON.parse(opts.body).messages[0].content; promptBodies.push(prompt);
+    const full=weekPayload(week), payload={meals:full.meals.filter(m=>prompt.includes(`${m.date} ${m.slot}`))};
+    return Promise.resolve({ok:true,status:200,json:()=>Promise.resolve({stop_reason:'end_turn',content:[{type:'text',text:JSON.stringify(payload)}]})});
+  };
   result=await plan(week);
   ok(!result.err,'preference-aware week still generates successfully');
+  const promptBody=promptBodies.join('\n');
   ok(promptBody.includes('Selected cuisines for this week: Mexican, Indian') && promptBody.includes('Selected protein choices: Chicken, Beef'),'cuisine and protein choices are sent to the meal coach');
   ok(promptBody.includes('Foods/flavors they like: spicy, rice bowls') && promptBody.includes('Foods/flavors they do NOT like or want: mushrooms, olives'),'like and avoid keywords are sent to the meal coach');
 

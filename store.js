@@ -21,7 +21,7 @@
   var DEFAULT = {
     /* Empty until onboarding, on either phone. Nothing in the app may assume
        whose device this is. */
-    profile: { name: '', initials: '', heightIn: 0, age: 0, sex: '', startDate: '' },
+    profile: { name: '', initials: '', heightIn: 0, age: 0, sex: '', startDate: '', startWeight: null },
     goal: 'lose-fat',
     targets: { calories: 2000, protein: 155, steps: 10000, weightGoal: 196 },
     units: { weight: 'lb', distance: 'mi', energy: 'kcal' },
@@ -55,7 +55,11 @@
     frequency: 4,
     partnerData: null,
     coachCache: null,
+    /* In-flight AI requests cannot survive a page reload. Normalize this back
+       to false at startup so a suspended/closed phone never stays stuck on Thinking. */
+    coachPending: false,
     coachChat: null,
+    chapters: [],
     verseCache: null,
     plan: [],
     planMeta: {},
@@ -241,9 +245,11 @@
     S.profile.heightIn = Math.round(finiteOr(S.profile.heightIn, 0, 0, 120));
     S.profile.age = Math.round(finiteOr(S.profile.age, 0, 0, 120));
     S.profile.sex = shortText(S.profile.sex, 30);
+    if (['Male', 'Female'].indexOf(S.profile.sex) < 0) S.profile.sex = '';
     S.profile.startDate = validDateKey(S.profile.startDate) ? String(S.profile.startDate) : '';
+    S.profile.startWeight = S.profile.startWeight == null ? null : finiteOr(S.profile.startWeight, null, 20, 1500);
 
-    if (['lose-fat', 'build', 'hold'].indexOf(S.goal) < 0) S.goal = DEFAULT.goal;
+    if (['lose-fat', 'build', 'hold', 'strong'].indexOf(S.goal) < 0) S.goal = DEFAULT.goal;
     if (!plainObject(S.targets)) S.targets = clone(DEFAULT.targets);
     S.targets.calories = Math.round(finiteOr(S.targets.calories, DEFAULT.targets.calories, 500, 10000));
     S.targets.protein = Math.round(finiteOr(S.targets.protein, DEFAULT.targets.protein, 1, 1000));
@@ -615,10 +621,25 @@
     if (S.verseCache != null && !plainObject(S.verseCache)) S.verseCache = null;
     if (S.verseCache) {
       S.verseCache.date = validDateKey(S.verseCache.date) ? String(S.verseCache.date) : '';
-      S.verseCache.text = shortText(S.verseCache.text, 1000);
-      S.verseCache.ref = shortText(S.verseCache.ref, 200);
-      if (!S.verseCache.date || !S.verseCache.text || !S.verseCache.ref) S.verseCache = null;
+      S.verseCache.index = Math.round(finiteOr(S.verseCache.index, -1, 0, 10000));
+      S.verseCache.why = shortText(S.verseCache.why, 1000);
+      if (!S.verseCache.date || S.verseCache.index < 0) S.verseCache = null;
     }
+    /* There is no network request to resume after an iOS PWA is relaunched. */
+    S.coachPending = false;
+    if (!Array.isArray(S.chapters)) S.chapters = [];
+    var chapterWeeks = {};
+    S.chapters.filter(plainObject).map(function (c) {
+      var to = validDateKey(c.to) ? String(c.to) : '';
+      var from = to ? weekStart(to) : (validDateKey(c.from) ? weekStart(String(c.from)) : '');
+      return { from: from, to: to, text: shortText(c.text, 5000) };
+    }).filter(function (c) { return !!c.from && !!c.to && c.from <= c.to && !!c.text; }).forEach(function (c) {
+      /* Older builds stored rolling seven-day ranges. Canonicalize them to the
+         Monday containing their end date. Assignment intentionally lets the
+         later record win if an older build wrote two chapters in one week. */
+      chapterWeeks[c.from] = c;
+    });
+    S.chapters = Object.keys(chapterWeeks).sort().map(function (k) { return chapterWeeks[k]; }).slice(-52);
     if (S.coachCache != null && !plainObject(S.coachCache)) S.coachCache = null;
     if (S.coachCache) {
       S.coachCache.date = validDateKey(S.coachCache.date) ? String(S.coachCache.date) : '';
@@ -1288,7 +1309,7 @@
     save(); emit(); return true;
   }
 
-  /* Compatibility names keep older call sites/backups safe while 5.5.4 keeps
+  /* Compatibility names keep older call sites/backups safe while this build keeps
      the canonical clock to the day record. */
   function sessionWalkElapsedMs() { return dailyWalkElapsedMs(S.session ? S.session.date : todayKey()); }
   function startSessionWalk() { return S.session ? startDailyWalk(S.session.date) : false; }
@@ -1388,7 +1409,7 @@
     save();
   }
 
-  /* The coach chooses the day's verse against the week he has had. Where it
+  /* The coach chooses the day's verse against the week the user has had. Where it
      has not run — no key, offline, a past day — the list rotates by date, so
      both devices land on the same one. */
   var VERSES = [
@@ -1500,8 +1521,8 @@
   function miles(steps) { return (steps || 0) / 2000; }
 
   /* Miles on this leg are not a counter someone has to remember to increment:
-     they are the steps logged since the leg opened, converted once. Hers is the
-     figure her own device derived the same way and synced across. */
+     they are the steps logged since the leg opened, converted once. The partner figure is
+     derived on the partner device the same way and synced across. */
   function legMine() {
     var start = S.expedition.legStart;
     if (!start) return 0;
@@ -1518,7 +1539,7 @@
 
   function legHers() { return +(+(S.partnerLegMiles || 0)).toFixed(1); }
 
-  /* Her name where one is set, and something true where none is. Both phones
+  /* The partner name where one is set, and something true where none is. Both phones
      run this same code, so neither may assume whose it is. */
   function partnerName() { return S.partner.name || 'your partner'; }
   function partnerInitials() { return S.partner.initials || ''; }
@@ -1685,7 +1706,7 @@
     if (lb == null || lb === '') return null;
     return +weightVal(+lb).toFixed(dp == null ? 1 : dp);
   }
-  /* And back again: what he types is in his units, what is stored is pounds. */
+  /* And back again: what the person types is in their units; stored weight stays in pounds. */
   function weightToLb(v) {
     var n = +v;
     if (!isFinite(n)) return null;
@@ -1700,10 +1721,18 @@
     var km = S.units.distance === 'km';
     return (km ? mi * PER_KM : mi).toFixed(dp == null ? 1 : dp) + ' ' + S.units.distance;
   }
+  function energyNum(kcal) {
+    if (kcal == null || kcal === '') return null;
+    return Math.round(S.units.energy === 'kJ' ? (+kcal * PER_KJ) : +kcal);
+  }
+  function energyToKcal(value) {
+    var n = +value;
+    if (!isFinite(n)) return null;
+    return Math.round(S.units.energy === 'kJ' ? n / PER_KJ : n);
+  }
   function fmtEnergy(kcal) {
     if (kcal == null) return '\u2014';
-    var kj = S.units.energy === 'kJ';
-    return Math.round(kj ? kcal * PER_KJ : kcal).toLocaleString() + ' ' + S.units.energy;
+    return energyNum(kcal).toLocaleString() + ' ' + S.units.energy;
   }
   /* Lifted weight is the same unit as bodyweight, but plates are whole numbers:
      no decimal in pounds, one in kilos. */
@@ -1719,21 +1748,75 @@
     return Math.round(m ? ft * 0.3048 : ft).toLocaleString() + ' ' + (m ? 'm' : 'ft');
   }
 
-  /* His name and the initials on the avatar are one decision, so they are
+  /* The owner name and avatar initials are one decision, so they are
      written together and cannot drift apart. */
   function initialsFor(name) {
-    return String(name || '').trim().split(/\s+/).filter(Boolean)
-      .map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase();
+    var parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    /* Match onboarding: one-word names get two letters, while
+       multi-word names use the first letter of each of the first two words. */
+    return (parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  /* Names are also the file identities used by two-phone sync. Keep this
+     canonicalizer in Store so backup/Settings safety checks use exactly the
+     same rule as Cloud. */
+  function identityKey(name) {
+    return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   }
   function setProfileName(name) {
     var clean = (name || '').trim();
     if (!clean) return;
+    var before = identityKey(S.profile.name), after = identityKey(clean);
     S.profile.name = clean;
     S.profile.initials = initialsFor(clean);
+    /* A material owner rename changes the private filename this phone writes.
+       Do not leave a green "last synced" stamp from the previous identity. */
+    if (before && before !== after && S.connections) {
+      S.connections.lastSync = '';
+      S.connections.lastSyncError = '';
+      S.connections.lastSyncErrorAt = '';
+    }
     save(); emit();
+  }
+  function clearPreparedTrainingAfterPreferenceChange() {
+    S.futurePlan = [];
+    S.futurePlanMeta = {};
+    if (!plainObject(S.weeklyGoals)) S.weeklyGoals = {};
+    var nextWeek = shift(weekStart(todayKey()), 7);
+    if (Object.prototype.hasOwnProperty.call(S.weeklyGoals, nextWeek)) delete S.weeklyGoals[nextWeek];
+  }
+  function setGoal(goal) {
+    goal = String(goal || '');
+    if (['lose-fat', 'build', 'hold', 'strong'].indexOf(goal) < 0 || S.goal === goal) return false;
+    S.goal = goal;
+    /* Goal influences the coach's split as well as target advice. A staged
+       training week written for the old goal must be regenerated, while the
+       current calendar week stays intact. */
+    clearPreparedTrainingAfterPreferenceChange();
+    save(); emit(); return true;
+  }
+  function setFrequency(value) {
+    var n = Math.max(2, Math.min(6, Math.round(+value || DEFAULT.frequency)));
+    if (S.frequency === n) return false;
+    S.frequency = n;
+    /* Frequency is a hard contract: four days means four lifting days. Never
+       activate a staged plan generated before this setting changed. */
+    clearPreparedTrainingAfterPreferenceChange();
+    save(); emit(); return true;
   }
   function setPartnerName(name) {
     var clean = (name || '').trim();
+    var before = identityKey(S.partner.name), after = identityKey(clean);
+    /* The partner name is also the private sync-file identity. If that identity
+       really changes, old partner caches must not be shown under the new name.
+       Capitalization/spacing edits that resolve to the same sync key are safe. */
+    if (before && before !== after) {
+      S.partnerData = null; S.partnerHistory = {}; S.partnerLoggedHistory = {}; S.partnerLegMiles = 0;
+      S.partnerNoteSeen = ''; S.invite = null; S.reactionsGiven = {}; S.notificationInfoSeen = [];
+      if (S.connections) {
+        S.connections.lastSync = ''; S.connections.lastSyncError = ''; S.connections.lastSyncErrorAt = '';
+      }
+    }
     S.partner.name = clean;
     S.partner.initials = initialsFor(clean);
     save(); emit();
@@ -1864,6 +1947,9 @@
     if (!plainObject(incoming) || !plainObject(incoming.profile) || !plainObject(incoming.days)) {
       throw new Error('That backup does not contain a valid InSync log.');
     }
+    if (incoming.onboarded && !identityKey(incoming.profile.name)) {
+      throw new Error('That backup is marked as set up but does not contain a valid owner name. Nothing was restored.');
+    }
     var next;
     try { next = merge(clone(DEFAULT), clone(incoming)); }
     catch (e) { throw new Error('That backup could not be read safely.'); }
@@ -1931,7 +2017,7 @@
     saveReflection: saveReflection, markVerseRead: markVerseRead, verse: verse, verseList: verseList, records: records,
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
     legMine: legMine, legHers: legHers,
-    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef,
+    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, identityKey: identityKey,
     advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,
     propose: propose, nudgeInvite: nudgeInvite, acceptInvite: acceptInvite,
     counterInvite: counterInvite, settleInvite: settleInvite,
@@ -1941,11 +2027,11 @@
     secret: secret, setSecret: setSecret, lastSaveError: function () { return lastSaveError; },
     loadError: function () { return loadError; }, loadWarning: function () { return loadWarning; }, corruptRaw: function () { return corruptRaw; },
     exportState: exportState, importState: importState,
-    fmtWeight: fmtWeight, fmtDistance: fmtDistance, fmtEnergy: fmtEnergy,
+    fmtWeight: fmtWeight, fmtDistance: fmtDistance, fmtEnergy: fmtEnergy, energyNum: energyNum, energyToKcal: energyToKcal,
     fmtLift: fmtLift, liftNum: liftNum, fmtClimb: fmtClimb,
     weightNum: weightNum, weightToLb: weightToLb,
     recentWeights: recentWeights,
-    setProfileName: setProfileName, setPartnerName: setPartnerName, setPartnerNote: setPartnerNote, markMessagesSynced: markMessagesSynced, markCurrentNoteSynced: markCurrentNoteSynced,
+    setProfileName: setProfileName, setPartnerName: setPartnerName, setGoal: setGoal, setFrequency: setFrequency, setPartnerNote: setPartnerNote, markMessagesSynced: markMessagesSynced, markCurrentNoteSynced: markCurrentNoteSynced,
     acceptProposal: acceptProposal, dismissProposal: dismissProposal,
     wipe: wipe, KEY: KEY, SECRET_KEY: SECRET_KEY,
     on: function (f) { subs.push(f); }

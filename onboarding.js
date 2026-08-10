@@ -83,7 +83,7 @@
 
   var ORDER = ['welcome', 'name', 'body', 'goal', 'frequency', 'targets', 'plan', 'pair', 'coach'];
   var STEP_TOTAL = ORDER.length - 1; // the welcome screen is not a step
-  // Screens that ask something of him, as opposed to showing him something.
+  // Screens that ask something of the person, as opposed to showing something.
   var ASKS = ['name', 'body', 'goal', 'frequency'];
 
   // Draft lives here until the flow completes; nothing touches Store until then.
@@ -409,14 +409,14 @@
     if (draft.partner) {
       Store.setPartnerName(draft.partner);
     }
-    /* A key typed but never tested is still his key — saving it is not the same
+    /* A key typed but never tested is still the user’s key — saving it is not the same
        as claiming it works. */
     if (draft.claudeKey) Store.setSecret('claudeKey', draft.claudeKey);
     Store.set('onboarded', true);
     Store.setMorning({ weight: draft.weight });
     /* Signing up earns the first-day stamps. They belong on the shelf, but the
        earning moment is for things done in the app — not for finishing a form,
-       and never on top of the first Home he has ever seen. */
+       and never on top of the first Home the person has ever seen. */
     if (window.Badges) Badges.markSeen();
   }
 

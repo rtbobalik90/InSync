@@ -48,27 +48,27 @@ function response(obj){return Promise.resolve({ok:true,status:200,json:()=>Promi
  ctx.fetch=(url,opts)=>{
    const body=JSON.parse(opts.body||'{}');
    const prompt=((body.messages||[])[0]||{}).content||'';
-   if(prompt.includes('Build a complete seven-day HOME-COOKED')){mealCalls++;return response(mealPayload(nextWeek));}
+   if(prompt.includes('for a complete seven-day HOME-COOKED meal-prep plan')){mealCalls++;const full=mealPayload(nextWeek);return response({meals:full.meals.filter(m=>prompt.includes(`${m.date} ${m.slot}`))});}
    if(prompt.includes("training week for the Monday")){trainCalls++;return response(invalidWalk);}
    return response({});
  };
  const failedSetup=await new Promise(r=>C.setupNextWeek(week,()=>{},(err,st)=>r({err,st})));
  ok(!!failedSetup.err&&failedSetup.err.stage==='training','combined setup reports training as the failed half');
  eq(failedSetup.st.mealCount,28,'successful meal half is committed even when training fails afterward');
- eq(mealCalls,1,'meal week is generated only once on the failed setup');
+ eq(mealCalls,4,'meal week is generated in four bounded batches on the failed setup');
  eq(trainCalls,2,'failed training half uses its one built-in repair attempt');
 
  // Retry: the 28 saved meals must be reused rather than regenerated.
  ctx.fetch=(url,opts)=>{
    const body=JSON.parse(opts.body||'{}');
    const prompt=((body.messages||[])[0]||{}).content||'';
-   if(prompt.includes('Build a complete seven-day HOME-COOKED')){mealCalls++;return response(mealPayload(nextWeek));}
+   if(prompt.includes('for a complete seven-day HOME-COOKED meal-prep plan')){mealCalls++;const full=mealPayload(nextWeek);return response({meals:full.meals.filter(m=>prompt.includes(`${m.date} ${m.slot}`))});}
    if(prompt.includes('training week for the Monday')){trainCalls++;return response(valid5);}
    return response({});
  };
  const fixed=await new Promise(r=>C.setupNextWeek(week,()=>{},(err,st)=>r({err,st})));
  ok(!fixed.err&&fixed.st.meals&&fixed.st.training,'retry completes only the missing half and leaves next week fully ready');
- eq(mealCalls,1,'retry does not regenerate the already-saved 28 meals');
+ eq(mealCalls,4,'retry does not regenerate the already-saved 28 meals');
  eq(trainCalls,3,'retry makes one additional training request and succeeds');
  eq(I.goalProgress(nextWeek).length,2,'successful next-week setup creates the two measurable weekly goals');
  const trainingGoal=I.suggestedGoals(nextWeek).find(g=>g.id==='training-sessions');
