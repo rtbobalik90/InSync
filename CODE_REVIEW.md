@@ -1,49 +1,50 @@
-# InSync 6.0.0-p4 — Training 2.0 Review
+# InSync 6.0.0-p5 — Nutrition 2.0 Review
 
 ## Architecture
-A new `training.js` domain owns deterministic training decisions. It consumes Store history and the existing exercise library but does not own UI or network calls.
+A new `nutrition.js` domain owns deterministic Nutrition decisions. It consumes Store state and planned meals but does not own the network transport or primary screen rendering.
 
 Responsibilities include:
-- gym/equipment profiles;
-- readiness interpretation;
-- exercise eligibility;
-- progression recommendations and evidence;
-- recovery/deload proposal signals;
-- rest-duration defaults;
-- movement-pattern warm-ups;
-- structured walking-distance calculation.
+- four-slot day/week validation;
+- calorie/protein target-range verification;
+- absolute-exclusion checking;
+- pantry-staple matching;
+- meal-prep timeline derivation;
+- dinner-sized target derivation;
+- Shared Dinner target/privacy model;
+- one-recipe/two-portion validation;
+- target-aware Eating Out fit calculations.
 
-`insights.js` delegates progression to this engine when it is loaded. `cloud.js` may still use Claude to compose a weekly program, but the prompt is constrained to eligible exercises and `validatePlan()` rejects unavailable equipment before anything reaches Store.
+`cloud.js` still uses Claude to compose recipes and weekly meals, but generated output must clear the Nutrition validators before it is committed as ready.
+
+## Targeted repair
+Weekly generation is deliberately failure-local. After the initial plan is assembled, each date is validated independently. Only failing dates are requested again, and verified dates remain intact. This protects completed AI work and avoids spending time/tokens rebuilding a correct week because one day missed its numbers.
+
+## Food preference safety
+Soft dislikes and hard exclusions are separate state fields. Hard exclusions are checked in deterministic validators after generation, so a prompt-compliance miss cannot silently place a forbidden ingredient into an accepted plan.
+
+## Shared Dinner privacy
+Shared Dinner does not require sharing meal logs or daily targets. The owner may explicitly opt in to sending only:
+- display name;
+- dinner-sized calorie target;
+- dinner-sized protein target.
+
+The field is optional within partner sync schema 7, so existing sync compatibility is retained. Partner payload normalization bounds and sanitizes the target before local use.
+
+## Shared Dinner logging model
+One shared recipe contains two portion records. The local planned/loggable meal uses the current phone owner's calories/protein, while the attached Shared Dinner object preserves both portion instructions for household cooking coordination.
+
+## Pantry and real-life logging
+Pantry matching changes shopping-list output only; it never removes an ingredient from the recipe itself. Eating Out is modeled separately from generated meal prep and carries its own source marker in meal history.
 
 ## State safety
-Training additions remain additive inside local state v10:
-- `trainingProfile`
-- day-level `readiness`
-- structured walk fields
-- working-set effort/RIR
-- session rest-timer state
+Nutrition additions are additive inside local state v10:
+- `mealPrefs.mustNot`
+- `mealPrefs.pantry`
+- `mealPrefs.sharedDinnerShare`
+- optional planned-meal `sharedDinner` metadata
+- meal `source` metadata
 
 No destructive migration or reset is introduced. Partner sync remains schema 7.
-
-## Progression safety
-The next-load decision is never taken from Claude output. The deterministic engine uses:
-- exercise rep range;
-- recent working sets;
-- recent load/reps;
-- Easy/Right/Hard or RIR;
-- current readiness;
-- recent discomfort substitutions.
-
-The UI renders the supporting facts under **Why this?** so a recommendation is inspectable rather than a black box.
-
-## Recovery behavior
-Readiness and deload are proposals, not automatic plan mutations. Pain is treated only as a caution signal: InSync explicitly does not diagnose it and does not force progression.
-
-## Distance correctness
-Structured treadmill/manual walking can be more accurate than step-derived distance. Expedition contribution therefore takes the maximum credible source per day rather than summing sources that may represent the same walk.
-
-## Media requirement
-Every exercise newly made available to the planner ships with a real animated WebP asset. Claude cannot prescribe an exercise outside the registered library/equipment rules.
 
 ## Faith
 Faith remains parked and dormant in the active shell, with prior source/data preserved for a later design pass.

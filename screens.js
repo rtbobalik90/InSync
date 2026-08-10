@@ -1874,7 +1874,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p4 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p5 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2104,7 +2104,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p4</div></div>' +
+            '<div class="meta">Version 6.0.0-p5</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3918,6 +3918,7 @@
       items.forEach(function (it) {
         var name = String(it.name || '').trim();
         if (!name) return;
+        if (window.Nutrition && Nutrition.isPantryItem && Nutrition.isPantryItem(name, S.mealPrefs || {})) return;
         var k = name.toLowerCase();
         if (!shop[k]) shop[k] = { name: name, n: 0, amounts: [] };
         shop[k].n++;
@@ -3929,6 +3930,8 @@
     var shopList = Object.keys(shop).map(function (k) { return shop[k]; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
     var ticked = S.shopTicked || {};
+    var weekVerification = (planned.length === totalSlots && window.Nutrition && Nutrition.validateWeek) ? Nutrition.validateWeek(plan, weekOf, S.targets, S.mealPrefs || {}) : null;
+    var prepTimeline = window.Nutrition && Nutrition.prepTimeline ? Nutrition.prepTimeline(plan, weekOf) : [];
 
     var grid = dates.map(function (date) {
       var dt = new Date(date + 'T12:00:00');
@@ -3937,9 +3940,10 @@
       var dayMeals = PLAN_SLOTS.map(function (sl) { return plan[planKey(date, sl)]; }).filter(Boolean);
       var dayKcal = dayMeals.reduce(function (a, m) { return a + (+m.kcal || 0); }, 0);
       var dayProtein = dayMeals.reduce(function (a, m) { return a + (+m.protein || 0); }, 0);
+      var dv = (dayMeals.length === 4 && window.Nutrition && Nutrition.validateDay) ? Nutrition.validateDay(plan, date, S.targets, S.mealPrefs || {}) : null;
       return '<div class="planday">' +
         '<div class="pdhead"><span>' + full + ' <em>' + shortDate + '</em></span>' +
-          '<span class="note">' + (dayMeals.length ? Store.fmtEnergy(dayKcal) + ' · ' + dayProtein + ' g' : 'open') + '</span></div>' +
+          '<span class="note">' + (dayMeals.length ? Store.fmtEnergy(dayKcal) + ' · ' + dayProtein + ' g' + (dv ? (dv.ok ? ' · ✓ verified' : ' · needs repair') : '') : 'open') + '</span></div>' +
         PLAN_SLOTS.map(function (sl) {
           var key = planKey(date, sl), m = plan[key];
           return m
@@ -3957,7 +3961,7 @@
       '</div>';
     }).join('');
 
-    var prefs = S.mealPrefs || { cuisines: [], proteins: [], likes: '', avoid: '' };
+    var prefs = S.mealPrefs || { cuisines: [], proteins: [], likes: '', avoid: '', mustNot: '', pantry: '', sharedDinnerShare: false };
     var prep = window.Insights ? Insights.mealPrepPrefs() : { lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [] };
     var favoriteCount = (S.mealFavorites || []).length, dislikedCount = (S.mealDislikedMeals || []).length;
     function prefChips(values, selected, kind) {
@@ -3974,7 +3978,11 @@
         '<div class="preflabel">Proteins <span>leave blank for any</span></div>' +
         prefChips(PLAN_PROTEINS, prefs.proteins || [], 'proteins') +
         '<label class="preftext"><span>Things I like</span><input type="text" data-meal-pref-text="likes" value="' + esc(prefs.likes || '') + '" placeholder="spicy, rice bowls, garlic, crunchy…"></label>' +
-        '<label class="preftext"><span>Things I do not like / avoid</span><input type="text" data-meal-pref-text="avoid" value="' + esc(prefs.avoid || '') + '" placeholder="mushrooms, olives, mayo…"></label>' +
+        '<label class="preftext"><span>Prefer not to include</span><input type="text" data-meal-pref-text="avoid" value="' + esc(prefs.avoid || '') + '" placeholder="mushrooms, olives, mayo…"></label>' +
+        '<label class="preftext"><span>Must never include <em>hard exclusion</em></span><input type="text" data-meal-pref-text="mustNot" value="' + esc(prefs.mustNot || '') + '" placeholder="allergies, religious restrictions, absolute no-go foods…"></label>' +
+        '<label class="preftext"><span>Pantry staples already on hand</span><input type="text" data-meal-pref-text="pantry" value="' + esc(prefs.pantry || '') + '" placeholder="olive oil, salt, pepper, garlic powder…"></label>' +
+        '<div class="preflabel">Shared Dinner <span>share only a dinner-sized target with ' + esc((S.partner && S.partner.name) || 'your partner') + '</span></div>' +
+        '<div class="prefchips"><button class="ob-chip' + (prefs.sharedDinnerShare ? ' on' : '') + '" data-action="toggle-shared-dinner-share">' + (prefs.sharedDinnerShare ? 'Sharing dinner target' : 'Keep dinner target private') + '</button></div>' +
         '<div class="preflabel">Batch-prep lunches <span>cook once, repeat on weekdays</span></div>' +
         '<div class="prefchips">' + [0,2,3,4,5].map(function (n) { return '<button class="ob-chip' + (prep.lunchPrepDays === n ? ' on' : '') + '" data-action="meal-prep-lunches" data-count="' + n + '">' + (n ? n + ' days' : 'Off') + '</button>'; }).join('') + '</div>' +
         '<div class="preflabel">Dinner leftovers <span>cook on selected nights, reheat between</span></div>' +
@@ -3989,7 +3997,7 @@
     var planButton = canBuild
       ? '<button class="btn block" data-action="build-meal-week" data-week="' + weekOf + '">' +
           (planned.length ? 'Rebuild this week' : 'Build my week') + '</button>' +
-        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots from the preferences above, your targets, favorites and thumbs-down history.</p>'
+        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots, then code verifies every day against your calorie/protein targets and repairs only days that fail.</p>'
       : '<article class="card pad"><p class="note">Add your Claude key in Settings to build a complete week automatically. You can still tap any empty slot and choose from your Cookbook.</p></article>';
 
     return UI.screen({
@@ -4010,10 +4018,14 @@
           '<div style="margin-top:13px">' + planButton + '</div>' +
         '</article>' +
 
+        (weekVerification ? '<article class="card pad ' + (weekVerification.ok ? 'accent' : '') + '"><div class="kicker ' + (weekVerification.ok ? 'sage' : '') + '">Plan verification</div><p class="lede" style="margin:8px 0 0">' + (weekVerification.ok ? 'All seven days are mathematically verified for four meal slots, calorie range, protein target, and hard exclusions.' : weekVerification.invalid.length + ' day' + (weekVerification.invalid.length === 1 ? '' : 's') + ' currently need repair before this week is considered ready.') + '</p></article>' : '') +
+
         '<article class="card pad">' +
           '<div class="kicker">' + esc(weekName) + '</div>' +
           '<div class="plangrid">' + grid + '</div>' +
         '</article>' +
+
+        (prepTimeline.length ? '<div class="rulehead"><span class="kicker">Prep timeline</span><span></span><span class="note">when to cook</span></div><article class="card rowlist">' + prepTimeline.map(function(day){ var dt=new Date(day.date+'T12:00:00').toLocaleDateString(undefined,{weekday:'long'}); return '<div class="row"><span class="thumb ghosticon">' + icon('fork') + '</span><span style="min-width:0"><h4>' + esc(dt) + (day.totalMinutes ? ' · ' + day.totalMinutes + ' min' : '') + '</h4><span class="macros">' + day.tasks.map(function(t){ return esc(t.name) + (t.batch ? ' · ' + t.servings + ' servings' : ''); }).join(' · ') + '</span></span></div>'; }).join('') + '</article>' : '') +
 
         '<div class="rulehead"><span class="kicker sage">Shopping list</span><span></span>' +
           '<span class="note">' + (shopList.length ? shopList.length + ' ingredients' : 'empty') + '</span></div>' +
@@ -4028,7 +4040,7 @@
                   '<span class="note">' + esc(detail) + '</span>' +
                 '</button>';
               }).join('')
-            : '<div class="empty"><p class="note">Nothing on the list yet. Build the week or choose meals above and the ingredients collect here automatically.</p></div>') +
+            : '<div class="empty"><p class="note">Nothing on the list yet. Build the week or choose meals above and the ingredients collect here automatically. Pantry staples are left off the shopping list.</p></div>') +
         '</article>' +
 
         (planned.length
@@ -4040,7 +4052,7 @@
   function plannedMeal() {
     var parts = location.hash.split('/');
     var date = decodeURIComponent(parts[1] || ''), slot = decodeURIComponent(parts[2] || '');
-    var key = planKey(date, slot), m = (Store.state().mealPlan || {})[key];
+    var S=Store.state(), key = planKey(date, slot), m = (S.mealPlan || {})[key];
     if (!m) {
       return UI.screen({
         tab: null, rest: 240, blur: true,
@@ -4054,6 +4066,16 @@
     var items = m.items || [], steps = m.instructions || [];
     var canRecipe = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
     var favorite = isFavoriteMeal(m.name);
+    var sharedTargets = window.Nutrition && Nutrition.sharedDinnerTargets ? Nutrition.sharedDinnerTargets() : null;
+    var sharedCard = '';
+    if (slot === 'Dinner') {
+      if (m.sharedDinner && m.sharedDinner.portions) {
+        var mep=m.sharedDinner.portions.me||{}, pp=m.sharedDinner.portions.partner||{};
+        sharedCard='<article class="card pad accent"><div class="kicker sage">Shared Dinner</div><p class="lede" style="margin:8px 0 14px">One recipe. Two portions.</p><div class="recipefacts"><div><span class="note">Your portion</span><strong>'+Store.fmtEnergy(+mep.kcal||0)+' · '+Math.round(+mep.protein||0)+' g</strong></div><div><span class="note">'+esc(m.sharedDinner.partnerName||'Partner')+'&#39;s portion</span><strong>'+Store.fmtEnergy(+pp.kcal||0)+' · '+Math.round(+pp.protein||0)+' g</strong></div></div><p class="small" style="margin:12px 0 0">'+esc((mep.note||'Your personalized serving.')+' '+(pp.note||''))+'</p></article>';
+      } else if (canRecipe) {
+        sharedCard='<article class="card pad"><div class="kicker">Shared Dinner</div><p class="small" style="margin:8px 0 13px">Turn this into one household recipe with a portion for you and a portion for '+esc((S.partner&&S.partner.name)||'your partner')+'. '+(sharedTargets&&sharedTargets.partner?'Both dinner targets are available.':'Your partner must opt in to sharing a dinner-sized target first.')+'</p><button class="btn ghost block" data-action="build-shared-dinner" data-plan-key="'+esc(key)+'"'+(sharedTargets&&sharedTargets.partner?'':' disabled aria-disabled="true"')+'>Build Shared Dinner</button></article>';
+      }
+    }
     var photoCard =
       '<article class="card pad">' +
         '<div class="kicker">Finished plate</div>' +
@@ -4074,6 +4096,7 @@
         '<p class="attrib" style="text-transform:none;letter-spacing:0">' + Store.fmtEnergy(+m.kcal || 0) + ' · ' + Math.round(+m.protein || 0) + ' g protein' +
           (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + (m.cuisine ? ' · ' + esc(m.cuisine) : '') + '</p>',
       body:
+        sharedCard +
         (m.leftoverOf ? '<article class="card pad accent"><div class="kicker sage">Leftover meal</div><p class="lede" style="margin:8px 0 0">Already cooked as part of ' + esc(m.leftoverOf) + '. Reheat and log it — no second grocery run.</p></article>' :
           m.batchSource ? '<article class="card pad accent"><div class="kicker sage">Batch prep</div><p class="lede" style="margin:8px 0 0">Cook ' + (m.servings || 1) + ' servings now. The extra portions are already placed into the week.</p></article>' : '') +
         '<article class="card pad">' +

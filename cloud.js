@@ -756,6 +756,10 @@
         };
       }
     }
+    if (raw.sharedDinnerProfile && Object.prototype.toString.call(raw.sharedDinnerProfile) === '[object Object]') {
+      var sdk=boundedNumber(raw.sharedDinnerProfile.kcal,200,2000,null), sdp=boundedNumber(raw.sharedDinnerProfile.protein,10,200,null);
+      if (sdk != null && sdp != null) out.sharedDinnerProfile={ name:cleanText(raw.sharedDinnerProfile.name,80)||incomingName, kcal:Math.round(sdk), protein:Math.round(sdp) };
+    }
     if (raw.sharedPrayer && Object.prototype.toString.call(raw.sharedPrayer) === '[object Object]') {
       var prayerId = cleanText(raw.sharedPrayer.id, 120), prayerText = cleanText(raw.sharedPrayer.text, 700);
       if (prayerId && prayerText) {
@@ -796,6 +800,9 @@
       seenPartnerUpdated: s.partnerData && s.partnerData.updated ? cleanText(s.partnerData.updated,80) : '',
       activity: window.Insights && Insights.localActivity ? Insights.localActivity(7) : [],
       reactions: window.Insights && Insights.reactionsGiven ? Insights.reactionsGiven() : {},
+      /* Shared Dinner is separately opt-in. Only the dinner-sized calorie/protein
+         target crosses; daily totals, meal logs and exact food history remain private. */
+      sharedDinnerProfile: window.Nutrition && Nutrition.sharedDinnerProfile ? Nutrition.sharedDinnerProfile() : null,
       /* Faith privacy is opt-in: only the one request deliberately selected
          for sharing crosses. The private prayer journal, answers and gratitude
          never enter this payload. */
@@ -1139,6 +1146,7 @@
       if (selectedProteins.length && Array.isArray(m.proteins) && m.proteins.length &&
           !m.proteins.some(function (x) { return selectedProteins.indexOf(x) >= 0; })) return false;
       if (conflictsWithAvoids(m, preferenceTerms(prefs.avoid))) return false;
+      if (conflictsWithAvoids(m, preferenceTerms(prefs.mustNot))) return false;
       if (!Array.isArray(m.items) || m.items.length < 2 || !Array.isArray(m.instructions) || !m.instructions.length) return false;
       return !fastFoodLike(m);
     }).slice(-2);
@@ -1255,7 +1263,9 @@
       ((prefs.cuisines || []).length ? 'Selected cuisines for this week: ' + prefs.cuisines.join(', ') + '. Keep the week within these cuisines. ' : 'Cuisine is open; use a varied home-cooked mix. ') +
       ((prefs.proteins || []).length ? 'Selected protein choices: ' + prefs.proteins.join(', ') + '. Use these as the primary proteins for the week. ' : '') +
       (cleanText(prefs.likes, 1200) ? 'Foods/flavors they like: ' + cleanText(prefs.likes, 1200) + '. Lean toward these. ' : '') +
-      (cleanText(prefs.avoid, 1200) ? 'Foods/flavors they do NOT like or want: ' + cleanText(prefs.avoid, 1200) + '. Do not use them. ' : '') +
+      (cleanText(prefs.avoid, 1200) ? 'Foods/flavors they prefer not to eat: ' + cleanText(prefs.avoid, 1200) + '. Avoid these when practical. ' : '') +
+      (cleanText(prefs.mustNot, 1200) ? 'ABSOLUTE EXCLUSIONS — never include these in any ingredient, recipe, garnish, sauce, or substitute: ' + cleanText(prefs.mustNot, 1200) + '. ' : '') +
+      (cleanText(prefs.pantry, 1200) ? 'Pantry staples already on hand: ' + cleanText(prefs.pantry, 1200) + '. They may be used normally; do not treat them as items that need buying. ' : '') +
       prepText +
       (disliked.length ? 'Meals they have explicitly thumbs-downed and must NOT return: ' + disliked.slice(-30).join(', ') + '. ' : '') +
       (favNames.length ? 'Favorite meals they want to see again: ' + favNames.join(', ') + '. Reuse compatible favorites naturally instead of always inventing new food. ' : '') +
@@ -1295,6 +1305,7 @@
         if (fastFoodLike(cleaned)) return;
         if (!cleaned.items || cleaned.items.length < 2 || !cleaned.instructions || !cleaned.instructions.length) return;
         if (conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid))) return;
+        if (conflictsWithAvoids(cleaned, preferenceTerms(prefs.mustNot))) return;
         if (disliked.some(function (x) { return normalizedMealName(x) === normalizedMealName(cleaned.name); })) return;
         batchMap[key] = cleaned;
       });
@@ -1306,7 +1317,41 @@
       dates.forEach(function (d) { slots.forEach(function (slot) { if (!map[d + '|' + slot]) missing.push(d + ' ' + slot); }); });
       if (missing.length) return cb(new Error('The meal coach did not finish all 28 dated slots. Try again.'));
       map = reintroduceFavorites(map, favorites, prefs, disliked);
-      cb(null, applyMealPrep(map, weekOf, prefs));
+      map = applyMealPrep(map, weekOf, prefs);
+      if (!window.Nutrition || !Nutrition.validateWeek) return cb(null, map);
+
+      function verifyAndRepair(round) {
+        var verdict = Nutrition.validateWeek(map, weekOf, tg, prefs);
+        if (verdict.ok) return cb(null, map);
+        if (round >= 2) {
+          var first = verdict.invalid[0];
+          return cb(new Error('The meal week could not be verified. ' + (first ? first.date + ': ' + first.reason : 'Daily targets are outside the allowed range.') + ' Try rebuilding the week.'));
+        }
+        var queue = verdict.invalid.slice();
+        function repairNext() {
+          if (!queue.length) return verifyAndRepair(round + 1);
+          var bad = queue.shift(), requested = slots.map(function (slot) { return bad.date + ' ' + slot; });
+          var prompt = 'Repair ONLY this one day of the meal plan for ' + me() + ': ' + bad.date + '. ' +
+            'The current day failed deterministic verification because ' + bad.reason + '. Daily target: about ' + tg.calories + ' kcal and at least ' + tg.protein + ' g protein. ' +
+            'Return exactly these four slots and no other dates: ' + requested.join('; ') + '. ' +
+            'NON-NEGOTIABLE: home-cooked grocery-store food only. ' + preferenceText +
+            'The four meals together MUST total 90-105% of the calorie target and at least the protein target. Every meal needs at least two ingredients and cooking/prep instructions. ' +
+            'Return ONLY JSON: {"meals":[{"date":"' + bad.date + '","slot":"Breakfast","name":"","cuisine":"","proteins":[],"kcal":0,"protein":0,"carbs":0,"fat":0,"servings":1,"prepMinutes":0,"recipeNote":"","items":[{"name":"","weight":""}],"instructions":[""]}]}. No markdown.';
+          ai('nutrition.week-plan', [{role:'user',content:prompt}], {system:VOICE,maxTokens:2400,timeoutMs:65000}, function(err,text,meta){
+            if (err || (meta && meta.stopReason === 'max_tokens')) return repairNext();
+            var out; try { out=extractJson(text); } catch(e) { return repairNext(); }
+            var cleaned=cleanBatch(out,[bad.date]);
+            if (cleaned.missing.length) return repairNext();
+            Object.keys(cleaned.map).forEach(function(key){ map[key]=cleaned.map[key]; });
+            var dayVerdict=Nutrition.validateDay(map,bad.date,tg,prefs);
+            if (!dayVerdict.ok) return repairNext();
+            progress({repair:true,date:bad.date,reason:bad.reason});
+            repairNext();
+          });
+        }
+        repairNext();
+      }
+      verifyAndRepair(0);
     }
     function runBatch(index) {
       if (index >= batches.length) return finish();
@@ -1364,7 +1409,8 @@
     var prompt = 'Turn this planned meal into a practical HOME-COOKED recipe without changing its nutrition target more than necessary. ' +
       'Never turn it into fast food, restaurant takeout, a chain-brand meal, or meal delivery. Use grocery-store ingredients. ' +
       'Meal: ' + cleanText(meal.name, 160) + '. Slot: ' + cleanText(meal.slot, 20) + '. ' +
-      (cleanText(prefs.avoid, 1200) ? 'Avoid these foods/flavors: ' + cleanText(prefs.avoid, 1200) + '. ' : '') +
+      (cleanText(prefs.avoid, 1200) ? 'Prefer not to include these foods/flavors: ' + cleanText(prefs.avoid, 1200) + '. ' : '') +
+      (cleanText(prefs.mustNot, 1200) ? 'ABSOLUTE EXCLUSIONS — never include: ' + cleanText(prefs.mustNot, 1200) + '. ' : '') +
       'Target nutrition: ' + Math.round(+meal.kcal || 0) + ' kcal, ' + Math.round(+meal.protein || 0) + ' g protein, ' +
       Math.round(+meal.carbs || 0) + ' g carbs, ' + Math.round(+meal.fat || 0) + ' g fat. ' +
       'Return ONLY JSON: {"name":"","slot":"' + cleanText(meal.slot, 20) + '","cuisine":"","proteins":[],"kcal":0,"protein":0,"carbs":0,"fat":0,' +
@@ -1374,13 +1420,37 @@
       var out;
       try { out = extractJson(text); } catch (e) { return cb(new Error('The recipe could not be read. Try again.')); }
       var cleaned = cleanPlannedRecipe(out, meal.date || Store.todayKey(), meal.slot || 'Dinner');
-      if (!cleaned || !cleaned.instructions.length || cleaned.items.length < 2 || fastFoodLike(cleaned) || conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid))) {
+      if (!cleaned || !cleaned.instructions.length || cleaned.items.length < 2 || fastFoodLike(cleaned) || conflictsWithAvoids(cleaned, preferenceTerms(prefs.avoid)) || conflictsWithAvoids(cleaned, preferenceTerms(prefs.mustNot))) {
         return cb(new Error('The recipe came back incomplete or outside your meal preferences. Try again.'));
       }
       cb(null, cleaned);
     });
   }
 
+
+  function buildSharedDinner(date, baseMeal, cb) {
+    if (typeof cb !== 'function') cb=function(){};
+    if (!window.Nutrition || !Nutrition.sharedDinnerTargets) return cb(new Error('Shared Dinner is not available in this build.'));
+    var targets=Nutrition.sharedDinnerTargets(), prefs=Store.state().mealPrefs||{};
+    if (!targets.partner) return cb(new Error((Store.state().partner.name || 'Your partner') + ' needs to turn on Shared Dinner target sharing first.'));
+    baseMeal=baseMeal||{};
+    var prompt='Create ONE home-cooked dinner recipe that both people can eat, then give two personalized portions. ' +
+      'Date: '+date+'. Starting dinner idea: '+cleanText(baseMeal.name,160)+'. ' +
+      targets.me.name+' dinner target: about '+targets.me.kcal+' kcal and at least '+targets.me.protein+' g protein. ' +
+      targets.partner.name+' dinner target: about '+targets.partner.kcal+' kcal and at least '+targets.partner.protein+' g protein. ' +
+      (cleanText(prefs.mustNot,1200)?'ABSOLUTE EXCLUSIONS for this household — never include: '+cleanText(prefs.mustNot,1200)+'. ':'')+
+      (cleanText(prefs.avoid,1200)?'Prefer not to use: '+cleanText(prefs.avoid,1200)+'. ':'')+
+      'The base ingredients and cooking method must be shared. Portion size and simple add-ons may differ. Each portion must land within 15% of its calorie target and at least 90% of its protein target. ' +
+      'Return ONLY JSON: {"name":"","cuisine":"","items":[{"name":"","weight":"household amount"}],"instructions":[""],"prepMinutes":0,"portions":{"me":{"label":"","servings":1,"kcal":0,"protein":0,"note":""},"partner":{"label":"","servings":1,"kcal":0,"protein":0,"note":""}}}. No markdown.';
+    ai('nutrition.recipe',[{role:'user',content:prompt}],{system:VOICE,maxTokens:1800,timeoutMs:65000},function(err,text){
+      if(err)return cb(err); var out; try{out=extractJson(text);}catch(e){return cb(new Error('The Shared Dinner recipe could not be read. Try again.'));}
+      var verdict=Nutrition.validateSharedDinner(out); if(!verdict.ok)return cb(new Error(verdict.error));
+      var raw=verdict.value, meal=cleanPlannedRecipe({date:date,slot:'Dinner',name:raw.name,cuisine:raw.cuisine,kcal:raw.portions.me.kcal,protein:raw.portions.me.protein,carbs:+baseMeal.carbs||0,fat:+baseMeal.fat||0,servings:1,prepMinutes:raw.prepMinutes,items:raw.items,instructions:raw.instructions,recipeNote:'Shared Dinner · one recipe, two portions'},date,'Dinner');
+      if(!meal)return cb(new Error('The Shared Dinner recipe was incomplete. Try again.'));
+      meal.sharedDinner={partnerName:targets.partner.name,portions:{me:raw.portions.me,partner:raw.portions.partner}};
+      cb(null,meal);
+    });
+  }
 
   /* Build the reviewed week's successor as two independent, resumable pieces.
      The old button generated all 28 meals, held them only in memory, then asked
@@ -1555,7 +1625,7 @@
   }
 
   window.Cloud = {
-    suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, setupNextWeek: setupNextWeek, recipeForMeal: recipeForMeal,
+    suggestMeals: suggestMeals, planMealsWeek: planMealsWeek, setupNextWeek: setupNextWeek, recipeForMeal: recipeForMeal, buildSharedDinner: buildSharedDinner,
     proposeTargets: proposeTargets, validateTrainingPlan: validatePlan,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,

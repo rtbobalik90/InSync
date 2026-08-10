@@ -484,6 +484,13 @@
       if (at >= 0) days.splice(at,1); else days.push(day);
       cprefs.cookDays = days; Store.set('mealPrefs', cprefs); return;
     }
+    if (action === 'toggle-shared-dinner-share') {
+      var sprefs=Object.assign({},Store.state().mealPrefs||{});
+      sprefs.sharedDinnerShare=!sprefs.sharedDinnerShare;
+      Store.set('mealPrefs',sprefs);
+      if (window.Cloud && Cloud.autoSync) Cloud.autoSync();
+      return;
+    }
     if (action === 'allow-meal-again') {
       var allowName = el.getAttribute('data-meal-name'), allowKey = mealNameKey(allowName);
       if (!allowKey) return;
@@ -568,7 +575,7 @@
       bw.disabled = true; bw.textContent = 'Building the week…';
       Cloud.planMealsWeek(buildWeek, {
         onProgress: function (detail) {
-          if (bw && bw.isConnected) bw.textContent = 'Planning meals ' + ((detail && detail.batch) || 1) + ' of ' + ((detail && detail.total) || 4) + '…';
+          if (bw && bw.isConnected) bw.textContent = detail && detail.repair ? 'Repairing ' + detail.date + '…' : 'Planning meals ' + ((detail && detail.batch) || 1) + ' of ' + ((detail && detail.total) || 4) + '…';
         }
       }, function (err, weekMap) {
         bw.disabled = false; bw.textContent = bwText;
@@ -621,6 +628,17 @@
       if (replaceKey) Log.pickForSlot(replaceKey);
       return;
     }
+    if (action === 'build-shared-dinner') {
+      var sharedKey=el.getAttribute('data-plan-key'), sharedBase=(Store.state().mealPlan||{})[sharedKey];
+      if(!sharedKey||!sharedBase||!window.Cloud||!Cloud.buildSharedDinner)return;
+      var sb=el, sbText=sb.textContent; sb.disabled=true; sb.textContent='Building two portions…';
+      Cloud.buildSharedDinner(sharedKey.slice(0,10),sharedBase,function(err,meal){
+        sb.disabled=false; sb.textContent=sbText;
+        if(err){ alert(err.message); return; }
+        var plan=Object.assign({},Store.state().mealPlan||{}); plan[sharedKey]=meal; Store.set('mealPlan',plan); Store.set('shopTicked',{});
+      });
+      return;
+    }
     if (action === 'log-planned-meal') {
       var logKey = el.getAttribute('data-plan-key'), pm = (Store.state().mealPlan || {})[logKey];
       if (!pm) return;
@@ -630,7 +648,7 @@
           name: pm.name, slot: lp[1] || pm.slot || 'Meal',
           time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
           kcal: pm.kcal, protein: pm.protein, carbs: pm.carbs, fat: pm.fat,
-          items: pm.items || null, photoId: photoId || ''
+          items: pm.items || null, photoId: photoId || '', source: 'planned'
         });
         location.hash = '#nutrition';
       }
@@ -1254,7 +1272,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p4', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p5', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

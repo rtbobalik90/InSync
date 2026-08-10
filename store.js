@@ -71,7 +71,7 @@
     shopTicked: {},
     /* Meal-prep taste memory stays on this device. Favorites are full recipe
        snapshots so they can be reused even when the original planned week is gone. */
-    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '', lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [] },
+    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '', mustNot: '', pantry: '', lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [], sharedDinnerShare: false },
     mealFavorites: [],
     /* Date a recipe was most recently favorited. This lets weekly reviews say
        which favorites were actually added that week instead of guessing from
@@ -328,6 +328,7 @@
         m.name = shortText(m.name, 200) || 'Meal';
         m.slot = shortText(m.slot, 30) || 'Meal';
         ['kcal', 'protein', 'carbs', 'fat'].forEach(function (f) { m[f] = Math.max(0, finiteOr(m[f], 0, 0, 100000)); });
+        m.source = ['manual','photo','barcode','restaurant','planned'].indexOf(m.source) >= 0 ? m.source : '';
         if (m.items != null) {
           m.items = Array.isArray(m.items) ? m.items.filter(plainObject).map(function (it) {
             it.name = shortText(it.name, 200) || 'Ingredient';
@@ -503,6 +504,17 @@
       S.partnerData.prayerAcks = Array.isArray(S.partnerData.prayerAcks) ? S.partnerData.prayerAcks.filter(plainObject).map(function (a) {
         return { id: shortText(a.id,120).trim(), at: validTimestamp(a.at) };
       }).filter(function (a) { return !!a.id && !!a.at; }).slice(-80) : [];
+      if (plainObject(S.partnerData.sharedDinnerProfile)) {
+        var sdp = S.partnerData.sharedDinnerProfile;
+        var sdKcal = finiteOr(sdp.kcal, null, 100, 3000);
+        var sdProtein = finiteOr(sdp.protein, null, 5, 250);
+        if (sdKcal == null || sdProtein == null) delete S.partnerData.sharedDinnerProfile;
+        else S.partnerData.sharedDinnerProfile = {
+          name: shortText(sdp.name, 100).trim(),
+          kcal: Math.round(sdKcal),
+          protein: Math.round(sdProtein)
+        };
+      } else delete S.partnerData.sharedDinnerProfile;
       S.partnerData.updated = validTimestamp(S.partnerData.updated);
       S.partnerData.seenPartnerUpdated = validTimestamp(S.partnerData.seenPartnerUpdated);
       S.partnerData.activity = Array.isArray(S.partnerData.activity) ? S.partnerData.activity.filter(plainObject).map(function (a) {
@@ -565,6 +577,10 @@
       m.batchId = shortText(m.batchId, 160);
       m.leftoverOf = shortText(m.leftoverOf, 200);
       m.batchSource = !!m.batchSource;
+      if (plainObject(m.sharedDinner)) {
+        var sd=m.sharedDinner, cleanPortion=function(x){ x=plainObject(x)?x:{}; return { label:shortText(x.label,120), servings:Math.max(0.1,Math.min(10,finiteOr(x.servings,1,0.1,10))), kcal:Math.max(0,finiteOr(x.kcal,0,0,5000)), protein:Math.max(0,finiteOr(x.protein,0,0,500)), note:shortText(x.note,300) }; };
+        m.sharedDinner={ partnerName:shortText(sd.partnerName,80), portions:{ me:cleanPortion(sd.portions&&sd.portions.me), partner:cleanPortion(sd.portions&&sd.portions.partner) } };
+      } else m.sharedDinner=null;
       return m;
     }
 
@@ -609,6 +625,9 @@
     }).slice(0, allowedProteins.length) : [];
     S.mealPrefs.likes = shortText(S.mealPrefs.likes, 1200);
     S.mealPrefs.avoid = shortText(S.mealPrefs.avoid, 1200);
+    S.mealPrefs.mustNot = shortText(S.mealPrefs.mustNot, 1200);
+    S.mealPrefs.pantry = shortText(S.mealPrefs.pantry, 1200);
+    S.mealPrefs.sharedDinnerShare = !!S.mealPrefs.sharedDinnerShare;
     S.mealPrefs.lunchPrepDays = Math.max(0, Math.min(5, Math.round(finiteOr(S.mealPrefs.lunchPrepDays, 0, 0, 5))));
     S.mealPrefs.dinnerLeftovers = !!S.mealPrefs.dinnerLeftovers;
     S.mealPrefs.cookDays = Array.isArray(S.mealPrefs.cookDays) ? S.mealPrefs.cookDays.filter(function (x, i, a) {

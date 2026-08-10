@@ -1,66 +1,48 @@
-# InSync 6.0.0-p4 — Training 2.0
+# InSync 6.0.0-p5 — Nutrition 2.0
 
-## Training loop
-- Added a fast readiness check for energy, soreness and a non-diagnostic pain flag.
-- Readiness can propose a lighter session, but the user chooses whether to use it.
-- Lighter mode reduces one working set per non-warm-up movement without silently changing the exercise plan.
-- Every set can record Easy / Right / Hard effort, or optional Reps In Reserve.
-- Automatic rest timers persist through normal app redraws/phone lock state and support +30 seconds or Skip.
+## Verified weekly planning
+Generated meal weeks are no longer accepted merely because 28 recipe objects exist. InSync now validates each date independently for:
+- all four required meal slots;
+- calorie target range;
+- protein target;
+- absolute food exclusions.
 
-## Progression Engine 2.0
-- Progression now reads actual working-set history rather than asking AI to infer the next load.
-- It understands target rep range, recent load/reps, effort/RIR, current readiness, and recent discomfort substitutions.
-- Two comfortable top-range sessions can advance load conservatively.
-- Hard/0-RIR finishes hold the load instead of forcing progression.
-- Low readiness or a pain flag suppresses load progression.
-- Every recommendation carries evidence displayed through **Why this?**.
+If one date fails, only that date is sent back for repair. Successful days remain untouched.
 
-## Recovery / deload
-- InSync can propose a lighter week from repeated hard-set load or strained readiness signals.
-- A proposal never activates itself.
-- Accepting a recovery week is explicit, persisted, reversible, and reduces working-set volume rather than rewriting the training program.
+## Preference levels
+Meal preferences now distinguish:
+- **Prefer not to include** — a soft preference Claude should avoid when practical.
+- **Must never include** — a hard exclusion enforced by code after generation.
 
-## Gym and equipment profiles
-Per-person settings now support:
-- Planet Fitness
-- Home
-- Full gym
-- Custom equipment
+The hard field is intended for allergy/religious/medical/absolute household exclusions and is never treated as a casual dislike.
 
-Claude's weekly-plan prompt receives the configured equipment set, and code rejects generated plans containing unavailable movements.
+## Shared Dinner
+Added the first Shared Dinner workflow:
+- one common home-cooked recipe;
+- one owner portion;
+- one partner portion;
+- separate calorie/protein targets;
+- the phone logs only its owner's portion while retaining both portion instructions on the shared recipe.
 
-## Exercise library expansion
-Added real animated WebP media and library definitions for:
-- Chest fly machine
-- Face pull
-- Cable lateral raise
-- Reverse fly machine
-- Seated leg curl
-- Hip abduction machine
-- Hip adduction machine
-- Dumbbell Romanian deadlift
-- Step-ups
-- Split squat
-- Dead bug
-- Pallof press
+Partner target sharing is separately opt-in. The sync payload may carry only a bounded dinner-sized calorie/protein target and name; exact meals, daily nutrition totals and food history remain private.
 
-## Walking
-Daily walking now optionally records:
-- treadmill speed
-- incline
-- manual/outdoor distance
-- elevation gain
+## Meal-prep timeline
+The planner now converts the week into dated prep/cooking tasks, including batch-prep sources and meaningful dinner prep. The app can tell the user **when to cook**, not only what meal exists on a future day.
 
-Expedition contribution uses the strongest available walking-distance source for each day rather than adding step-derived distance and treadmill/manual distance together.
+## Pantry staples
+Users can list staples already kept on hand. Matching staples are suppressed from the generated shopping list while remaining part of recipe instructions.
+
+## Eating Out
+Restaurant logging now shows a target-aware fit indicator based on what remains for the day. Restaurant meals are saved with a distinct source so planning and real-life logging remain separate concepts.
 
 ## Faith status
 Faith remains intentionally parked. Its source and private state are preserved but its dedicated Phase 3/3B interface is not loaded.
 
 ## Versioning
-- App/UI: `6.0.0-p4`
+- App/UI: `6.0.0-p5`
 - Local state: `insync.v10` (unchanged)
 - Partner sync: schema `7` (unchanged)
-- Service worker: `insync-v10-21`
+- Service worker: `insync-v10-22`
 
 ## Next planned phase
-Phase 5 — Nutrition 2.0.
+Phase 6 — Together 2.0 + Weekly Campfire.

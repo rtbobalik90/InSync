@@ -74,7 +74,7 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   ok(!result.err,'preference-aware week still generates successfully');
   const promptBody=promptBodies.join('\n');
   ok(promptBody.includes('Selected cuisines for this week: Mexican, Indian') && promptBody.includes('Selected protein choices: Chicken, Beef'),'cuisine and protein choices are sent to the meal coach');
-  ok(promptBody.includes('Foods/flavors they like: spicy, rice bowls') && promptBody.includes('Foods/flavors they do NOT like or want: mushrooms, olives'),'like and avoid keywords are sent to the meal coach');
+  ok(promptBody.includes('Foods/flavors they like: spicy, rice bowls') && promptBody.includes('Foods/flavors they prefer not to eat: mushrooms, olives'),'like and avoid keywords are sent to the meal coach');
 
   // A forbidden ingredient is rejected even if Claude ignored the written preference.
   const avoidPayload=weekPayload(week); avoidPayload.meals[3].items.push({name:'Mushrooms',weight:'1 cup'});

@@ -18,7 +18,7 @@ function make(seed){
 {
  const index=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
  ok(index.includes('<script src="training.js"></script>'),'Training 2.0 engine loads in production');
- ok(sw.includes("'training.js'")&&sw.includes("CACHE = 'insync-v10-21'"),'Training engine is available offline under the Phase 4 cache');
+ ok(sw.includes("'training.js'")&&sw.includes("CACHE = 'insync-v10-22'"),'Training engine is available offline under the Phase 4 cache');
  const ids=['chest-fly-machine','face-pull','cable-lateral-raise','reverse-fly-machine','seated-leg-curl','hip-abduction-machine','hip-adduction-machine','dumbbell-rdl','step-ups','split-squat','dead-bug','pallof-press'];
  ids.forEach(id=>{
    const p=path.join(ROOT,'assets','exercises',id+'.webp');
@@ -130,7 +130,7 @@ function make(seed){
  ok(screens.includes('Training setup')&&screens.includes('Planet Fitness')&&screens.includes("['planet-fitness','Planet Fitness']")&&screens.includes("['custom','Custom']"),'Settings exposes per-person gym/equipment setup');
  ok(cloud.includes('Training.availableExercises')&&cloud.includes('Training.equipmentAllows'),'Claude planning is constrained by the deterministic equipment engine');
  ok(cloud.includes('Training.gymLabel')&&!cloud.includes("Gym: Planet Fitness"),'training prompt describes the configured gym instead of hardcoding one location');
- ok(app.includes("version:'6.0.0-p4'")&&screens.includes('Version 6.0.0-p4'),'runtime and Settings identify Phase 4');
+ ok(app.includes("version:'6.0.0-p5'")&&screens.includes('Version 6.0.0-p5'),'runtime and Settings identify Phase 4');
 }
 
 console.log(`\nTraining 2.0 checks: ${passed} passed, ${failed} failed.`); if(failed) process.exit(1);

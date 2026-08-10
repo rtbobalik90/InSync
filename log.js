@@ -262,9 +262,10 @@
           return '<div class="rulehead tight"><span class="kicker">' + esc(r.name || r.place) + '</span><span></span></div>' +
             r.items.map(function (i) {
               var id = (r.name || r.place) + '|' + i.name;
+              var fit=window.Nutrition&&Nutrition.eatingOutFit?Nutrition.eatingOutFit(i):null;
               return '<button type="button" class="menurow' + (d.picked === id ? ' on' : '') + '" data-pick="' + esc(id) + '">' +
                 '<span><span class="menuname">' + esc(i.name) + '</span>' +
-                  '<span class="quick-macros">' + i.protein + ' g protein &middot; ' + i.carbs + ' g carbs &middot; ' + i.fat + ' g fat</span></span>' +
+                  '<span class="quick-macros">' + i.protein + ' g protein &middot; ' + i.carbs + ' g carbs &middot; ' + i.fat + ' g fat' + (fit ? ' &middot; ' + esc(fit.label) : '') + '</span></span>' +
                 '<span class="num">' + Store.energyNum(i.kcal).toLocaleString() + '</span></button>';
             }).join('');
         }).join('')
@@ -278,7 +279,9 @@
         '</div>'
       : '';
 
+    var remaining=window.Nutrition&&Nutrition.eatingOutFit?Nutrition.eatingOutFit({kcal:0,protein:0}):null;
     return sheet('Eating out', d.name || 'Where are you?',
+      (remaining ? '<div class="aibox"><div class="kicker">Fit it into today</div><p class="small" style="margin:8px 0 0">About ' + Store.fmtEnergy(remaining.kcalLeft) + ' and ' + remaining.proteinLeft + ' g protein remain in today&#39;s targets. Restaurant nutrition can be estimated, so review the numbers before saving.</p></div>' : '') +
       '<div class="aibox">' +
         '<input type="text" class="field-input plain" data-draft="q" value="' + esc(d.q || '') + '" ' +
           'placeholder="Cracker Barrel, Chipotle, the diner on Main" autocomplete="off" />' +
@@ -537,7 +540,7 @@
         name: d.name.trim() || 'Meal', slot: d.slot, time: nowTime(),
         kcal: Math.round(nonneg(d.kcal)), protein: Math.round(nonneg(d.protein)),
         carbs: Math.round(nonneg(d.carbs)), fat: Math.round(nonneg(d.fat)),
-        items: mealItems(d)
+        items: mealItems(d), source: open.kind === 'restaurant' ? 'restaurant' : (open.kind === 'barcode' ? 'barcode' : open.kind === 'scan' ? 'photo' : 'manual')
       };
       if (d.photo) {
         var mealPhotoId = 'meal-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
