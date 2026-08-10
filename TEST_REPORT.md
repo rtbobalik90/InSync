@@ -1,4 +1,4 @@
-# InSync 5.5.6 — Release Test Report
+# InSync 6.0.0-p1 — Phase 1 Release Test Report
 
 ## Release gate
 
@@ -6,7 +6,7 @@ The working tree must pass every automated suite. The production ZIP is then ext
 
 | Suite | Passed | Failed |
 |---|---:|---:|
-| Core stabilization / persistence / migrations / assets / wiring | 496 | 0 |
+| Core stabilization / persistence / migrations / assets / wiring | 502 | 0 |
 | Two-phone cloud sync / concurrency | 30 | 0 |
 | Weekly rhythm / history / coaching / reactions | 57 | 0 |
 | Lizzie-device planner / second-user regression | 50 | 0 |
@@ -15,9 +15,10 @@ The working tree must pass every automated suite. The production ZIP is then ext
 | Meal planner / recipes / meal-prep memory | 25 | 0 |
 | Next-week setup + Train | 23 | 0 |
 | Notification bell states | 10 | 0 |
-| Screen and malformed-state smoke rendering | 71 | 0 |
+| Screen and malformed-state smoke rendering | 72 | 0 |
 | Daily Walk / recovery-day timer | 42 | 0 |
-| **Total** | **905** | **0** |
+| **Phase 1 architecture / Journey / Base Camp contracts** | **40** | **0** |
+| **Total** | **952** | **0** |
 
 ## Deep-audit coverage
 
@@ -52,10 +53,10 @@ The release gate additionally verifies JavaScript syntax, manifest JSON, action/
 
 Version contract:
 
-- app **5.5.6**;
+- app **6.0.0-p1**;
 - local state **v10**;
 - partner sync **schema 6**;
-- service-worker cache **insync-v10-15**.
+- service-worker cache **insync-v10-16**.
 
 ## Physical-device acceptance boundary
 
@@ -63,7 +64,7 @@ Automated tests cannot inspect the literal private localStorage currently on Liz
 
 ## Final package verification
 
-The finalized 5.5.6 ZIP was extracted into a fresh clean-room directory. All **905/905** regression assertions passed again from that extracted package with **0 failures**. The clean-room static gate also found:
+The finalized 6.0.0-p1 ZIP was extracted into a fresh clean-room directory. All **952/952** regression assertions passed again from that extracted package with **0 failures**. The clean-room static gate also found:
 
 - **126/126** production images decode successfully;
 - **41/41** exercise demonstration images remain animated;

@@ -21,7 +21,7 @@ function make(name,partner){
   }
   return resp(404,{message:'bad request'});
  };
- vm.createContext(c);for(const f of ['store.js','ui.js','exercises.js','insights.js','badges.js','cloud.js','screens.js'])vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f});
+ vm.createContext(c);for(const f of ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','ui.js','exercises.js','insights.js','badges.js','cloud.js','screens.js'])vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),c,{filename:f});
  c.Store.setProfileName(name);c.Store.setPartnerName(partner);c.Store.set('profile.startDate',c.Store.todayKey());c.Store.set('onboarded',true);c.Store.setSecret('githubToken','x');c.Store.set('connections.githubRepo','acme/insync-sync');c.Store.set('connections.githubBranch','main');
  return c;
 }

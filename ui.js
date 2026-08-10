@@ -6,6 +6,7 @@
   var ICONS = {
     home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M6 10v10h12V10"/></svg>',
     coach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5.5h15v11h-9l-4 3.5v-3.5h-2z"/><path d="M9 10h6"/><path d="M9 13h3.5"/></svg>',
+    journey: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19 9 9l3 5 3-4 5 9"/><path d="M4 19h16"/><path d="M12 4v5"/><path d="m9.5 6.5 2.5-2.5 2.5 2.5"/></svg>',
     train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8"/><path d="M6 8v8M18 8v8"/><path d="M3.5 10v4M20.5 10v4"/></svg>',
     nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18c0 5-4 8.5-9 8.5S3 16 3 11Z"/><path d="M12.5 10.5c0-2.8 1.8-5 4.5-5.5"/></svg>',
     together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2.5 20c0-3.6 2.5-5.5 5.5-5.5s5.5 1.9 5.5 5.5"/><path d="M16 14.5c3 0 5.5 1.9 5.5 5.5"/></svg>',
@@ -28,9 +29,9 @@
     flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 8 9h8l-4-6Z"/><path d="M12 9v12"/><path d="M7 21h10"/></svg>'
   };
 
-  var TABS = [
+  var TABS = (window.InSyncDomains && InSyncDomains.primary) ? InSyncDomains.primary : [
     { key: 'home', label: 'Home' },
-    { key: 'coach', label: 'Coach' },
+    { key: 'journey', label: 'Journey' },
     { key: 'train', label: 'Train' },
     { key: 'nutrition', label: 'Nutrition' },
     { key: 'together', label: 'Together' }
@@ -92,9 +93,10 @@
       : '<div class="wordmark">InSync</div>';
     var here = (location.hash || '').replace('#', '').split('/')[0];
     var right = opts.right != null ? opts.right :
-      '<div style="display:flex;align-items:center;gap:10px">' +
-        (here === 'notifications' ? '' :
-          bellButton()) +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        (here === 'coach' ? '' :
+          '<button class="iconbtn coach-access" data-route="coach" aria-label="Open Coach">' + icon('coach') + '</button>') +
+        (here === 'notifications' ? '' : bellButton()) +
         (here === 'settings' ? '' :
           '<button class="avatar" data-route="settings" aria-label="Settings">' + esc(Store.state().profile.initials) + '</button>') +
       '</div>';

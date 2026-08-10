@@ -1,4 +1,11 @@
-# InSync 5.5.6 — Code Review
+# InSync 6.0.0-p1 — Code Review
+
+
+## Phase 1 architecture boundary
+
+The 6.0 foundation deliberately avoids a framework rewrite. Expedition data has been extracted into `journeys.js`; product domains, AI/privacy/event contracts, theme registration, reward events and Base Camp progression now have isolated modules. `screens.js`, `store.js` and `cloud.js` remain large, but future phases now have stable seams for incremental extraction while the existing regression surface remains intact.
+
+Base Camp is local-only in this release. Its data is normalized and backup-safe, but it does not enter partner sync until the later privacy/security design explicitly defines which camp fields are safe to share.
 
 ## Scope
 

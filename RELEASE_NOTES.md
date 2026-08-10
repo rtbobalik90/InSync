@@ -1,3 +1,36 @@
+# InSync 6.0.0-p1 — Phase 1 Architecture Foundation
+
+## Product architecture
+
+- Primary navigation is now **Home · Journey · Train · Nutrition · Together**.
+- Coach remains fully available as a global header action and a dedicated route.
+- Journey is a first-class screen with route-wide progress, current-leg contribution, visual leg list and expedition passport surface.
+- Expedition route content moved out of `screens.js` into `journeys.js`, creating one source of truth for Journey, future Theme packs and Base Camp expedition collections.
+- Added explicit domain registry, AI/privacy/event contracts, theme loader seam and declared reward event bus.
+
+## Base Camp foundation
+
+- Added local-first Base Camp schema with deterministic starter camp state.
+- Added XP-to-level thresholds, future land-tier footprints and starter item definitions.
+- Added safe normalization for placed objects, collections, inventory, unlocks and visit permission.
+- Base Camp is included in private backup/export state but deliberately **not** shared through partner sync yet.
+- No Phase 1 behavior awards XP; the reward bus is architecture only until the later game phase.
+
+## Reliability
+
+- Replaced the date-dependent notification test fixture with a state-backed informational notification so the release suite no longer changes outcome with the live weekday.
+- Added 40 Phase 1 architecture checks and expanded screen smoke coverage to Journey.
+- Full release gate: **952 assertions passed, 0 failed**.
+
+## Version contract
+
+- App/UI: **6.0.0-p1**
+- Local state: **v10**
+- Partner sync: **schema 6**
+- Service-worker cache: **insync-v10-16**
+
+---
+
 # InSync 5.5.6 — Lizzie Deep Audit
 
 ## Why this release exists

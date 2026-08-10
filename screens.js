@@ -5,144 +5,11 @@
 
   var esc = UI.esc, icon = UI.icon;
 
-  /* The twelve. Distance is never typed — it is the sum of the legs, so the
-     card and the leg list can never disagree. Climb is only shown where the
-     source has it: per leg on the Camino, as a route figure on two others,
-     and absent everywhere else rather than invented. */
-  var ROUTES = {
-    camino: {
-      name: 'Camino de Santiago', where: 'Navarre, Spain', grade: 'Moderate',
-      banner: 'assets/art/camino/banner.webp',
-      legs: [
-        { from: 'Saint-Jean-Pied-de-Port', to: 'Roncesvalles', miles: 15.5, ft: 4100, art: 'assets/art/camino/saint-jean.webp' },
-        { from: 'Roncesvalles', to: 'Zubiri', miles: 13.7, ft: 1300, art: 'assets/art/camino/roncesvalles.webp' },
-        { from: 'Zubiri', to: 'Pamplona', miles: 13.0, ft: 1180, art: 'assets/art/camino/zubiri.webp' },
-        { from: 'Pamplona', to: 'Puente la Reina', miles: 14.9, ft: 1700, art: 'assets/art/camino/pamplona.webp' },
-        { from: 'Puente la Reina', to: 'Estella', miles: 13.7, ft: 1150, art: 'assets/art/camino/puente-la-reina.webp' },
-        { from: 'Estella', to: 'Los Arcos', miles: 12.4, ft: 900, art: 'assets/art/camino/estella.webp' }
-      ]
-    },
-    milford: {
-      name: 'Milford Track', where: 'Fiordland, New Zealand', grade: 'Gentle',
-      banner: 'assets/art/milford/banner.webp', climb: 3900,
-      legs: [
-        { from: 'Glade Wharf', to: 'Clinton Hut', miles: 3.1, art: 'assets/art/milford/glade-wharf.webp' },
-        { from: 'Clinton Hut', to: 'Mintaro Hut', miles: 10.5, art: 'assets/art/milford/clinton-hut.webp' },
-        { from: 'Mintaro Hut', to: 'Dumpling Hut', miles: 8.6, art: 'assets/art/milford/mintaro-hut.webp' },
-        { from: 'Dumpling Hut', to: 'Sandfly Point', miles: 11.0, art: 'assets/art/milford/dumpling-hut.webp' }
-      ]
-    },
-    grand: {
-      name: 'Grand Canyon rim to rim', where: 'Arizona, United States', grade: 'Moderate',
-      banner: 'assets/art/grand/banner.webp', climb: 10600,
-      legs: [
-        { from: 'North Rim', to: 'Cottonwood Camp', miles: 6.8, art: 'assets/art/grand/north-rim.webp' },
-        { from: 'Cottonwood Camp', to: 'Phantom Ranch', miles: 7.2, art: 'assets/art/grand/cottonwood-camp.webp' },
-        { from: 'Phantom Ranch', to: 'Indian Garden', miles: 4.7, art: 'assets/art/grand/phantom-ranch.webp' },
-        { from: 'Indian Garden', to: 'South Rim', miles: 4.6, art: 'assets/art/grand/indian-garden.webp' }
-      ]
-    },
-    inca: {
-      name: 'Inca Trail to Machu Picchu', where: 'Cusco, Peru', grade: 'Moderate',
-      banner: 'assets/art/inca/inca-trail-banner.webp',
-      legs: [
-        { from: 'Km 82', to: 'Wayllabamba', miles: 7.5, art: 'assets/art/inca/inca-trail-leg-1.webp' },
-        { from: 'Wayllabamba', to: 'Pacaymayo', miles: 6.2, art: 'assets/art/inca/inca-trail-leg-2.webp' },
-        { from: 'Pacaymayo', to: 'Wiñay Wayna', miles: 9.3, art: 'assets/art/inca/inca-trail-leg-3.webp' },
-        { from: 'Wiñay Wayna', to: 'Machu Picchu', miles: 3.1, art: 'assets/art/inca/inca-trail-leg-4.webp' }
-      ]
-    },
-    jesus: {
-      name: 'Jesus Trail', where: 'Galilee, Israel', grade: 'Gentle',
-      legs: [
-        { from: 'Nazareth', to: 'Cana', miles: 8.7 },
-        { from: 'Cana', to: 'Kibbutz Lavi', miles: 8.1 },
-        { from: 'Lavi', to: 'Moshav Arbel', miles: 8.7 },
-        { from: 'Arbel', to: 'Capernaum', miles: 14.5 }
-      ]
-    },
-    sinai: {
-      name: 'Mount Sinai', where: 'South Sinai, Egypt', grade: 'Moderate',
-      legs: [
-        { from: 'Saint Catherine’s Monastery', to: 'Elijah’s Basin', miles: 2.5 },
-        { from: 'Elijah’s Basin', to: 'The summit', miles: 1.2 },
-        { from: 'The summit', to: 'The Camel Path', miles: 4.3 }
-      ]
-    },
-    montblanc: {
-      name: 'Tour du Mont Blanc', where: 'France, Italy, Switzerland', grade: 'Hard',
-      legs: [
-        { from: 'Les Houches', to: 'Les Contamines', miles: 13.0 },
-        { from: 'Les Contamines', to: 'Croix du Bonhomme', miles: 15.5 },
-        { from: 'Croix du Bonhomme', to: 'Courmayeur', miles: 18.0 },
-        { from: 'Courmayeur', to: 'Refuge Bonatti', miles: 12.4 },
-        { from: 'Refuge Bonatti', to: 'La Fouly', miles: 14.9 },
-        { from: 'La Fouly', to: 'Champex', miles: 13.7 },
-        { from: 'Champex', to: 'Les Houches', miles: 17.5 }
-      ]
-    },
-    muir: {
-      name: 'John Muir Trail', where: 'Sierra Nevada, California', grade: 'Hard',
-      legs: [
-        { from: 'Happy Isles', to: 'Tuolumne Meadows', miles: 22 },
-        { from: 'Tuolumne Meadows', to: 'Reds Meadow', miles: 37 },
-        { from: 'Reds Meadow', to: 'Mono Creek', miles: 30 },
-        { from: 'Mono Creek', to: 'Muir Trail Ranch', miles: 27 },
-        { from: 'Muir Trail Ranch', to: 'LeConte Canyon', miles: 40 },
-        { from: 'LeConte Canyon', to: 'Whitney Portal', miles: 55 }
-      ]
-    },
-    paine: {
-      name: 'Torres del Paine circuit', where: 'Patagonia, Chile', grade: 'Hard',
-      legs: [
-        { from: 'Laguna Amarga', to: 'Serón', miles: 8.7 },
-        { from: 'Serón', to: 'Refugio Dickson', miles: 11.5 },
-        { from: 'Dickson', to: 'John Gardner Pass', miles: 17.4 },
-        { from: 'Grey Glacier', to: 'Paine Grande', miles: 18.5 },
-        { from: 'Paine Grande', to: 'Base of the Towers', miles: 24.9 }
-      ]
-    },
-    appalachian: {
-      name: 'Appalachian Trail, southern section', where: 'Georgia to North Carolina', grade: 'Hard',
-      legs: [
-        { from: 'Springer Mountain', to: 'Hawk Mountain', miles: 8.1 },
-        { from: 'Hawk Mountain', to: 'Neel Gap', miles: 23.5 },
-        { from: 'Neel Gap', to: 'Unicoi Gap', miles: 20.5 },
-        { from: 'Unicoi Gap', to: 'Dicks Creek Gap', miles: 17.3 },
-        { from: 'Dicks Creek Gap', to: 'Bly Gap', miles: 10.9 },
-        { from: 'Bly Gap', to: 'Standing Indian', miles: 12.4 },
-        { from: 'Standing Indian', to: 'Wayah Bald', miles: 25.0 },
-        { from: 'Wayah Bald', to: 'Nantahala Outdoor Center', miles: 19.3 }
-      ]
-    },
-    kilimanjaro: {
-      name: 'Kilimanjaro, Machame route', where: 'Tanzania', grade: 'Severe',
-      legs: [
-        { from: 'Machame Gate', to: 'Machame Camp', miles: 7.0 },
-        { from: 'Machame Camp', to: 'Shira Camp', miles: 3.1 },
-        { from: 'Shira Camp', to: 'Barranco', miles: 6.2 },
-        { from: 'Barranco', to: 'Barafu', miles: 6.8 },
-        { from: 'Barafu', to: 'Uhuru Peak', miles: 13.7 }
-      ]
-    },
-    everest: {
-      name: 'Everest Base Camp', where: 'Khumbu, Nepal', grade: 'Severe',
-      legs: [
-        { from: 'Lukla', to: 'Phakding', miles: 4.9 },
-        { from: 'Phakding', to: 'Namche Bazaar', miles: 6.8 },
-        { from: 'Namche Bazaar', to: 'Tengboche', miles: 6.2 },
-        { from: 'Tengboche', to: 'Dingboche', miles: 7.1 },
-        { from: 'Dingboche', to: 'Lobuche', miles: 5.0 },
-        { from: 'Lobuche', to: 'Base Camp', miles: 8.1 },
-        { from: 'Base Camp', to: 'Kala Patthar', miles: 10.0 },
-        { from: 'Pheriche', to: 'Lukla', miles: 32 }
-      ]
-    }
-  };
-
-  var ROUTE_ORDER = ['camino', 'milford', 'grand', 'inca', 'jesus', 'sinai',
-    'montblanc', 'muir', 'paine', 'appalachian', 'kilimanjaro', 'everest'];
-  var GRADES = ['Gentle', 'Moderate', 'Hard', 'Severe'];
+  /* Expedition content is a shared domain now. Screens consume the catalog;
+     Journey, Theme Engine and future Base Camp rewards can use the same data. */
+  var ROUTES = Journeys.ROUTES;
+  var ROUTE_ORDER = Journeys.ORDER;
+  var GRADES = Journeys.GRADES;
 
   /* No route until the two of them agree one, so this can be null and every
      caller has to say what it does then. */
@@ -324,6 +191,119 @@
       '</div>' +
       '<p class="small" style="margin-top:14px">The coach needs a fortnight before it proposes targets. Until then these are starting numbers, not yours.</p>' +
     '</article>';
+  }
+
+  // ---------------- Journey ----------------
+  /* Phase 1 makes Journey a first-class destination without pretending the
+     later Theme Engine / Field Guide work is already finished. It uses the
+     existing expedition truth and gives the route one coherent home. */
+  function journey() {
+    var S = Store.state(), r = route(), e = S.expedition;
+    if (!r) {
+      return UI.screen({
+        tab: 'journey', rest: 420, restMeasure: true,
+        art: 'assets/art/expedition-none.webp', photoPosition: 'center 42%',
+        overlay:
+          '<div class="eyebrow">Journey</div>' +
+          '<p class="verse">Choose the road together.</p>' +
+          '<p class="attrib" style="text-transform:none;letter-spacing:0">Your expedition becomes the world the rest of InSync moves through.</p>',
+        body:
+          noExpeditionCard() +
+          '<article class="card pad">' +
+            '<div class="kicker sage" style="margin-bottom:9px">The Road</div>' +
+            '<p class="lede" style="margin:0 0 10px">One shared route. Both of your walking moves it.</p>' +
+            '<p class="small">Pick the first expedition together. Each leg becomes a checkpoint; finished routes stay in your passport.</p>' +
+          '</article>' +
+          '<button class="btn block" data-route="handshake">Choose an expedition</button>'
+      });
+    }
+
+    var current = leg();
+    var complete = !current;
+    var total = routeMiles(r);
+    var completedMiles = r.legs.slice(0, Math.min(e.legIndex, r.legs.length)).reduce(function (sum, x) { return sum + x.miles; }, 0);
+    var mine = complete ? 0 : Store.legMine();
+    var hers = complete ? 0 : Store.legHers();
+    var currentWalked = complete ? 0 : Math.min(current.miles, mine + hers);
+    var routeWalked = Math.min(total, completedMiles + currentWalked);
+    var overallPct = total ? Math.min(100, Math.round(routeWalked / total * 100)) : 0;
+    var currentPct = current && current.miles ? Math.min(100, Math.round(currentWalked / current.miles * 100)) : 100;
+    var art = complete ? (r.banner || routeHero(e.routeId) || 'assets/art/expedition-overlook.webp')
+      : (current.art || r.banner || routeHero(e.routeId) || 'assets/art/expedition-overlook.webp');
+
+    var overlay =
+      '<div class="eyebrow">' + (complete ? 'Route complete' : 'Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length) + '</div>' +
+      '<p class="verse">' + esc(complete ? r.name : current.to) + '</p>' +
+      '<p class="attrib" style="text-transform:none;letter-spacing:0">' +
+        esc(r.where) + ' · ' + esc(r.grade) + ' · ' + overallPct + '% of the route</p>';
+
+    var progress =
+      '<article class="card pad accent">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px">' +
+          '<div><div class="kicker sage" style="margin-bottom:7px">Current expedition</div>' +
+            '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0">' + esc(r.name) + '</h3></div>' +
+          '<div style="font-family:var(--serif);font-size:28px;color:var(--gold);line-height:1">' + overallPct + '%</div>' +
+        '</div>' +
+        '<div class="track" style="margin-top:15px"><span style="width:' + overallPct + '%"></span></div>' +
+        '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:9px" class="small">' +
+          '<span>' + Store.fmtDistance(routeWalked) + ' traveled</span><span>' + Store.fmtDistance(total) + '</span>' +
+        '</div>' +
+      '</article>';
+
+    var legCard = complete
+      ? '<article class="card pad"><div class="kicker gold" style="margin-bottom:9px">At the destination</div>' +
+          '<p class="lede" style="margin:0 0 12px">Every leg of this route is complete.</p>' +
+          '<button class="btn block" data-route="handshake">' + esc(handshakeCta()) + '</button></article>'
+      : '<article class="card pad">' +
+          '<div class="kicker" style="margin-bottom:9px">Current leg</div>' +
+          '<h3 style="font-family:var(--serif);font-size:21px;font-weight:500;margin:0 0 7px">' + esc(current.from) + ' → ' + esc(current.to) + '</h3>' +
+          '<p class="small" style="margin:0">' + Store.fmtDistance(currentWalked) + ' of ' + Store.fmtDistance(current.miles) +
+            (current.ft ? ' · ' + Store.fmtClimb(current.ft) + ' climb' : '') + '</p>' +
+          '<div class="track" style="margin-top:14px"><span style="width:' + currentPct + '%"></span></div>' +
+          '<div class="journey-contrib">' +
+            '<div><span class="kicker faint">You</span><strong>' + Store.fmtDistance(mine) + '</strong></div>' +
+            '<div><span class="kicker faint">' + esc(Store.partnerName()) + '</span><strong>' + Store.fmtDistance(hers) + '</strong></div>' +
+          '</div>' +
+        '</article>';
+
+    var mapRows = r.legs.map(function (x, i) {
+      var status = i < e.legIndex ? 'done' : i === e.legIndex && !complete ? 'current' : 'ahead';
+      var label = status === 'done' ? 'Arrived' : status === 'current' ? currentPct + '%' : Store.fmtDistance(x.miles);
+      return '<div class="journey-leg ' + status + '">' +
+        '<span class="journey-marker">' + (status === 'done' ? icon('check') : (i + 1)) + '</span>' +
+        '<div class="journey-leg-copy"><strong>' + esc(x.to) + '</strong><span>' + esc(x.from) + ' → ' + esc(x.to) + '</span></div>' +
+        '<span class="small">' + esc(String(label)) + '</span>' +
+      '</div>';
+    }).join('');
+
+    var passportIds = (e.walked || []).slice();
+    if (complete && passportIds.indexOf(e.routeId) < 0) passportIds.push(e.routeId);
+    var passport = passportIds.length
+      ? '<article class="card pad"><div class="kicker sage" style="margin-bottom:11px">Expedition passport</div>' +
+          '<div class="passport-strip">' + passportIds.map(function (id) {
+            var walkedRoute = Journeys.get(id);
+            if (!walkedRoute) return '';
+            return '<div class="passport-stamp"><span>' + icon('place') + '</span><strong>' + esc(walkedRoute.name) + '</strong></div>';
+          }).join('') + '</div></article>'
+      : '<article class="card pad"><div class="kicker faint" style="margin-bottom:8px">Expedition passport</div>' +
+          '<p class="small">Your first completed route will leave its permanent stamp here.</p></article>';
+
+    var nextRoad = e.next && Journeys.get(e.next)
+      ? '<article class="card pad accent"><div class="kicker gold" style="margin-bottom:8px">Next road agreed</div>' +
+          '<p class="lede" style="margin:0">' + esc(Journeys.get(e.next).name) + '</p>' +
+          '<p class="small" style="margin-top:8px">It begins when this expedition ends.</p></article>'
+      : '';
+
+    return UI.screen({
+      tab: 'journey', rest: 470, restMeasure: true,
+      art: art, photoPosition: 'center 44%', overlay: overlay,
+      body:
+        progress + legCard +
+        '<div class="rulehead"><span class="kicker sage">Route map</span><span></span><span class="note">' + r.legs.length + ' legs</span></div>' +
+        '<article class="card journey-map">' + mapRows + '</article>' +
+        nextRoad + passport +
+        '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>'
+    });
   }
 
   // ---------------- Coach ----------------
@@ -1844,7 +1824,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>5.5.6 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p1 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2046,7 +2026,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 5.5.6</div></div>' +
+            '<div class="meta">Version 6.0.0-p1</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -4085,7 +4065,7 @@
     handshake: handshake, routeName: routeName, earnedMoment: earnedMoment,
     legCount: function () { var r = route(); return r ? r.legs.length : 0; },
     legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
-    home: home, coach: coach, nutrition: nutrition, train: train, together: together,
+    home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together,
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival,
     records: records, badges: badges, reflection: reflection,

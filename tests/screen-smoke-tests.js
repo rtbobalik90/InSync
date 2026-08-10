@@ -61,6 +61,12 @@ context.window.dispatchEvent = () => {};
 vm.createContext(context);
 
 [
+  'domains.js',
+  'contracts.js',
+  'journeys.js',
+  'theme.js',
+  'rewards.js',
+  'camp.js',
   'store.js',
   'ui.js',
   'exercises.js',
@@ -100,6 +106,7 @@ function check(screenName, hash, allowEmpty = false) {
 
 Object.entries({
   home: 'home',
+  journey: 'journey',
   coach: 'coach',
   nutrition: 'nutrition',
   train: 'train',

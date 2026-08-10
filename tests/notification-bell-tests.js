@@ -23,12 +23,14 @@ const ctx={
   btoa:s=>Buffer.from(s,'binary').toString('base64'), atob:s=>Buffer.from(s,'base64').toString('binary')
 };
 ctx.window=ctx; ctx.window.dispatchEvent=()=>{}; vm.createContext(ctx);
-['store.js','ui.js','exercises.js','insights.js','onboarding.js','cloud.js','foods.js','badges.js','screens.js'].forEach(file=>{
+['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','ui.js','exercises.js','insights.js','onboarding.js','cloud.js','foods.js','badges.js','screens.js'].forEach(file=>{
   vm.runInContext(fs.readFileSync(path.join(ROOT,file),'utf8'),ctx,{filename:file});
 });
 const S=ctx.Store; S.set('onboarded',true); S.setProfileName('Robert'); S.setPartnerName('Lizzie');
 
-// August 9, 2026 is Sunday, so the challenge-ending item supplies a deterministic informational event.
+// Use a real state-backed informational event rather than the live weekday so
+// this suite remains deterministic on every calendar date.
+S.set('partnerData',{name:'Lizzie',initials:'L',date:S.todayKey(),points:0,steps:0,workouts:0});
 let status=ctx.Screens.notificationStatus();
 ok(status.info >= 1 && status.action === 0, 'fresh informational activity is unread without pretending it needs action');
 let h=ctx.UI.header({});

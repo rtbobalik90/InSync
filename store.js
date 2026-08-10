@@ -82,6 +82,19 @@
     weeklyReviews: {},
     weeklyGoals: {},
     reactionsGiven: {},
+    /* Base Camp is local-first in Phase 1. Nothing here is sent to the partner
+       sync payload yet; later game phases can opt specific public-safe fields in. */
+    baseCamp: {
+      schema: 1, level: 1, xp: 0, landTier: 1, theme: 'base', allowPartnerVisit: true,
+      unlocked: ['base-tent', 'base-fire-ring', 'base-trail-marker'],
+      inventory: [], collections: [], expeditionRewards: [],
+      placed: [
+        { instanceId: 'starter-tent', itemId: 'base-tent', x: 1, y: 1, rotation: 0, variant: 'canvas' },
+        { instanceId: 'starter-fire', itemId: 'base-fire-ring', x: 4, y: 3, rotation: 0, variant: 'stone' },
+        { instanceId: 'starter-marker', itemId: 'base-trail-marker', x: 0, y: 4, rotation: 0, variant: 'wood' }
+      ],
+      lastLevelUpAt: ''
+    },
     proposal: null,
     lastArrival: null,
     lastFinish: null,
@@ -591,6 +604,44 @@
     Object.keys(S.reactionsGiven).forEach(function (id) {
       if (!validActivityIdKey(id) || ['heart','clap','fire'].indexOf(S.reactionsGiven[id]) < 0) delete S.reactionsGiven[id];
     });
+
+    /* Base Camp state is future-facing but must already be safe to back up and
+       restore. Clamp coordinates and identifiers now so the builder can trust
+       its data model when Phase 8 turns this into an interactive world. */
+    if (!plainObject(S.baseCamp)) S.baseCamp = clone(DEFAULT.baseCamp);
+    S.baseCamp.schema = 1;
+    S.baseCamp.xp = Math.max(0, Math.round(finiteOr(S.baseCamp.xp, 0, 0, 1000000000)));
+    S.baseCamp.level = window.InSyncCamp && InSyncCamp.levelForXp ? InSyncCamp.levelForXp(S.baseCamp.xp) : Math.max(1, Math.round(finiteOr(S.baseCamp.level, 1, 1, 1000)));
+    S.baseCamp.landTier = Math.max(1, Math.min(4, Math.round(finiteOr(S.baseCamp.landTier, 1, 1, 4))));
+    S.baseCamp.theme = /^[a-z0-9-]{1,80}$/.test(String(S.baseCamp.theme || '')) ? String(S.baseCamp.theme) : 'base';
+    S.baseCamp.allowPartnerVisit = S.baseCamp.allowPartnerVisit !== false;
+    function cleanCampIds(list, limit) {
+      var seen = {};
+      return Array.isArray(list) ? list.map(function (x) { return shortText(x, 120).trim(); }).filter(function (x) {
+        if (!x || !/^[a-z0-9:_-]{1,120}$/i.test(x) || seen[x]) return false;
+        seen[x] = true; return true;
+      }).slice(-limit) : [];
+    }
+    S.baseCamp.unlocked = cleanCampIds(S.baseCamp.unlocked, 1000);
+    ['base-tent','base-fire-ring','base-trail-marker'].forEach(function (id) { if (S.baseCamp.unlocked.indexOf(id) < 0) S.baseCamp.unlocked.unshift(id); });
+    S.baseCamp.inventory = cleanCampIds(S.baseCamp.inventory, 1000);
+    S.baseCamp.collections = cleanCampIds(S.baseCamp.collections, 200);
+    S.baseCamp.expeditionRewards = cleanCampIds(S.baseCamp.expeditionRewards, 1000);
+    var inst = {};
+    S.baseCamp.placed = Array.isArray(S.baseCamp.placed) ? S.baseCamp.placed.filter(plainObject).map(function (it) {
+      var iid = shortText(it.instanceId, 120).trim(), itemId = shortText(it.itemId, 120).trim();
+      if (!iid || !itemId || !/^[a-z0-9:_-]{1,120}$/i.test(iid) || !/^[a-z0-9:_-]{1,120}$/i.test(itemId) || inst[iid]) return null;
+      inst[iid] = true;
+      return {
+        instanceId: iid, itemId: itemId,
+        x: Math.max(0, Math.min(99, Math.round(finiteOr(it.x, 0, 0, 99)))),
+        y: Math.max(0, Math.min(99, Math.round(finiteOr(it.y, 0, 0, 99)))),
+        rotation: [0,90,180,270].indexOf(+it.rotation) >= 0 ? +it.rotation : 0,
+        variant: shortText(it.variant, 80).trim()
+      };
+    }).filter(Boolean).slice(-500) : clone(DEFAULT.baseCamp.placed);
+    S.baseCamp.lastLevelUpAt = validTimestamp(S.baseCamp.lastLevelUpAt);
+
     if (!plainObject(S.planMeta)) S.planMeta = {};
     S.planMeta.writtenBy = S.planMeta.writtenBy === 'coach' ? 'coach' : '';
     S.planMeta.weekOf = validDateKey(S.planMeta.weekOf) ? String(S.planMeta.weekOf) : '';

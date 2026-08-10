@@ -9,7 +9,7 @@ const ctx={console,localStorage:new LS(),Date,Math,JSON,String,Number,Object,Arr
  location:{hostname:'example.test',pathname:'/insync/',hash:'#home',protocol:'https:'},navigator:{onLine:true},CustomEvent:function(){},
  btoa:s=>Buffer.from(s,'binary').toString('base64'),atob:s=>Buffer.from(s,'base64').toString('binary'),window:null};
 ctx.window=ctx;ctx.window.dispatchEvent=()=>{};vm.createContext(ctx);
-for(const f of ['store.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js']) vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),ctx,{filename:f});
+for(const f of ['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js']) vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),ctx,{filename:f});
 const S=ctx.Store,I=ctx.Insights,O=ctx.Onboarding,C=ctx.Cloud,Sc=ctx.Screens;
 S.setProfileName('Lizzie'); S.setPartnerName('Robert'); S.set('profile.sex','Female'); S.set('profile.age',34); S.set('profile.heightIn',65);
 S.set('profile.startDate',S.shift(S.todayKey(),-30)); S.set('goal','lose-fat'); S.set('frequency',4); S.set('onboarded',true); S.setSecret('claudeKey','test-key');

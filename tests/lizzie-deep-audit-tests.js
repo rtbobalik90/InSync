@@ -13,7 +13,7 @@ function makeCtx(seed={}){
  ctx.window=ctx;ctx.window.dispatchEvent=()=>{};vm.createContext(ctx);return ctx;
 }
 function run(ctx,f){vm.runInContext(fs.readFileSync(path.join(ROOT,f),'utf8'),ctx,{filename:f})}
-function load(ctx,files=['store.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js']){files.forEach(f=>run(ctx,f));return ctx}
+function load(ctx,files=['domains.js','contracts.js','journeys.js','theme.js','rewards.js','camp.js','store.js','ui.js','exercises.js','insights.js','onboarding.js','badges.js','cloud.js','foods.js','screens.js']){files.forEach(f=>run(ctx,f));return ctx}
 function localToday(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
 function validPlan4(){return [
  {day:'Mon',name:'Push',ex:['dumbbell-chest-press','shoulder-press-machine','triceps-pushdown']},

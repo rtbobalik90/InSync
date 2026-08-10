@@ -1,15 +1,32 @@
-# InSync 5.5.6
+# InSync 6.0.0-p1 — Architecture Foundation
 
 InSync is a private, local-first two-person health and fitness PWA. Daily nutrition, training, body tracking, faith/reflection, progression, photos, goals and history live primarily on each phone. A small privacy-controlled subset is exchanged through a dedicated private GitHub repository so Together, expeditions, chat and reactions can work across two devices.
 
 ## Core navigation
 
+The 6.0 foundation has five primary destinations:
+
 - **Home** — daily score, next step, Coach observations, weekly goals/review and expedition status.
-- **Journey** — expedition selection and leg progress.
+- **Journey** — first-class expedition hub with current leg, shared contribution, route map and passport surface.
 - **Train** — Monday–Sunday training week, sessions, progression, substitutions and records.
 - **Nutrition** — Breakfast/Lunch/Dinner/Snack logging, weekly meal planning, recipes, favorites, preferences and shopping list.
-- **Together** — shared expedition, weekly points, conversation and lightweight reactions.
-- **Coach** — grounded coaching and Claude conversation using the same local log.
+- **Together** — shared progress, weekly points, conversation and lightweight reactions.
+
+**Coach** is no longer a bottom tab. It remains a full route and is globally accessible from the header so Intelligence can become a system that follows the user rather than a competing destination.
+
+## 6.0 Phase 1 architecture foundation
+
+Phase 1 introduces small shared modules without rewriting the working app:
+
+- `domains.js` — product-domain and primary-navigation registry;
+- `journeys.js` — the single expedition catalog and route math used by Journey today and Theme/Base Camp later;
+- `contracts.js` — AI-skill, privacy and domain-event contracts;
+- `theme.js` — default theme plus expedition-pack registration/fallback seam;
+- `rewards.js` — declared event bus for later XP/reward systems; Phase 1 awards no XP;
+- `camp.js` — Base Camp level thresholds, land tiers, starter item catalog and read-only model helpers;
+- `store.js` now carries a sanitized, backup-safe local Base Camp state model. Camp state is **not** added to partner sync in Phase 1.
+
+This extraction is intentionally incremental. Existing Training, Nutrition, Together, Coach and History logic stays proven while later phases can migrate each domain behind these boundaries.
 
 ## The weekly rhythm
 
@@ -113,14 +130,14 @@ Use **Create Backup** for the complete personal backup. Backups include applicat
 
 The header bell is neutral when nothing new is waiting, gold with a dot for unread informational activity, and gold with a numbered badge/glow when one or more items require action. Opening Notifications acknowledges informational items; unresolved actions remain counted until the underlying invitation, note, or coach proposal is handled.
 
-Version 5.5.6 uses service-worker cache `insync-v10-15`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
+Version 6.0.0-p1 uses service-worker cache `insync-v10-16`. An update can download while the app is running, but reload waits for a safe Home/Settings moment so an active workout, modal or edit is not interrupted.
 
 ## Version matrix
 
-- App/UI: **5.5.6**
+- App/UI: **6.0.0-p1**
 - Local state: **v10**
 - Partner sync: **schema 6**
-- Service worker: **insync-v10-15**
+- Service worker: **insync-v10-16**
 
 See `TEST_REPORT.md`, `CODE_REVIEW.md` and `RELEASE_NOTES.md` for the release gate and detailed changes.
 

@@ -10,7 +10,7 @@
   if (standaloneMode) document.documentElement.classList.add('insync-standalone');
 
   var app = document.getElementById('app');
-  var TABS = ['home', 'coach', 'train', 'nutrition', 'together'];
+  var TABS = ['home', 'journey', 'train', 'nutrition', 'together'];
 
 
   function current() {
@@ -89,6 +89,7 @@
     if ((root === 'home' || root === 'reflection') && Store.markVerseRead) Store.markVerseRead(Store.todayKey());
 
     if (TABS.indexOf(root) >= 0) html = Screens[root]();
+    else if (root === 'coach') html = Screens.coach();
     else if (root === 'settings') html = Screens.settings();
     else if (root === 'body') html = Screens.body();
     else if (root === 'records') html = Screens.records();
@@ -1179,7 +1180,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'5.5.6', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p1', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

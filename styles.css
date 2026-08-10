@@ -1227,3 +1227,46 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .setpref{padding:15px 16px;border-bottom:1px solid var(--rule);display:grid;gap:11px}
 .setprefchips{display:flex;gap:7px;flex-wrap:wrap}
 .setprefchips .ob-chip{flex:1 1 auto;min-width:64px;min-height:38px;padding:0 12px}
+
+/* ---- InSync 6.0 Phase 1: Journey + global Coach access ---- */
+.coach-access { color: var(--gold-lt); }
+.coach-access svg { width: 20px; height: 20px; }
+.journey-contrib {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--rule);
+}
+.journey-contrib > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.journey-contrib strong { font: 500 17px/1.2 var(--serif); color: var(--ink); }
+.journey-map { overflow: hidden; }
+.journey-leg {
+  position: relative; display: grid; grid-template-columns: 32px minmax(0,1fr) auto;
+  align-items: center; gap: 11px; min-height: 66px; padding: 11px 15px;
+  border-bottom: 1px solid var(--rule);
+}
+.journey-leg:last-child { border-bottom: 0; }
+.journey-leg::before {
+  content: ''; position: absolute; left: 30px; top: 0; bottom: 0; width: 1px; background: var(--rule);
+}
+.journey-leg:first-child::before { top: 50%; }
+.journey-leg:last-child::before { bottom: 50%; }
+.journey-marker {
+  position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; border: 1px solid var(--rule); background: var(--card);
+  color: var(--faint); font-size: 11px; font-weight: 700;
+}
+.journey-marker svg { width: 15px; height: 15px; }
+.journey-leg.done .journey-marker { color: var(--sage-lt); border-color: rgba(151,168,123,.55); }
+.journey-leg.current .journey-marker { color: var(--gold-lt); border-color: rgba(198,161,93,.65); box-shadow: 0 0 0 3px rgba(198,161,93,.08); }
+.journey-leg.ahead { opacity: .68; }
+.journey-leg-copy { min-width: 0; display: grid; gap: 4px; }
+.journey-leg-copy strong { font: 500 15px/1.2 var(--serif); color: var(--ink); }
+.journey-leg-copy span { color: var(--faint); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.passport-strip { display: grid; gap: 9px; }
+.passport-stamp {
+  display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 10px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--rule);
+}
+.passport-stamp:last-child { border-bottom: 0; }
+.passport-stamp > span { width: 24px; color: var(--gold); }
+.passport-stamp svg { width: 22px; height: 22px; }
+.passport-stamp strong { font: 500 15px/1.25 var(--serif); }
