@@ -1005,7 +1005,7 @@
 
     return UI.screen({
       tab:'train',rest:310,restMeasure:true,photoHeight:'390px',
-      art:trainHero.art,artFallback:trainHero.fallback,photoPosition:'center 42%',scrim:UI.SCRIMS.heavy,
+      art:trainHero.art,artFallback:trainHero.fallback,photoPosition:'center 42%',scrim:UI.SCRIMS.train,
       overlay:'<div class="eyebrow">Train</div><p class="verse" style="font-size:25px">'+esc(headline)+'</p>',
       body:body
     });
@@ -2240,7 +2240,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.5</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.6</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3008,8 +3008,11 @@
     }
 
     body += '<article class="card pad">' +
-      '<div class="kicker" style="margin-bottom:11px">Steps</div>' +
-      '<p class="lede">' + (rec.steps ? rec.steps.toLocaleString() + ' walked.' : 'None recorded.') + '</p>' +
+      '<div class="home-rhythm-head"><span class="kicker">Steps</span>' +
+        (!isFuture ? '<button class="btn ghost sm" data-action="log-steps" data-date="' + esc(key) + '">' + (rec.steps ? 'Edit steps' : 'Add steps') + '</button>' : '') +
+      '</div>' +
+      '<p class="lede" style="margin-top:11px">' + (rec.steps ? rec.steps.toLocaleString() + ' walked.' : 'None recorded.') + '</p>' +
+      (!isFuture ? '<p class="small" style="margin:8px 0 0">You can correct this day later if your phone or watch syncs after the fact.</p>' : '') +
     '</article>';
 
     if (isToday && !workouts.length && scheduled && scheduled.name !== 'Walk') {
@@ -3023,7 +3026,7 @@
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: 'train', title: FULL[dt.getDay()], right: '<div style="width:34px"></div>' },
-      art: dayTrainHero.art, artFallback: dayTrainHero.fallback, scrim: UI.SCRIMS.heavy, photoPosition: 'center 40%',
+      art: dayTrainHero.art, artFallback: dayTrainHero.fallback, scrim: UI.SCRIMS.train, photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(key) + (isToday ? ' \u00b7 today' : '') + '</div>' +
         '<p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body: body

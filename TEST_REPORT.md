@@ -1,21 +1,19 @@
-# InSync 6.0.0-p5.5 — Test Report
+# InSync 6.0.0-p5.6 — Test Report
 
-The production repository passes the full deterministic Node suite after the Train/visual refinement.
+This release adds regression coverage for the Train hero scrim and historical step editing.
 
-New P5.5 coverage verifies:
-- light / medium / heavy expedition scrim system;
-- screen-specific scrim assignment;
-- Train landing contains the weekly overview rather than day-specific readiness/walk controls;
-- previous/next training-week navigation;
-- Your Plan precedes Records / Exercise Library / Body;
-- selected training day owns readiness, walk timer and workout actions;
-- manual workout addition remains available;
-- morning completion marker persistence/sanitization;
-- completed morning and nightly Home prompts disappear;
-- History retains edit paths;
-- runtime/service-worker update identifiers.
+P5.6-specific checks verify that:
+- Train has no global dark wash across the top 58% of the hero;
+- Train still fades strongly into the card stack at the bottom;
+- Train landing and Train day both use the dedicated scrim;
+- current and prior Train days expose Add/Edit steps;
+- future days stay non-editable;
+- the dated action passes the selected date through Log.open;
+- Log saves steps to `open.date`;
+- Store writes corrected historical steps to that day without changing today;
+- runtime and service-worker IDs are bumped.
 
-Full suite result before packaging: **1,813 assertions passed, 0 failed**.
+Full deterministic suite before packaging: **1,755 checks passed, 0 failed test files**.
 
-Runtime: `6.0.0-p5.5`  
-Service worker: `insync-v10-27`
+Runtime: `6.0.0-p5.6`  
+Service worker: `insync-v10-28`

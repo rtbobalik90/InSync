@@ -22,7 +22,7 @@ ok(log.includes('Store.setSteps(Math.round(nonneg(d.steps)), open.date)'),'Step 
 ok(log.includes('}, open.date);')&&log.includes('Store.addMeal(mealData, open.date)'),'Meals, workouts and morning corrections preserve the selected date');
 ok(app.includes("var editDate = el.getAttribute('data-date') || ''"),'App forwards the selected day into logging actions');
 ok(app.includes("Store.saveReflection(ta.value, el.getAttribute('data-date') || Store.todayKey())"),'Nightly review save respects a historical date');
-ok(sw.includes("insync-v10-27")&&app.includes("6.0.0-p5.5")&&screens.includes('Version 6.0.0-p5.5'),'P5.2 runtime and cache are bumped for installed phones');
+ok(sw.includes("insync-v10-28")&&app.includes("6.0.0-p5.6")&&screens.includes('Version 6.0.0-p5.6'),'P5.2 runtime and cache are bumped for installed phones');
 
 const ctx={console,localStorage:new LS(),Date,Math,JSON,String,Number,Object,Array,RegExp,Intl,parseInt,parseFloat,isFinite,isNaN,setTimeout,clearTimeout,
  location:{hostname:'example.test',pathname:'/insync/',hash:'',protocol:'https:'},navigator:{},CustomEvent:function(){},window:null};

@@ -1,4 +1,4 @@
-# InSync 6.0.0-p5.5
+# InSync 6.0.0-p5.6
 
 Current production build: **Visual Scrims + Train Architecture Refinement**.
 
@@ -24,6 +24,13 @@ UI exposes light, medium and heavy scrim presets. Scenic/emotional screens prese
 ## Compatibility
 - Local storage: `insync.v10`
 - Partner sync: schema 7
-- Runtime: `6.0.0-p5.5`
-- Service worker: `insync-v10-27`
+- Runtime: `6.0.0-p5.6`
+- Service worker: `insync-v10-28`
 - Faith: parked
+
+
+## P5.6 hotfix
+
+- Train hero art is open/undarkened across the top and only fades into the card stack near the bottom.
+- Current and historical Train-day Steps cards now include Add/Edit steps.
+- Historical steps continue to be editable from History as well.

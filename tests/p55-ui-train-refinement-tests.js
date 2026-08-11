@@ -11,10 +11,10 @@ const styles=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
 const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
 const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
 
-ok(ui.includes('var SCRIMS = {')&&ui.includes('light:')&&ui.includes('medium:')&&ui.includes('heavy:'),'visual system exposes light / medium / heavy expedition scrims');
+ok(ui.includes('var SCRIMS = {')&&ui.includes('light:')&&ui.includes('medium:')&&ui.includes('heavy:')&&ui.includes('train:'),'visual system exposes scenic, utility and Train-specific expedition scrims');
 ok(screens.includes('art: homeHero.art, artFallback: homeHero.fallback, scrim: UI.SCRIMS.light'),'Home uses the light scenic scrim');
 ok(screens.includes('art: nutritionHero.art, artFallback: nutritionHero.fallback, scrim: UI.SCRIMS.medium'),'Nutrition uses the medium utility/scenic scrim');
-ok(screens.includes('art:trainHero.art,artFallback:trainHero.fallback,photoPosition:\'center 42%\',scrim:UI.SCRIMS.heavy'),'Train keeps the strongest readability scrim');
+ok(screens.includes("art:trainHero.art,artFallback:trainHero.fallback,photoPosition:'center 42%',scrim:UI.SCRIMS.train"),'Train uses its dedicated open-top / strong-bottom scrim');
 ok(screens.includes('art: togetherHero.art, artFallback: togetherHero.fallback, scrim: UI.SCRIMS.light'),'Together lets more expedition artwork breathe');
 ok(screens.includes('art: coachHero.art, artFallback: coachHero.fallback, scrim: UI.SCRIMS.light'),'Coach lets more expedition artwork breathe');
 ok(screens.includes("art: art, artFallback: artFallback, scrim: UI.SCRIMS.medium"),'Journey uses the medium route scrim');
@@ -41,7 +41,7 @@ ok(store.includes('d.morningCheckInAt = new Date().toISOString()'),'saving a mor
 ok(screens.includes("if (d.morningCheckInAt || d.weight != null || d.sleepHr != null || d.restingHr != null) return '';"),'completed morning check-in disappears from Home, including pre-P5.5 saved mornings');
 ok(screens.includes("if (written) return '';"),'completed nightly review disappears from Home');
 ok(screens.includes('data-action="log-morning" data-date=')&&screens.includes('Edit nightly review'),'History still provides correction/edit paths after Home prompts disappear');
-ok(app.includes("version:'6.0.0-p5.5'")&&screens.includes('Version 6.0.0-p5.5')&&sw.includes("CACHE = 'insync-v10-27'"),'P5.5 runtime and cache are bumped for installed phones');
+ok(app.includes("version:'6.0.0-p5.6'")&&screens.includes('Version 6.0.0-p5.6')&&sw.includes("CACHE = 'insync-v10-28'"),'current runtime and cache are bumped for installed phones');
 
 // Store behavior: setMorning must mark the day without changing local-state schema.
 class LS{constructor(){this.m=new Map()}getItem(k){return this.m.has(k)?this.m.get(k):null}setItem(k,v){this.m.set(k,String(v))}removeItem(k){this.m.delete(k)}}
@@ -50,4 +50,4 @@ ctx.Store.setMorning({sleepHr:8},ctx.Store.todayKey());
 ok(/^\d{4}-\d{2}-\d{2}T/.test(ctx.Store.day().morningCheckInAt||''),'morning save persists a real completion timestamp');
 eq(ctx.Store.day().sleepHr,8,'morning values still persist normally');
 
-console.log(`\nP5.5 UI/Train refinement checks: ${passed} passed, ${failed} failed.`); if(failed)process.exit(1);
+console.log(`\nUI/Train refinement checks: ${passed} passed, ${failed} failed.`); if(failed)process.exit(1);
