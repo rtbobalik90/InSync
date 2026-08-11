@@ -53,7 +53,7 @@
     light: 'linear-gradient(180deg,rgba(12,13,9,.48) 0%,rgba(12,13,9,.28) 18%,rgba(12,13,9,.10) 34%,rgba(12,13,9,0) 58%,rgba(20,21,15,.18) 76%,rgba(20,21,15,.64) 94%,#14150F 100%)',
     medium: 'linear-gradient(180deg,rgba(12,13,9,.57) 0%,rgba(12,13,9,.38) 19%,rgba(12,13,9,.14) 38%,rgba(12,13,9,.02) 58%,rgba(20,21,15,.24) 76%,rgba(20,21,15,.70) 94%,#14150F 100%)',
     heavy: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
-    train: 'linear-gradient(180deg,rgba(10,12,8,0) 0%,rgba(10,12,8,0) 58%,rgba(20,21,15,.18) 70%,rgba(20,21,15,.70) 91%,#14150F 100%)'
+    train: 'linear-gradient(180deg,rgba(10,12,8,.08) 0%,rgba(10,12,8,.03) 12%,rgba(10,12,8,0) 28%,rgba(10,12,8,0) 74%,rgba(20,21,15,.14) 84%,rgba(20,21,15,.48) 94%,#14150F 100%)'
   };
   var SCRIM = SCRIMS.medium;
 
@@ -138,7 +138,8 @@
     if (opts.photoPos) photoStyle += ';background-position:' + opts.photoPos;
     if (opts.photoPosition) photoStyle += ';background-position:' + opts.photoPosition;
 
-    return '<section class="screen">' +
+    var screenClass = opts.screenClass ? ' ' + opts.screenClass : '';
+    return '<section class="screen' + esc(screenClass) + '">' +
       '<div class="photo' + (opts.blur ? ' blurred' : '') + '"' + (opts.photoId ? ' data-photo="' + esc(opts.photoId) + '"' : '') + ' style="' + photoStyle + '"></div>' +
       header(opts.header || {}) +
       (opts.overlay ? '<div class="overlay">' + opts.overlay + '</div>' : '') +

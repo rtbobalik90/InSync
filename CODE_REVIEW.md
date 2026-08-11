@@ -1,13 +1,16 @@
-# InSync 6.0.0-p5.6 — Code Review
+# InSync 6.0.0-p5.5 — Code Review
 
-## Scope
-This hotfix intentionally changes only two user-facing behaviors: Train hero image protection and dated step correction.
+## Review focus
+This pass intentionally changed presentation and information architecture without changing the persisted local-state or partner-sync schema.
 
-## Findings
-- The P5.5 Train screen used the heavy expedition scrim across the top of the artwork. The dedicated `SCRIMS.train` treatment now leaves the upper 58% unwashed and keeps the lower blend into the dark card stack.
-- Historical step storage and the dated Log sheet already supported writing to a supplied date, but the Train-day UI only displayed the step total. A dated Add/Edit steps action is now exposed directly on every non-future Train day.
-- History retains its existing dated Steps edit route.
-- `Store.setSteps(value, date)` remains the single deterministic write path, so corrected steps are stored on the intended day rather than today.
+### Visual scrims
+`ui.js` now owns `SCRIMS.light`, `SCRIMS.medium`, and `SCRIMS.heavy`. Screens choose the appropriate preset rather than carrying unrelated one-off gradients. Train retains the strongest treatment; scenic surfaces use lighter treatments.
 
-## Compatibility
-No local-state migration, partner-sync change, expedition-art rename, or user-data reset is required.
+### Train architecture
+The main `train()` screen contains no live readiness or walk controls. `trainDay()` owns those day-specific controls. Weekly navigation is hash-based (`#train/week/YYYY-MM-DD`) and therefore requires no new persistent UI state. Past weeks derive labels from recorded workouts/frozen score basis rather than projecting the current plan backward.
+
+### Morning completion
+`setMorning()` records `morningCheckInAt`, and normalization validates it. Home also treats existing current-day weight/sleep/resting-HR data as an already-completed morning so P5.4 users are not re-prompted after upgrade.
+
+### Privacy / sync
+No new health fields are added to partner sync. `morningCheckInAt` is local day state only. Partner sync remains schema 7.

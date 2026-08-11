@@ -18,3 +18,10 @@
 - Local storage remains `insync.v10`.
 - Partner sync schema remains 7.
 - Faith remains parked.
+
+
+## P5.7 — Phase 2 kickoff
+- Added a train-specific screen class and lighter header scrim.
+- Rebuilt the Train hero scrim so the photo stays open through the middle of the frame and only transitions near the card stack.
+- Applied the same treatment to the individual workout-day screen.
+- Bumped the service-worker cache to insync-v10-29.

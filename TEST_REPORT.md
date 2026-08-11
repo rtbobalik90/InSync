@@ -13,7 +13,7 @@ P5.6-specific checks verify that:
 - Store writes corrected historical steps to that day without changing today;
 - runtime and service-worker IDs are bumped.
 
-Full deterministic suite before packaging: **1,755 checks passed, 0 failed test files**.
+Full-suite totals are recorded after packaging verification.
 
 Runtime: `6.0.0-p5.6`  
 Service worker: `insync-v10-28`

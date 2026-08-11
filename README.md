@@ -34,3 +34,6 @@ UI exposes light, medium and heavy scrim presets. Scenic/emotional screens prese
 - Train hero art is open/undarkened across the top and only fades into the card stack near the bottom.
 - Current and historical Train-day Steps cards now include Add/Edit steps.
 - Historical steps continue to be editable from History as well.
+
+
+P5.7: Phase 2 overlay refinement begins with a train-specific hero treatment that removes the heavy full-screen wash and keeps the canyon image open through the upper and middle frame.
