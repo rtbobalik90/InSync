@@ -462,12 +462,17 @@
 
   // Photograph of a barcode → the digits beneath it.
   function readBarcodePhoto(dataUrl, cb) {
-    var m = /^data:(image\/[a-z+]+);base64,(.*)$/i.exec(dataUrl || '');
+    var m = /^data:(image\/[^;,]+);base64,(.*)$/i.exec(dataUrl || '');
     if (!m) return cb(new Error('Could not read that photo'));
+    var mediaType = String(m[1] || '').toLowerCase();
+    if (mediaType === 'image/jpg') mediaType = 'image/jpeg';
+    if (['image/jpeg','image/png','image/gif','image/webp'].indexOf(mediaType) < 0) {
+      return cb(new Error('That camera format needs to be converted before it can be read. Try the photograph again.'));
+    }
     ai('nutrition.barcode-photo', [{
       role: 'user',
       content: [
-        { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } },
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: m[2] } },
         { type: 'text', text: 'Read the barcode number printed beneath the bars. ' +
           'Respond with JSON only: {"code":"digits only"}. If you cannot read it, return {"code":""}.' }
       ]

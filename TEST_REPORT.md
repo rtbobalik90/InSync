@@ -1,13 +1,16 @@
-# InSync 6.0.0-p5 — Release Test Report
+# InSync 6.0.0-p5.3 — Test Report
 
 ## Result
-**1,173 automated assertions passed. 0 failed.**
+**1,731 automated assertions passed. 0 failed.**
 
 Suites:
+- Barcode scanner hotfix: 10
 - Cloud sync: 30
 - Completion features: 57
 - Faith parking: 30
+- Home / historical correction: 21
 - Intelligence evaluation: 52
+- Journey checkpoint / art-slot system: 51
 - Lizzie deep audit: 87
 - Lizzie device: 50
 - Pair symmetry: 14
@@ -17,31 +20,28 @@ Suites:
 - Nutrition 2.0: 30
 - Phase 1 foundation: 40
 - Screen smoke: 72
-- Stabilization / production integrity: 544
+- Stabilization / production integrity: 1020
 - Training 2.0: 67
 - Daily workout / recovery walk: 42
 
-## Phase 5 acceptance coverage
-The Nutrition 2.0 suite verifies:
-- deterministic daily calorie/protein totals;
-- four required meal slots;
-- low-calorie, high-calorie and low-protein plan rejection;
-- hard exclusion enforcement;
-- pantry-staple matching;
-- prep-timeline generation;
-- Shared Dinner target opt-in/privacy boundary;
-- bounded partner Shared Dinner target sanitation;
-- one-recipe/two-portion validation;
-- complete Cloud Shared Dinner generation and owner/partner portion preservation;
-- targeted repair of a deliberately failing generated day;
-- final seven-day deterministic verification;
-- production/offline loading of the Nutrition engine;
-- hard-exclusion, pantry, verification and prep UI wiring;
-- Eating Out target awareness and source tracking;
-- Phase 5 runtime/version wiring.
+The retired Faith Foundation and Phase 3B visual suites remain intentionally skipped while Faith is parked.
 
-## Release gate
-Every generated week must pass deterministic daily verification before it is called ready. AI output remains a proposal; application code proves the numbers and rejects hard-exclusion conflicts.
+## Journey checkpoint acceptance coverage
+- Catalog contains deterministic checkpoint, Travel/Leg and app-section asset paths.
+- Grand Canyon trailhead and Phantom Ranch checkpoint identities are preserved.
+- Extra notable places can coexist with simplified leg models (for example Grey Glacier and Pheriche).
+- Expedition start writes/unlocks the starting checkpoint.
+- Journey shows the scenic trailhead before the first mile and changes to Travel/Leg art once movement begins.
+- Completing a leg records and unlocks the destination checkpoint.
+- Arrival retains the two-person leg contribution.
+- Arrival uses checkpoint artwork and links directly to the place page.
+- Place page renders leg breakdown, cumulative distance and contribution.
+- Future checkpoint deep links remain locked and do not expose scenic art.
+- Legacy progress remains unlocked without invented historical values.
+- Home, Train, Nutrition and Coach are ready for expedition-specific section art with known-good fallbacks.
+- Whole-expedition completion remains locked until the road is finished.
+- Whole-expedition completion uses a dedicated Arrival Ceremony image slot and links back to checkpoint memories.
+- Router, service-worker cache and runtime version are wired for p5.3.
 
 ## Packaged-build verification
-The final full-build ZIP is extracted into a separate clean-room directory and the complete suite is run again against the packaged files before release.
+The final full-build ZIP is extracted into a separate clean-room directory and the complete suite is run again against the exact packaged files before release.

@@ -1,48 +1,57 @@
-# InSync 6.0.0-p5 — Nutrition 2.0
+# InSync 6.0.0-p5.3 — Journey Checkpoints & Expedition Art Slots
 
-## Verified weekly planning
-Generated meal weeks are no longer accepted merely because 28 recipe objects exist. InSync now validates each date independently for:
-- all four required meal slots;
-- calorie target range;
-- protein target;
-- absolute food exclusions.
+## Reached places are now real destinations
+Journey no longer treats a route only as a list of mileage segments. Each expedition now has a checkpoint catalog beginning with its actual starting place and continuing through the destinations reached along the road.
 
-If one date fails, only that date is sent back for repair. Successful days remain untouched.
+- Starting checkpoint unlocks when the expedition begins.
+- Before the first mile, Journey shows the starting checkpoint art slot.
+- Once walking begins, Journey changes to the active Travel/Leg artwork.
+- Completing a leg unlocks its destination checkpoint.
+- The arrival moment now uses the dedicated scenic checkpoint image slot rather than simply recycling travel artwork.
+- Reached locations remain tappable from Journey and open a permanent checkpoint detail page.
+- Locked future checkpoint pages do not expose their destination artwork.
 
-## Preference levels
-Meal preferences now distinguish:
-- **Prefer not to include** — a soft preference Claude should avoid when practical.
-- **Must never include** — a hard exclusion enforced by code after generation.
+## Checkpoint detail pages
+Unlocked place pages include:
+- scenic checkpoint hero;
+- reached date when it is known;
+- route and checkpoint identity;
+- previous-leg breakdown;
+- leg distance;
+- cumulative distance from the route start;
+- climb when the catalog provides it;
+- local/partner contribution for newly recorded checkpoints.
 
-The hard field is intended for allergy/religious/medical/absolute household exclusions and is never treated as a casual dislike.
+Existing users retain previously reached locations. Migration never fabricates a date or contribution split when the old state did not contain enough information.
 
-## Shared Dinner
-Added the first Shared Dinner workflow:
-- one common home-cooked recipe;
-- one owner portion;
-- one partner portion;
-- separate calorie/protein targets;
-- the phone logs only its owner's portion while retaining both portion instructions on the shared recipe.
+## Whole-route completion is separate
+The final checkpoint and the expedition-completion ceremony are intentionally separate product moments.
 
-Partner target sharing is separately opt-in. The sync payload may carry only a bounded dinner-sized calorie/protein target and name; exact meals, daily nutrition totals and food history remain private.
+- Final checkpoint: **you reached this actual place**.
+- Arrival Ceremony: **you completed the entire expedition**.
 
-## Meal-prep timeline
-The planner now converts the week into dated prep/cooking tasks, including batch-prep sources and meaningful dinner prep. The app can tell the user **when to cook**, not only what meal exists on a future day.
+A new `#expedition-complete/<routeId>` surface uses `sections/arrival.webp`, summarizes distance/legs/places, shows recorded contribution when trustworthy, and provides a route-memory list back into the reached checkpoint pages.
 
-## Pantry staples
-Users can list staples already kept on hand. Matching staples are suppressed from the generated shopping list while remaining part of recipe instructions.
+## Image-ready Theme Engine slots
+Every one of the 12 routes now reserves deterministic image paths for:
+- eight app sections;
+- each Travel/Leg image;
+- each Checkpoint Arrival image.
 
-## Eating Out
-Restaurant logging now shows a target-aware fit indicator based on what remains for the day. Restaurant meals are saved with a distinct source so planning and real-life logging remain separate concepts.
+The feature can ship before new images are generated. Transparent v2 placeholders reveal the current known-good production art underneath until the finished files replace them. See `EXPEDITION_ASSET_DROP_GUIDE.md` for exact drop paths.
 
-## Faith status
-Faith remains intentionally parked. Its source and private state are preserved but its dedicated Phase 3/3B interface is not loaded.
+## Storage and sync
+- Adds `expedition.arrivals` inside local state v10.
+- Starting and newly reached checkpoint records are local-first.
+- Partner progress can create the matching arrival record when sync advances the shared leg.
+- Partner sync remains schema 7.
+- No data reset required.
 
 ## Versioning
-- App/UI: `6.0.0-p5`
-- Local state: `insync.v10` (unchanged)
-- Partner sync: schema `7` (unchanged)
-- Service worker: `insync-v10-22`
+- App/UI: `6.0.0-p5.3`
+- Local state: `insync.v10`
+- Partner sync: schema `7`
+- Service worker: `insync-v10-25`
 
-## Next planned phase
-Phase 6 — Together 2.0 + Weekly Campfire.
+## Still preserved from p5.2
+Time-aware Home Morning Check-In/Nightly Review, editable past-day history, barcode-photo hotfix, Training 2.0, Nutrition 2.0 and parked Faith all remain intact.

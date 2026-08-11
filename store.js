@@ -36,7 +36,7 @@
     /* No expedition is chosen on a fresh install. The two of them pick the
        first one together, so nothing here may name a route. legStart is the day
        the current leg opened — the miles walked on it are derived from it. */
-    expedition: { routeId: '', legIndex: 0, legStart: '', legStartSteps: 0, legStartWalkMiles: 0, walked: [], next: '' },
+    expedition: { routeId: '', legIndex: 0, legStart: '', legStartSteps: 0, legStartWalkMiles: 0, walked: [], next: '', arrivals: {} },
     /* Empty until pairing. Nothing may assume a name, on either phone. */
     partner: { name: '', initials: '' },
     partnerLegMiles: 0,
@@ -401,6 +401,45 @@
     S.expedition.legStartWalkMiles = Math.max(0, finiteOr(S.expedition.legStartWalkMiles, 0, 0, 200));
     S.expedition.walked = Array.isArray(S.expedition.walked) ? S.expedition.walked.filter(function (x) { return typeof x === 'string'; }).slice(0, 1000) : [];
     S.expedition.next = shortText(S.expedition.next, 100);
+    if (!plainObject(S.expedition.arrivals)) S.expedition.arrivals = {};
+    Object.keys(S.expedition.arrivals).forEach(function (routeId) {
+      if (!safeKey(routeId) || routeId.length > 100 || !plainObject(S.expedition.arrivals[routeId])) {
+        delete S.expedition.arrivals[routeId]; return;
+      }
+      var cleaned = {};
+      Object.keys(S.expedition.arrivals[routeId]).slice(0, 100).forEach(function (idxKey) {
+        var rec = S.expedition.arrivals[routeId][idxKey], idx = Math.max(0, Math.round(finiteOr(idxKey, -1, -1, 100)));
+        if (!plainObject(rec) || idx < 0) return;
+        cleaned[String(idx)] = {
+          checkpointIndex: idx,
+          at: shortText(rec.at, 80),
+          legIndex: Math.round(finiteOr(rec.legIndex, -1, -1, 1000)),
+          milesMine: Math.max(0, finiteOr(rec.milesMine, 0, 0, 1000000)),
+          milesHers: Math.max(0, finiteOr(rec.milesHers, 0, 0, 1000000)),
+          migrated: rec.migrated === true
+        };
+      });
+      S.expedition.arrivals[routeId] = cleaned;
+    });
+    /* Existing installs pre-date checkpoint history. The route state already
+       proves which places are unlocked, so keep them viewable without inventing
+       historical contribution numbers or false dates. The start date is safe:
+       legStart is the real start boundary when still on leg zero. */
+    if (S.expedition.routeId && window.Journeys && Journeys.checkpoints) {
+      var bootRoute = S.expedition.routeId, boot = Journeys.checkpoints(bootRoute);
+      if (!plainObject(S.expedition.arrivals[bootRoute])) S.expedition.arrivals[bootRoute] = {};
+      boot.forEach(function (cp) {
+        var unlocked = cp.unlockAfterLeg < 0 || cp.unlockAfterLeg < S.expedition.legIndex;
+        if (!unlocked || S.expedition.arrivals[bootRoute][String(cp.index)]) return;
+        S.expedition.arrivals[bootRoute][String(cp.index)] = {
+          checkpointIndex: cp.index,
+          at: cp.index === 0 && S.expedition.legIndex === 0 && S.expedition.legStart
+            ? S.expedition.legStart + 'T12:00:00' : '',
+          legIndex: cp.unlockAfterLeg,
+          milesMine: 0, milesHers: 0, migrated: true
+        };
+      });
+    }
 
     if (!plainObject(S.partner)) S.partner = clone(DEFAULT.partner);
     S.partner.name = shortText(S.partner.name, 100);
@@ -868,6 +907,7 @@
     if (S.lastArrival) {
       S.lastArrival.routeId = shortText(S.lastArrival.routeId, 100);
       S.lastArrival.legIndex = Math.max(0, Math.round(finiteOr(S.lastArrival.legIndex, 0, 0, 1000)));
+      S.lastArrival.checkpointIndex = Math.max(0, Math.round(finiteOr(S.lastArrival.checkpointIndex, S.lastArrival.legIndex + 1, 0, 1000)));
       S.lastArrival.milesMine = Math.max(0, finiteOr(S.lastArrival.milesMine, 0, 0, 1000000));
       S.lastArrival.milesHers = Math.max(0, finiteOr(S.lastArrival.milesHers, 0, 0, 1000000));
       S.lastArrival.at = shortText(S.lastArrival.at, 80);
@@ -1400,9 +1440,18 @@
   function setMorning(v, key) {
     key = key || todayKey(); ensureScoreBasis(key); v = plainObject(v) ? v : {};
     var d = day(key), n;
-    if (v.weight != null) { n = finiteOr(v.weight, null, 20, 1500); if (n != null) d.weight = n; }
-    if (v.restingHr != null) { n = finiteOr(v.restingHr, null, 20, 300); if (n != null) d.restingHr = Math.round(n); }
-    if (v.sleepHr != null) { n = finiteOr(v.sleepHr, null, 0, 24); if (n != null) d.sleepHr = n; }
+    if (Object.prototype.hasOwnProperty.call(v, 'weight')) {
+      if (v.weight == null || v.weight === '') d.weight = null;
+      else { n = finiteOr(v.weight, null, 20, 1500); if (n != null) d.weight = n; }
+    }
+    if (Object.prototype.hasOwnProperty.call(v, 'restingHr')) {
+      if (v.restingHr == null || v.restingHr === '') d.restingHr = null;
+      else { n = finiteOr(v.restingHr, null, 20, 300); if (n != null) d.restingHr = Math.round(n); }
+    }
+    if (Object.prototype.hasOwnProperty.call(v, 'sleepHr')) {
+      if (v.sleepHr == null || v.sleepHr === '') d.sleepHr = null;
+      else { n = finiteOr(v.sleepHr, null, 0, 24); if (n != null) d.sleepHr = n; }
+    }
     save(); emit();
   }
   function addWorkout(w, key) {
@@ -1833,6 +1882,60 @@
   function partnerInitials() { return S.partner.initials || ''; }
   function partnerRef() { return { name: partnerName(), initials: partnerInitials() }; }
 
+  /* Checkpoint history is local-first evidence of places reached. Unlocking
+     itself remains derived from expedition progress, so old installs and a
+     partner phone that syncs late can never get stuck behind a missing record. */
+  function checkpointUnlocked(routeId, checkpointIndex) {
+    routeId = String(routeId || '');
+    checkpointIndex = Math.max(0, Math.round(+checkpointIndex || 0));
+    if (!window.Journeys || !Journeys.checkpoint) return false;
+    var cp = Journeys.checkpoint(routeId, checkpointIndex);
+    if (!cp) return false;
+    if ((S.expedition.walked || []).indexOf(routeId) >= 0) return true;
+    if (S.expedition.routeId !== routeId) return false;
+    return cp.unlockAfterLeg < 0 || cp.unlockAfterLeg < (+S.expedition.legIndex || 0);
+  }
+
+  function checkpointArrival(routeId, checkpointIndex) {
+    routeId = String(routeId || '');
+    checkpointIndex = Math.max(0, Math.round(+checkpointIndex || 0));
+    var routes = S.expedition.arrivals;
+    var rec = plainObject(routes) && plainObject(routes[routeId]) ? routes[routeId][String(checkpointIndex)] : null;
+    return plainObject(rec) ? clone(rec) : null;
+  }
+
+  function writeCheckpointArrival(routeId, checkpointIndex, data) {
+    routeId = String(routeId || '');
+    checkpointIndex = Math.max(0, Math.round(+checkpointIndex || 0));
+    if (!routeId || !window.Journeys || !Journeys.checkpoint || !Journeys.checkpoint(routeId, checkpointIndex)) return false;
+    if (!plainObject(S.expedition.arrivals)) S.expedition.arrivals = {};
+    if (!plainObject(S.expedition.arrivals[routeId])) S.expedition.arrivals[routeId] = {};
+    var key = String(checkpointIndex), existing = S.expedition.arrivals[routeId][key];
+    /* A real timestamp/contribution record wins over a migration placeholder.
+       Otherwise preserve the first arrival: checkpoint pages are a memory, not
+       a value that changes every time sync runs. */
+    if (plainObject(existing) && existing.at && !existing.migrated) return true;
+    data = plainObject(data) ? data : {};
+    S.expedition.arrivals[routeId][key] = {
+      checkpointIndex: checkpointIndex,
+      at: shortText(data.at, 80),
+      legIndex: Math.round(finiteOr(data.legIndex, -1, -1, 1000)),
+      milesMine: Math.max(0, finiteOr(data.milesMine, 0, 0, 1000000)),
+      milesHers: Math.max(0, finiteOr(data.milesHers, 0, 0, 1000000)),
+      migrated: data.migrated === true
+    };
+    return true;
+  }
+
+  function recordLegCheckpointArrivals(routeId, legIndex, at, mine, hers) {
+    if (!window.Journeys || !Journeys.checkpointsForLeg) return;
+    Journeys.checkpointsForLeg(routeId, legIndex).forEach(function (cp) {
+      writeCheckpointArrival(routeId, cp.index, {
+        at: at, legIndex: legIndex, milesMine: mine, milesHers: hers, migrated: false
+      });
+    });
+  }
+
   /* Arriving. The miles spent on the finished leg do not carry over — the
      next one starts from nothing, which is what makes it a leg. */
   function advanceLeg() {
@@ -1841,12 +1944,20 @@
     var total = window.Screens && Screens.legCount ? Screens.legCount() : 0;
     if (total && e.legIndex >= total) return false;
     var currentLeg = window.Screens && Screens.leg ? Screens.leg() : null;
+    var mine = legMine(), theirs = legHers();
     if (currentLeg && currentLeg.miles > 0) {
-      var mine = legMine(), theirs = legHers(), required = +currentLeg.miles;
+      var required = +currentLeg.miles;
       if (mine + theirs < required || Math.min(mine, theirs) < required * 0.2) return false;
     }
-    S.lastArrival = { routeId: e.routeId, legIndex: e.legIndex, at: new Date().toISOString(),
-      milesMine: legMine(), milesHers: legHers() };
+    var finishedLeg = e.legIndex, at = new Date().toISOString();
+    var primary = window.Journeys && Journeys.primaryCheckpointForLeg
+      ? Journeys.primaryCheckpointForLeg(e.routeId, finishedLeg) : null;
+    recordLegCheckpointArrivals(e.routeId, finishedLeg, at, mine, theirs);
+    S.lastArrival = {
+      routeId: e.routeId, legIndex: finishedLeg,
+      checkpointIndex: primary ? primary.index : finishedLeg + 1,
+      at: at, milesMine: mine, milesHers: theirs
+    };
     e.legIndex = e.legIndex + 1;
     e.legStart = todayKey();
     e.legStartSteps = Math.max(0, +(day(todayKey()).steps || 0));
@@ -1868,10 +1979,15 @@
     if (!routeId || !e.routeId || routeId !== e.routeId || incoming <= e.legIndex) return false;
     var oldIndex = e.legIndex, oldMine = legMine();
     if (incoming === oldIndex + 1) {
+      var arrivedAt = shortText(remote.updatedAt, 80) || new Date().toISOString();
+      var remoteMiles = Math.max(0, finiteOr(remote.previousLegMiles, 0, 0, 1000000));
+      var syncPrimary = window.Journeys && Journeys.primaryCheckpointForLeg
+        ? Journeys.primaryCheckpointForLeg(routeId, oldIndex) : null;
+      recordLegCheckpointArrivals(routeId, oldIndex, arrivedAt, oldMine, remoteMiles);
       S.lastArrival = {
-        routeId: routeId, legIndex: oldIndex, at: shortText(remote.updatedAt, 80) || new Date().toISOString(),
-        milesMine: oldMine,
-        milesHers: Math.max(0, finiteOr(remote.previousLegMiles, 0, 0, 1000000))
+        routeId: routeId, legIndex: oldIndex,
+        checkpointIndex: syncPrimary ? syncPrimary.index : oldIndex + 1,
+        at: arrivedAt, milesMine: oldMine, milesHers: remoteMiles
       };
     }
     e.legIndex = incoming;
@@ -1978,6 +2094,12 @@
     e.next = '';
     S.partnerLegMiles = 0;
     S.invite = null;
+    /* The trailhead is a real unlocked place from the moment the route begins. */
+    if (window.Journeys && Journeys.checkpoint && Journeys.checkpoint(routeId, 0)) {
+      writeCheckpointArrival(routeId, 0, {
+        at: new Date().toISOString(), legIndex: -1, milesMine: 0, milesHers: 0, migrated: false
+      });
+    }
     save(); emit();
   }
 
@@ -2318,6 +2440,7 @@
     saveReflection: saveReflection, markVerseRead: markVerseRead, verse: verse, verseList: verseList, records: records,
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
     legMine: legMine, legHers: legHers,
+    checkpointUnlocked: checkpointUnlocked, checkpointArrival: checkpointArrival,
     partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, identityKey: identityKey,
     advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,
     propose: propose, nudgeInvite: nudgeInvite, acceptInvite: acceptInvite,

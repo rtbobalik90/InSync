@@ -117,6 +117,8 @@
     else if (root === 'workouts') html = Screens.workouts();
     else if (root === 'cardio') html = Screens.cardio();
     else if (root === 'arrival') html = Screens.arrival();
+    else if (root === 'checkpoint') html = Screens.checkpoint();
+    else if (root === 'expedition-complete') html = Screens.expeditionComplete();
     else if (root === 'badges') html = Screens.badges();
     else if (root === 'earned') html = Screens.earnedMoment();
     else if (root === 'handshake') html = Screens.handshake();
@@ -988,14 +990,15 @@
       });
       return;
     }
-    if (action === 'log-meal') { Log.open('meal', { slot: el.getAttribute('data-slot') || '' }); return; }
-    if (action === 'describe-meal') { Log.open('meal'); return; }
+    var editDate = el.getAttribute('data-date') || '';
+    if (action === 'log-meal') { Log.open('meal', { slot: el.getAttribute('data-slot') || '', date: editDate }); return; }
+    if (action === 'describe-meal') { Log.open('meal', { date: editDate }); return; }
     if (action === 'photograph-meal') { Log.photograph(); return; }
-    if (action === 'scan-barcode') { Log.open('barcode'); return; }
-    if (action === 'add-restaurant') { Log.open('restaurant'); return; }
-    if (action === 'start-session') { Log.open('workout'); return; }
-    if (action === 'log-morning') { Log.open('morning'); return; }
-    if (action === 'log-steps') { Log.open('steps'); return; }
+    if (action === 'scan-barcode') { Log.open('barcode', { date: editDate }); return; }
+    if (action === 'add-restaurant') { Log.open('restaurant', { date: editDate }); return; }
+    if (action === 'start-session') { Log.open('workout', { date: editDate }); return; }
+    if (action === 'log-morning') { Log.open('morning', { date: editDate }); return; }
+    if (action === 'log-steps') { Log.open('steps', { date: editDate }); return; }
     if (action === 'set-unit') {
       Store.set(el.getAttribute('data-path'), el.getAttribute('data-value'));
       return;
@@ -1060,7 +1063,7 @@
     if (action === 'save-reflection') {
       var ta = document.getElementById('reflect');
       if (ta) {
-        Store.saveReflection(ta.value);
+        Store.saveReflection(ta.value, el.getAttribute('data-date') || Store.todayKey());
         var b2 = el, l2 = b2.textContent;
         b2.textContent = 'Saved';
         setTimeout(function () { b2.textContent = l2; }, 1400);
@@ -1073,7 +1076,11 @@
   app.addEventListener('change', function (e) {
     /* The evening page saves itself when the user leaves the field. Losing an entry
        to a stray tap is not a thing a journal may do. */
-    if (e.target.id === 'reflect') { Store.saveReflection(e.target.value); return; }
+    if (e.target.id === 'reflect') {
+      var reflectParts = (location.hash || '#reflection').replace('#','').split('/');
+      var reflectDate = /^\d{4}-\d{2}-\d{2}$/.test(reflectParts[1] || '') ? reflectParts[1] : Store.todayKey();
+      Store.saveReflection(e.target.value, reflectDate); return;
+    }
     var el = e.target.closest('[data-set]');
     if (!el) return;
     if (el.hasAttribute('data-secret')) {
@@ -1272,7 +1279,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p5', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p5.3', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

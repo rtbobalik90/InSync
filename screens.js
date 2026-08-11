@@ -21,6 +21,30 @@
     return r.legs[e.legIndex];
   }
 
+  /* Expedition art is now image-ready across the recurring app surfaces.
+     Every path points at the v2 production slot; UI.screen keeps the old art
+     underneath until that new file exists in the bundle. */
+  function expeditionSurface(surface, fallback) {
+    var id = Store.state().expedition.routeId;
+    return {
+      art: id && window.Journeys && Journeys.sectionArt ? Journeys.sectionArt(id, surface) : fallback,
+      fallback: fallback
+    };
+  }
+  function checkpointFallback(routeId, cp) {
+    var r = ROUTES[routeId] || {};
+    if (!cp) return r.banner || routeHero(routeId) || 'assets/art/expedition-overlook.webp';
+    var li = cp.unlockAfterLeg < 0 ? 0 : Math.min(cp.unlockAfterLeg, Math.max(0, (r.legs || []).length - 1));
+    var legArt = r.legs && r.legs[li] && r.legs[li].art;
+    return legArt || r.banner || routeHero(routeId) || 'assets/art/expedition-overlook.webp';
+  }
+  function checkpointDate(rec) {
+    if (!rec || !rec.at) return '';
+    var d = new Date(rec.at);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  }
+
   function timeWord() {
     return { dawn: 'camp at dawn', day: 'camp in daylight', sunset: 'camp at sunset', night: 'camp after dark' }[Store.timeOfDay()];
   }
@@ -156,6 +180,35 @@
     '</article>';
   }
 
+  function homeRhythmCard() {
+    var hour = new Date().getHours(), d = Store.day();
+    if (hour >= 4 && hour < 12) {
+      var values = [];
+      if (d.weight != null) values.push(Store.fmtWeight(d.weight));
+      if (d.sleepHr != null) values.push(d.sleepHr + ' h sleep');
+      if (d.restingHr != null) values.push(d.restingHr + ' bpm');
+      return '<article class="card pad home-rhythm" data-rest-anchor>' +
+        '<div class="home-rhythm-head"><span class="kicker sage">Morning check-in</span>' +
+          '<span class="small">' + (values.length ? values.length + ' saved' : 'Before the day gets moving') + '</span></div>' +
+        '<p class="lede" style="margin:0 0 8px">' + (values.length ? 'Your morning is on the record.' : 'Set the baseline for today.') + '</p>' +
+        '<p class="note" style="margin:0 0 14px">' + (values.length ? esc(values.join(' · ')) : 'Weight, sleep and resting heart rate. Skip anything you do not track.') + '</p>' +
+        '<button class="btn block" data-action="log-morning">' + (values.length ? 'Update morning check-in' : 'Morning check-in') + '</button>' +
+      '</article>';
+    }
+    if (hour >= 18) {
+      var written = (d.reflection || '').trim();
+      var words = written ? written.split(/\s+/).length : 0;
+      return '<article class="card pad home-rhythm" data-rest-anchor>' +
+        '<div class="home-rhythm-head"><span class="kicker gold">Nightly review</span>' +
+          '<span class="small">' + (written ? (d.reflectionAt ? 'Saved ' + esc(d.reflectionAt) : 'Saved') : 'Before you close the day') + '</span></div>' +
+        '<p class="lede" style="margin:0 0 8px">' + (written ? 'The day is written down.' : 'Take a minute and close the day.') + '</p>' +
+        '<p class="note" style="margin:0 0 14px">' + (written ? words + ' words saved. You can still go back and change anything.' : 'Review what happened, what mattered, and anything you want to remember tomorrow.') + '</p>' +
+        '<button class="btn block" data-route="reflection">' + (written ? 'Edit nightly review' : 'Review the day') + '</button>' +
+      '</article>';
+    }
+    return '';
+  }
+
   // ---------------- Home ----------------
   function home() {
     /* One verse list, in the store — Home and Reflection must show the same
@@ -171,13 +224,16 @@
       (hasData ? '' :
         '<div class="streakline"><i></i><span>Day one &middot; ' + timeWord() + '</span></div>');
 
-    var body = hasData
+    var rhythm = homeRhythmCard();
+    var body = rhythm + (hasData
       ? ledgerCard() + nextStepCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
-      : dayOneCard();
+      : dayOneCard());
     body += '<button class="btn ghost block" data-route="calendar">History &amp; calendar</button>';
 
+    var homeHero = expeditionSurface('home', UI.CAMP[Store.timeOfDay()]);
     return UI.screen({
       tab: 'home', rest: 551, restMeasure: true, overlay: overlay, body: body,
+      art: homeHero.art, artFallback: homeHero.fallback,
       photoHeight: '690px'
     });
   }
@@ -224,7 +280,7 @@
           '<article class="card pad">' +
             '<div class="kicker sage" style="margin-bottom:9px">The Road</div>' +
             '<p class="lede" style="margin:0 0 10px">One shared route. Both of your walking moves it.</p>' +
-            '<p class="small">Pick the first expedition together. Each leg becomes a checkpoint; finished routes stay in your passport.</p>' +
+            '<p class="small">Pick the first expedition together. Travel art carries the active leg; reached checkpoints become permanent places you can open again.</p>' +
           '</article>' +
           '<button class="btn block" data-route="handshake">Choose an expedition</button>'
       });
@@ -240,12 +296,25 @@
     var routeWalked = Math.min(total, completedMiles + currentWalked);
     var overallPct = total ? Math.min(100, Math.round(routeWalked / total * 100)) : 0;
     var currentPct = current && current.miles ? Math.min(100, Math.round(currentWalked / current.miles * 100)) : 100;
-    var art = complete ? (r.banner || routeHero(e.routeId) || 'assets/art/expedition-overlook.webp')
+
+    /* The starting checkpoint gets a real place moment before the first mile.
+       Once movement begins, the hero switches to the active Travel/Leg art.
+       A completed route uses the Journey section art, while the separate
+       expedition-complete route owns the heightened final Arrival art. */
+    var startingCp = Journeys.checkpoint ? Journeys.checkpoint(e.routeId, 0) : null;
+    var atTrailhead = !complete && e.legIndex === 0 && currentWalked <= 0 && startingCp;
+    var artFallback = complete
+      ? (r.banner || routeHero(e.routeId) || 'assets/art/expedition-overlook.webp')
       : (current.art || r.banner || routeHero(e.routeId) || 'assets/art/expedition-overlook.webp');
+    var art = complete
+      ? (Journeys.sectionArt ? Journeys.sectionArt(e.routeId, 'journey') : artFallback)
+      : atTrailhead
+        ? startingCp.art
+        : (Journeys.travelArt ? Journeys.travelArt(e.routeId, e.legIndex) : artFallback);
 
     var overlay =
-      '<div class="eyebrow">' + (complete ? 'Route complete' : 'Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length) + '</div>' +
-      '<p class="verse">' + esc(complete ? r.name : current.to) + '</p>' +
+      '<div class="eyebrow">' + (complete ? 'Route complete' : atTrailhead ? 'At the trailhead' : 'Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length) + '</div>' +
+      '<p class="verse">' + esc(complete ? r.name : atTrailhead ? startingCp.name : current.to) + '</p>' +
       '<p class="attrib" style="text-transform:none;letter-spacing:0">' +
         esc(r.where) + ' · ' + esc(r.grade) + ' · ' + overallPct + '% of the route</p>';
 
@@ -264,8 +333,9 @@
 
     var legCard = complete
       ? '<article class="card pad"><div class="kicker gold" style="margin-bottom:9px">At the destination</div>' +
-          '<p class="lede" style="margin:0 0 12px">Every leg of this route is complete.</p>' +
-          '<button class="btn block" data-route="handshake">' + esc(handshakeCta()) + '</button></article>'
+          '<p class="lede" style="margin:0 0 12px">Every leg of this route is complete. Every reached checkpoint stays open below.</p>' +
+          '<button class="btn block" data-route="expedition-complete/' + esc(e.routeId) + '">View expedition completion</button>' +
+          '<button class="btn ghost block" style="margin-top:9px" data-route="handshake">' + esc(handshakeCta()) + '</button></article>'
       : '<article class="card pad">' +
           '<div class="kicker" style="margin-bottom:9px">Current leg</div>' +
           '<h3 style="font-family:var(--serif);font-size:21px;font-weight:500;margin:0 0 7px">' + esc(current.from) + ' → ' + esc(current.to) + '</h3>' +
@@ -278,14 +348,30 @@
           '</div>' +
         '</article>';
 
-    var mapRows = r.legs.map(function (x, i) {
-      var status = i < e.legIndex ? 'done' : i === e.legIndex && !complete ? 'current' : 'ahead';
-      var label = status === 'done' ? 'Arrived' : status === 'current' ? currentPct + '%' : Store.fmtDistance(x.miles);
-      return '<div class="journey-leg ' + status + '">' +
-        '<span class="journey-marker">' + (status === 'done' ? icon('check') : (i + 1)) + '</span>' +
-        '<div class="journey-leg-copy"><strong>' + esc(x.to) + '</strong><span>' + esc(x.from) + ' → ' + esc(x.to) + '</span></div>' +
-        '<span class="small">' + esc(String(label)) + '</span>' +
-      '</div>';
+    var checkpoints = Journeys.checkpoints ? Journeys.checkpoints(e.routeId) : [];
+    var checkpointRows = checkpoints.map(function (cp) {
+      var unlocked = Store.checkpointUnlocked ? Store.checkpointUnlocked(e.routeId, cp.index) :
+        (cp.unlockAfterLeg < 0 || cp.unlockAfterLeg < e.legIndex);
+      var next = !unlocked && !complete && cp.unlockAfterLeg === e.legIndex;
+      var status = unlocked ? 'done' : next ? 'current' : 'ahead';
+      var rec = Store.checkpointArrival ? Store.checkpointArrival(e.routeId, cp.index) : null;
+      var reached = checkpointDate(rec);
+      var cum = Journeys.cumulativeMilesToCheckpoint ? Journeys.cumulativeMilesToCheckpoint(e.routeId, cp.index) : 0;
+      var subline = cp.unlockAfterLeg < 0
+        ? 'Expedition begins here'
+        : 'After leg ' + (cp.unlockAfterLeg + 1) + ' · ' + Store.fmtDistance(cum) + ' from the start';
+      var right = unlocked
+        ? (reached || 'Reached') + ' ' + icon('chev')
+        : next
+          ? (cp.primary ? currentPct + '%' : 'Along this leg')
+          : icon('lock');
+      var inner =
+        '<span class="journey-marker">' + (unlocked ? icon('check') : next ? (cp.index + 1) : icon('lock')) + '</span>' +
+        '<div class="journey-leg-copy"><strong>' + esc(cp.name) + '</strong><span>' + esc(subline) + '</span></div>' +
+        '<span class="small checkpoint-state">' + right + '</span>';
+      return unlocked
+        ? '<button class="journey-leg checkpoint-row ' + status + '" data-route="checkpoint/' + esc(e.routeId) + '/' + cp.index + '" aria-label="Open ' + esc(cp.name) + '">' + inner + '</button>'
+        : '<div class="journey-leg checkpoint-row ' + status + '">' + inner + '</div>';
     }).join('');
 
     var passportIds = (e.walked || []).slice();
@@ -308,13 +394,120 @@
 
     return UI.screen({
       tab: 'journey', rest: 470, restMeasure: true,
-      art: art, photoPosition: 'center 44%', overlay: overlay,
+      art: art, artFallback: artFallback, photoPosition: 'center 44%', overlay: overlay,
       body:
         progress + legCard +
-        '<div class="rulehead"><span class="kicker sage">Route map</span><span></span><span class="note">' + r.legs.length + ' legs</span></div>' +
-        '<article class="card journey-map">' + mapRows + '</article>' +
+        '<div class="rulehead"><span class="kicker sage">Checkpoints</span><span></span><span class="note">' +
+          checkpoints.length + ' places · ' + r.legs.length + ' legs</span></div>' +
+        '<article class="card journey-map">' + checkpointRows + '</article>' +
+        '<p class="small" style="margin:-2px 2px 2px">Reached places stay unlocked. Tap any one to reopen its scenic checkpoint page.</p>' +
         nextRoad + passport +
         '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>'
+    });
+  }
+
+
+  /* One reached place, reopened from the route map. The checkpoint record is
+     deliberately small: the route catalog owns geography/distance, while Store
+     keeps only the moment and contribution that actually happened. */
+  function checkpoint() {
+    var parts = (location.hash || '#checkpoint').replace(/^#/, '').split('/');
+    var routeId = parts[1] || '', index = Math.max(0, parseInt(parts[2] || '0', 10) || 0);
+    var r = Journeys.get(routeId), cp = Journeys.checkpoint ? Journeys.checkpoint(routeId, index) : null;
+    if (!r || !cp) {
+      return UI.screen({
+        tab:null, rest:260, blur:true,
+        header:{ back:'journey', title:'Checkpoint', right:'<div style="width:34px"></div>' },
+        art:'assets/art/expedition-overlook.webp',
+        overlay:'<p class="verse" style="font-size:25px">That checkpoint is not part of this route.</p>',
+        body:'<article class="card pad"><button class="btn ghost block" data-route="journey">Back to Journey</button></article>'
+      });
+    }
+
+    var unlocked = Store.checkpointUnlocked ? Store.checkpointUnlocked(routeId, index) : false;
+    if (!unlocked) {
+      var lockedFallback = checkpointFallback(routeId, cp);
+      return UI.screen({
+        tab:null, rest:320, restMeasure:true,
+        header:{ back:'journey', title:'Checkpoint', right:'<div style="width:34px"></div>' },
+        art: Journeys.sectionArt ? Journeys.sectionArt(routeId, 'journey') : lockedFallback,
+        artFallback: lockedFallback,
+        photoPosition:'center 44%',
+        overlay:
+          '<div class="eyebrow">Still ahead</div>' +
+          '<p class="verse" style="font-size:27px">' + esc(cp.name) + '</p>' +
+          '<p class="attrib" style="text-transform:none;letter-spacing:0">Reach this checkpoint to unlock its place page.</p>',
+        body:
+          '<article class="card pad">' +
+            '<div class="kicker faint" style="margin-bottom:9px">Locked checkpoint</div>' +
+            '<p class="small" style="margin:0">The route name stays visible, but the scenic arrival artwork and checkpoint record remain hidden until you actually get there.</p>' +
+          '</article>' +
+          '<button class="btn ghost block" data-route="journey">Back to the road</button>'
+      });
+    }
+
+    var rec = Store.checkpointArrival ? Store.checkpointArrival(routeId, index) : null;
+    var date = checkpointDate(rec);
+    var isStart = cp.unlockAfterLeg < 0;
+    var routeMilesTotal = routeMiles(r);
+    var cumulative = Journeys.cumulativeMilesToCheckpoint ? Journeys.cumulativeMilesToCheckpoint(routeId, index) : 0;
+    var prevLeg = !isStart && r.legs[cp.unlockAfterLeg] ? r.legs[cp.unlockAfterLeg] : null;
+    var fallback = checkpointFallback(routeId, cp);
+    var reachedCopy = date ? 'Reached ' + date : (isStart ? 'Expedition trailhead' : 'Reached previously');
+
+    var breakdown = isStart
+      ? '<article class="card pad">' +
+          '<div class="kicker sage" style="margin-bottom:9px">The beginning</div>' +
+          '<p class="lede" style="margin:0 0 10px">This is where the ' + esc(r.name) + ' starts.</p>' +
+          '<div class="checkpoint-facts">' +
+            '<div><span class="note">Route</span><strong>' + Store.fmtDistance(routeMilesTotal) + '</strong></div>' +
+            '<div><span class="note">Legs ahead</span><strong>' + r.legs.length + '</strong></div>' +
+            '<div><span class="note">Location</span><strong>' + esc(r.where) + '</strong></div>' +
+          '</div>' +
+        '</article>'
+      : '<article class="card pad">' +
+          '<div class="kicker sage" style="margin-bottom:9px">Leg breakdown</div>' +
+          '<h3 style="font-family:var(--serif);font-size:20px;font-weight:500;margin:0 0 7px">' +
+            esc(prevLeg ? prevLeg.from : '') + ' → ' + esc(prevLeg ? prevLeg.to : cp.name) + '</h3>' +
+          '<div class="checkpoint-facts">' +
+            '<div><span class="note">This leg</span><strong>' + Store.fmtDistance(prevLeg ? prevLeg.miles : 0) + '</strong></div>' +
+            '<div><span class="note">From start</span><strong>' + Store.fmtDistance(cumulative) + '</strong></div>' +
+            (prevLeg && prevLeg.ft ? '<div><span class="note">Climb</span><strong>' + Store.fmtClimb(prevLeg.ft) + '</strong></div>' : '') +
+          '</div>' +
+        '</article>';
+
+    var contribution = rec && rec.legIndex >= 0 && ((rec.milesMine || 0) + (rec.milesHers || 0) > 0)
+      ? '<article class="card pad">' +
+          '<div class="kicker" style="margin-bottom:10px">Who carried this leg</div>' +
+          '<div class="journey-contrib" style="margin-top:0;padding-top:0;border-top:0">' +
+            '<div><span class="kicker faint">You</span><strong>' + Store.fmtDistance(rec.milesMine || 0) + '</strong></div>' +
+            '<div><span class="kicker faint">' + esc(Store.partnerName()) + '</span><strong>' + Store.fmtDistance(rec.milesHers || 0) + '</strong></div>' +
+          '</div>' +
+        '</article>'
+      : '';
+
+    var legacy = rec && rec.migrated && !date
+      ? '<article class="card pad"><div class="kicker faint" style="margin-bottom:8px">Earlier checkpoint</div>' +
+          '<p class="small" style="margin:0">This place was already unlocked before checkpoint history was added, so InSync will not invent an arrival date or contribution split.</p></article>'
+      : '';
+
+    return UI.screen({
+      tab:null, rest:390, restMeasure:true, photoHeight:'560px',
+      header:{ back:'journey', title:'Checkpoint', right:'<div style="width:34px"></div>' },
+      art:cp.art, artFallback:fallback, photoPosition:'center 44%',
+      overlay:
+        '<div class="eyebrow">' + esc(isStart ? 'Starting point' : 'Checkpoint ' + index + ' of ' + (Journeys.checkpoints(routeId).length - 1)) + '</div>' +
+        '<p class="verse" style="font-size:29px">' + esc(cp.name) + '</p>' +
+        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + esc(r.name) + ' · ' + esc(reachedCopy) + '</p>',
+      body:
+        breakdown +
+        contribution +
+        legacy +
+        '<article class="card pad checkpoint-memory">' +
+          '<div class="kicker faint" style="margin-bottom:8px">Place in the journey</div>' +
+          '<p class="small" style="margin:0">This scenic checkpoint stays unlocked once reached. It is part of the permanent route memory, separate from the active travel artwork used while walking the leg.</p>' +
+        '</article>' +
+        '<button class="btn block" data-route="journey">Back to Journey</button>'
     });
   }
 
@@ -395,8 +588,9 @@
         '</article>'
       : '';
 
+    var coachHero = expeditionSurface('coach', 'assets/art/coach-desk.webp');
     return UI.screen({
-      tab: 'coach', restMeasure: true, art: 'assets/art/coach-desk.webp', photoPos: 'center 34%',
+      tab: 'coach', restMeasure: true, art: coachHero.art, artFallback: coachHero.fallback, photoPos: 'center 34%',
       overlay: overlay, blur: false,
       body:
         '<article class="card pad">' +
@@ -623,9 +817,10 @@
 
     var ydTotal = yd.meals.reduce(function (a, m) { return { k: a.k + m.kcal, p: a.p + m.protein }; }, { k: 0, p: 0 });
 
+    var nutritionHero = expeditionSurface('nutrition', 'assets/art/provisions.webp');
     return UI.screen({
       tab: 'nutrition', restMeasure: true, photoHeight: '600px',
-      art: 'assets/art/provisions.webp', photoPos: 'center 22%',
+      art: nutritionHero.art, artFallback: nutritionHero.fallback, photoPos: 'center 22%',
       overlay:
         '<span class="daytag">' + UI.dayLabel() + '</span>' +
         '<div class="bignum">' + (gap > 0 ? gap : t.protein) +
@@ -758,9 +953,10 @@
             : todaysPlan.name + ' day. ' + machines.length + ' movements, about ' + (machines.length * 8) + ' minutes.')
         : 'Rest day. Nothing scheduled.';
 
+    var trainHero = expeditionSurface('train', 'assets/art/train-banner.webp');
     return UI.screen({
       tab: 'train', rest: 310, restMeasure: true, photoHeight: '390px',
-      art: 'assets/art/train-banner.webp', photoPosition: 'center 42%',
+      art: trainHero.art, artFallback: trainHero.fallback, photoPosition: 'center 42%',
       scrim: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
       overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body:
@@ -1471,13 +1667,15 @@
         : open.length ? open.length + ' still open on your side.' : 'Nothing outstanding.';
     }
 
+    var togetherFallback = evening ? 'assets/art/campfire.webp'
+      : hasExpedition() ? ((leg() && leg().art) || routeHero(Store.state().expedition.routeId) || 'assets/art/expedition-overlook.webp')
+      /* Nothing agreed yet: the desk the route gets chosen at, not a trail
+         neither of them has committed to. */
+      : 'assets/art/expedition-none.webp';
+    var togetherHero = expeditionSurface('together', togetherFallback);
     return UI.screen({
       tab: 'together', rest: 470, restMeasure: true,
-      art: evening ? 'assets/art/campfire.webp'
-        : hasExpedition() ? ((leg() && leg().art) || routeHero(Store.state().expedition.routeId) || 'assets/art/expedition-overlook.webp')
-        /* Nothing agreed yet: the desk the route gets chosen at, not a trail
-           neither of them has committed to. */
-        : 'assets/art/expedition-none.webp',
+      art: togetherHero.art, artFallback: togetherHero.fallback,
       photoPosition: evening ? 'center 62%' : hasExpedition() ? 'center 46%' : 'center 42%',
       overlay: '<div class="eyebrow">' + (evening ? 'This evening' : 'Today') + '</div>' +
         '<p class="verse" style="font-size:26px">' + headline + '</p>' +
@@ -1874,7 +2072,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p5 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p5.3 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2104,7 +2302,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.3</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2578,23 +2776,107 @@
     });
   }
 
+
+  /* Whole-route completion is separate from the final checkpoint. The
+     checkpoint says "you reached this place"; this says "you finished the
+     expedition." That is why the art library has two different final images. */
+  function expeditionComplete() {
+    var parts = (location.hash || '#expedition-complete').replace(/^#/, '').split('/');
+    var routeId = parts[1] || Store.state().expedition.routeId;
+    var r = Journeys.get(routeId);
+    if (!r) { location.hash = '#journey'; return ''; }
+    var S = Store.state(), currentComplete = S.expedition.routeId === routeId && S.expedition.legIndex >= r.legs.length;
+    var walked = (S.expedition.walked || []).indexOf(routeId) >= 0;
+    if (!currentComplete && !walked) {
+      return UI.screen({
+        tab:null,rest:300,restMeasure:true,
+        header:{back:'journey',title:'Expedition',right:'<div style="width:34px"></div>'},
+        art:Journeys.sectionArt ? Journeys.sectionArt(routeId,'journey') : (r.banner || routeHero(routeId)),
+        artFallback:r.banner || routeHero(routeId) || 'assets/art/expedition-overlook.webp',
+        overlay:'<div class="eyebrow">Still on the road</div><p class="verse" style="font-size:27px">' + esc(r.name) + '</p>',
+        body:'<article class="card pad"><p class="small" style="margin:0">The full completion ceremony unlocks only after the final leg is reached.</p></article>' +
+          '<button class="btn ghost block" data-route="journey">Back to Journey</button>'
+      });
+    }
+
+    var cps = Journeys.checkpoints ? Journeys.checkpoints(routeId) : [];
+    var lastCp = cps[cps.length - 1] || null;
+    var fallback = r.banner || checkpointFallback(routeId,lastCp) || routeHero(routeId) || 'assets/art/expedition-overlook.webp';
+    var records = cps.map(function(cp){ return { cp:cp, rec:Store.checkpointArrival ? Store.checkpointArrival(routeId,cp.index) : null }; });
+    var known = records.filter(function(x){ return x.cp.primary && x.rec && x.rec.legIndex >= 0 && !x.rec.migrated; });
+    var mine = known.reduce(function(sum,x){return sum + (+x.rec.milesMine||0);},0);
+    var hers = known.reduce(function(sum,x){return sum + (+x.rec.milesHers||0);},0);
+    var latest = records.map(function(x){return x.rec;}).filter(function(x){return x&&x.at;})
+      .sort(function(a,b){return String(a.at).localeCompare(String(b.at));}).pop();
+    var completed = checkpointDate(latest);
+    var routeTotal = routeMiles(r);
+
+    var placeRows = cps.map(function(cp){
+      return '<button class="passport-stop" data-route="checkpoint/' + esc(routeId) + '/' + cp.index + '">' +
+        '<span class="journey-marker">' + icon('check') + '</span>' +
+        '<span><strong>' + esc(cp.name) + '</strong><small>' +
+          (cp.unlockAfterLeg < 0 ? 'Starting point' : Store.fmtDistance(Journeys.cumulativeMilesToCheckpoint(routeId,cp.index)) + ' from start') +
+        '</small></span>' + icon('chev') + '</button>';
+    }).join('');
+
+    return UI.screen({
+      tab:null,rest:430,restMeasure:true,photoHeight:'590px',
+      header:{back:'journey',title:'Expedition complete',right:'<div style="width:34px"></div>'},
+      art:Journeys.sectionArt ? Journeys.sectionArt(routeId,'arrival') : fallback,
+      artFallback:fallback,photoPosition:'center 44%',
+      overlay:
+        '<div class="eyebrow">Expedition complete</div>' +
+        '<p class="verse" style="font-size:30px">' + esc(r.name) + '</p>' +
+        '<p class="attrib" style="text-transform:none;letter-spacing:0">' + esc(r.where) +
+          (completed ? ' · completed ' + esc(completed) : '') + '</p>',
+      body:
+        '<article class="card pad accent">' +
+          '<div class="kicker gold" style="margin-bottom:10px">The road you finished</div>' +
+          '<div class="checkpoint-facts">' +
+            '<div><span class="note">Distance</span><strong>' + Store.fmtDistance(routeTotal) + '</strong></div>' +
+            '<div><span class="note">Legs</span><strong>' + r.legs.length + '</strong></div>' +
+            '<div><span class="note">Places reached</span><strong>' + cps.length + '</strong></div>' +
+          '</div>' +
+        '</article>' +
+        (known.length
+          ? '<article class="card pad"><div class="kicker" style="margin-bottom:10px">Recorded contribution</div>' +
+              '<div class="journey-contrib" style="margin-top:0;padding-top:0;border-top:0">' +
+                '<div><span class="kicker faint">You</span><strong>' + Store.fmtDistance(mine) + '</strong></div>' +
+                '<div><span class="kicker faint">' + esc(Store.partnerName()) + '</span><strong>' + Store.fmtDistance(hers) + '</strong></div>' +
+              '</div><p class="small" style="margin:11px 0 0">These are the leg contributions recorded by checkpoint history; older migrated legs are never guessed.</p></article>'
+          : '') +
+        '<div class="rulehead"><span class="kicker sage">Places on this road</span><span></span></div>' +
+        '<article class="card checkpoint-passport">' + placeRows + '</article>' +
+        '<button class="btn block" data-route="handshake">' + esc(handshakeCta()) + '</button>' +
+        '<button class="btn ghost block" data-route="journey">Back to Journey</button>'
+    });
+  }
+
   /* Arrival. The one screen that only appears the moment a leg is finished,
      and it names what each of you put into it rather than a shared total. */
   function arrival() {
-    var S = Store.state(), a = S.lastArrival, r = route();
-    if (!a) { location.hash = '#together'; return ''; }
-    var done = (ROUTES[a.routeId] || r).legs[a.legIndex];
-    var next = (ROUTES[a.routeId] || r).legs[a.legIndex + 1];
+    var S = Store.state(), a = S.lastArrival;
+    if (!a) { location.hash = '#journey'; return ''; }
+    var r = Journeys.get(a.routeId) || route();
+    if (!r) { location.hash = '#journey'; return ''; }
+    var done = r.legs[a.legIndex];
+    var next = r.legs[a.legIndex + 1];
+    var cp = Journeys.checkpoint ? Journeys.checkpoint(a.routeId, a.checkpointIndex) : null;
+    if (!cp && Journeys.primaryCheckpointForLeg) cp = Journeys.primaryCheckpointForLeg(a.routeId, a.legIndex);
     var total = (a.milesMine || 0) + (a.milesHers || 0);
     var mine = Math.round(((a.milesMine || 0) / (total || 1)) * 100);
+    var fallback = (done && done.art) || r.banner || routeHero(a.routeId) || UI.CAMP[Store.timeOfDay()];
+    var cumulative = cp && Journeys.cumulativeMilesToCheckpoint
+      ? Journeys.cumulativeMilesToCheckpoint(a.routeId, cp.index) : 0;
 
     return UI.screen({
-      tab: null, rest: 420, photoHeight: '470px',
-      header: { back: 'together', title: 'Arrived', right: '<div style="width:34px"></div>' },
-      art: (done && done.art) || UI.CAMP[Store.timeOfDay()],
+      tab: null, rest: 420, photoHeight: '500px',
+      header: { back: 'journey', title: 'Arrived', right: '<div style="width:34px"></div>' },
+      art: cp ? cp.art : fallback, artFallback: fallback,
       photoPosition: 'center 46%',
       overlay: '<div class="eyebrow">Leg ' + (a.legIndex + 1) + ' complete</div>' +
-        '<p class="verse" style="font-size:28px">You reached ' + esc(done ? done.to : 'the next camp') + '.</p>',
+        '<p class="verse" style="font-size:28px">You reached ' + esc(cp ? cp.name : (done ? done.to : 'the next checkpoint')) + '.</p>' +
+        '<p class="attrib" style="text-transform:none;letter-spacing:0">Checkpoint unlocked · saved to the route</p>',
       body:
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Who walked it</div>' +
@@ -2607,6 +2889,17 @@
             '</div>' +
           '</div>' +
         '</article>' +
+        '<article class="card pad">' +
+          '<div class="kicker sage" style="margin-bottom:9px">Leg complete</div>' +
+          '<h3 style="font-family:var(--serif);font-size:21px;font-weight:500;margin:0 0 7px">' +
+            esc(done ? done.from : '') + ' &rarr; ' + esc(done ? done.to : (cp ? cp.name : 'Checkpoint')) + '</h3>' +
+          '<p class="small" style="margin:0">' + Store.fmtDistance(done ? done.miles : total) +
+            (done && done.ft ? ' &middot; ' + Store.fmtClimb(done.ft) + ' of climbing' : '') +
+            (cumulative ? ' &middot; ' + Store.fmtDistance(cumulative) + ' from the start' : '') + '</p>' +
+        '</article>' +
+        (cp
+          ? '<button class="btn block" data-route="checkpoint/' + esc(a.routeId) + '/' + cp.index + '">Explore ' + esc(cp.name) + '</button>'
+          : '') +
         (next
           ? '<article class="card pad">' +
               '<div class="kicker sage" style="margin-bottom:8px">Next</div>' +
@@ -2615,11 +2908,12 @@
               '<p class="small" style="margin:0">' + Store.fmtDistance(next.miles) +
                 (next.ft ? ' &middot; ' + Store.fmtClimb(next.ft) + ' of climbing' : '') + '</p>' +
             '</article>'
-          : '<article class="card pad">' +
+          : '<article class="card pad accent">' +
               '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
-              '<p class="lede" style="margin:0">That was the last leg. Choose the next expedition together.</p>' +
+              '<p class="lede" style="margin:0 0 14px">That was the final leg. The last checkpoint remains in Journey, and the whole expedition is ready to close.</p>' +
+              '<button class="btn block" data-route="expedition-complete/' + esc(a.routeId) + '">Complete the expedition</button>' +
             '</article>') +
-        '<button class="btn block" data-route="together">Back to the trail</button>'
+        '<button class="btn ghost block" data-route="journey">Back to the trail</button>'
     });
   }
 
@@ -3325,7 +3619,16 @@
     if (!x || !x.active) return UI.screen({tab:null,rest:230,blur:true,header:{back:'calendar',title:'Day history'},art:'assets/art/coach-desk.webp',overlay:'<p class="verse">No InSync day exists here.</p>',body:'<article class="card pad"><button class="btn ghost block" data-route="calendar">Back to calendar</button></article>'});
     var pretty=new Date(key+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     var rows=Store.pointRows(key), meals=x.meals||[], workouts=x.workouts||[], photos=x.photos||[];
-    var body='<article class="card"><div class="cardhead"><div class="title"><i></i>Score</div><div class="meta">'+x.points+' of 10</div></div>'+rows.map(function(r){return '<div class="setrow"><div><div class="setname">'+esc(r.label)+'</div><div class="small">'+r.value+' point'+(r.value===1?'':'s')+'</div></div><span class="tick">'+(r.done?icon('check'):'')+'</span></div>';}).join('')+'</article>';
+    var body='<article class="card pad day-editor" data-rest-anchor><div class="home-rhythm-head"><span class="kicker sage">Edit this day</span><span class="small">Forgot something?</span></div>' +
+      '<p class="note" style="margin:8px 0 14px">Past days stay editable. Corrections recalculate that day, and walking updates the active expedition when the date belongs to the current leg.</p>' +
+      '<div class="history-edit-grid">' +
+        '<button class="btn ghost sm" data-action="log-steps" data-date="'+esc(key)+'">Steps</button>' +
+        '<button class="btn ghost sm" data-action="log-morning" data-date="'+esc(key)+'">Morning</button>' +
+        '<button class="btn ghost sm" data-action="log-meal" data-date="'+esc(key)+'">Add meal</button>' +
+        '<button class="btn ghost sm" data-action="start-session" data-date="'+esc(key)+'">Add workout</button>' +
+        '<button class="btn ghost sm wide" data-route="reflection/'+esc(key)+'">Edit nightly review</button>' +
+      '</div></article>' +
+      '<article class="card"><div class="cardhead"><div class="title"><i></i>Score</div><div class="meta">'+x.points+' of 10</div></div>'+rows.map(function(r){return '<div class="setrow"><div><div class="setname">'+esc(r.label)+'</div><div class="small">'+r.value+' point'+(r.value===1?'':'s')+'</div></div><span class="tick">'+(r.done?icon('check'):'')+'</span></div>';}).join('')+'</article>';
     body+='<div class="rulehead"><span class="kicker sage">Meals</span><span></span><span class="note">'+meals.length+'</span></div><article class="card">'+(meals.length?meals.map(function(meal){return '<button class="setrow" data-route="meal/'+esc(meal.id||'')+'"><div><div class="setname">'+esc(meal.slot||'Meal')+' · '+esc(meal.name)+'</div><div class="small">'+Store.fmtEnergy(+meal.kcal||0)+' · '+Math.round(+meal.protein||0)+' g protein</div></div><span class="chev">›</span></button>';}).join(''):'<p class="small pad-x" style="padding-top:14px;padding-bottom:14px">No meals recorded.</p>')+'</article>';
     var histWalk=Store.dailyWalk?Store.dailyWalk(key):null, histWalkMs=Store.dailyWalkElapsedMs?Store.dailyWalkElapsedMs(key):0;
     body+='<div class="rulehead"><span class="kicker sage">Training &amp; movement</span><span></span></div><article class="card">'+(workouts.length?workouts.map(function(w){return '<div class="setrow"><div><div class="setname">'+esc(w.name)+'</div><div class="small">'+(w.minutes||0)+' min'+((w.exercises||[]).length?' · '+w.exercises.length+' movements':'')+'</div></div></div>';}).join(''):'<div class="setrow"><div><div class="setname">No training session</div></div></div>')+(histWalkMs||histWalk&&((histWalk.pace||'')||(histWalk.elevation||''))?'<div class="setrow"><div><div class="setname">Walk</div><div class="small">'+dailyWalkSummaryText(histWalk,histWalkMs)+'</div></div></div>':'')+'<div class="setrow"><div><div class="setname">Steps</div><div class="small">'+x.steps.toLocaleString()+'</div></div></div><div class="setrow"><div><div class="setname">Trail distance</div><div class="small">'+Store.fmtDistance(x.trailMiles)+' from that day’s logged steps</div></div></div></article>';
@@ -3489,49 +3792,53 @@
   }
 
   function reflection() {
-    var v = Store.verse();
-    var d = Store.day();
-    var facts = dayFacts(Store.todayKey());
+    var parts = location.hash.split('/');
+    var requested = parts[1] || Store.todayKey();
+    var key = /^\d{4}-\d{2}-\d{2}$/.test(requested) && requested <= Store.todayKey() ? requested : Store.todayKey();
+    var historical = key !== Store.todayKey();
+    var v = Store.verse(key);
+    var d = Store.day(key);
+    var facts = dayFacts(key);
     var written = (d.reflection || '').trim();
     var nights = Object.keys(Store.state().days).sort().reverse()
-      .filter(function (k) { return k !== Store.todayKey(); });
-    var past = nights.slice(0, 6).map(function (k) { return { key: k, d: Store.state().days[k] }; });
+      .filter(function (k) { return k !== key; });
+    var past = historical ? [] : nights.slice(0, 6).map(function (k) { return { key: k, d: Store.state().days[k] }; });
 
     var count = Object.keys(Store.state().days).filter(function (k) {
       return (Store.state().days[k].reflection || '').trim();
     }).length;
     var savedLabel = written
       ? (d.reflectionAt ? 'Saved ' + esc(d.reflectionAt) : 'Saved')
-      : 'Nothing saved tonight';
+      : (historical ? 'Nothing saved for this night' : 'Nothing saved tonight');
+    var when = new Date(key + 'T12:00:00').toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
 
     return UI.screen({
       tab: null, rest: 330,
       art: 'assets/art/camp-night.webp',
-      header: { back: true, title: 'Reflection', right: '<div style="width:34px"></div>' },
+      header: { back: historical ? 'day-history/' + key : true, title: historical ? 'Edit review' : 'Reflection', right: '<div style="width:34px"></div>' },
       overlay:
-        '<div class="eyebrow">This morning\u2019s verse</div>' +
+        '<div class="eyebrow">' + (historical ? esc(when) : 'This morning\u2019s verse') + '</div>' +
         '<p class="verse">' + esc(v.text) + '</p>' +
         '<cite class="cite">' + esc(v.ref) + '</cite>' +
         (v.why ? '<p class="versewhy">' + esc(v.why) + '</p>' : ''),
       body:
         '<article class="card pad">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">' +
-            '<span class="kicker">Tonight</span>' +
+            '<span class="kicker">' + (historical ? 'Nightly review' : 'Tonight') + '</span>' +
             '<span class="note" id="wordcount">' + (written ? written.split(/\s+/).length + ' words' : 'Blank page') + '</span>' +
           '</div>' +
-          '<textarea id="reflect" class="reflect" rows="6" placeholder="What happened today?">' + esc(d.reflection || '') + '</textarea>' +
+          '<textarea id="reflect" class="reflect" rows="6" placeholder="What happened ' + (historical ? 'that day' : 'today') + '?">' + esc(d.reflection || '') + '</textarea>' +
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px">' +
             '<span class="small">' + savedLabel + '</span>' +
-            '<button class="btn sm" style="flex:none;padding:0 18px" data-action="save-reflection">Close the day</button>' +
+            '<button class="btn sm" style="flex:none;padding:0 18px" data-action="save-reflection" data-date="' + esc(key) + '">' + (historical ? 'Save changes' : 'Close the day') + '</button>' +
           '</div>' +
         '</article>' +
 
-        /* Attached, not asserted: only what the day actually holds. */
         (facts.length
           ? '<article class="card pad">' +
               '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:13px">' +
                 '<span class="kicker faint">Attached to this entry</span>' +
-                '<span class="small">' + Store.points() + ' of 10</span>' +
+                '<span class="small">' + Store.points(key) + ' of 10</span>' +
               '</div>' +
               '<div style="display:grid;grid-template-columns:1fr 1fr;gap:11px 18px">' +
                 facts.map(function (f) {
@@ -3544,7 +3851,7 @@
             '</article>'
           : '<article class="card pad">' +
               '<div class="kicker faint" style="margin-bottom:10px">Attached to this entry</div>' +
-              '<p class="note">Nothing logged today, so the page stands on its own.</p>' +
+              '<p class="note">Nothing logged on this date yet, so the page stands on its own.</p>' +
             '</article>') +
 
         (past.length
@@ -3552,12 +3859,12 @@
               '<span class="note">' + count + ' written</span></div>' +
             past.map(function (p) {
               var txt = (p.d.reflection || '').trim();
-              var when = new Date(p.key + 'T12:00:00')
+              var pastWhen = new Date(p.key + 'T12:00:00')
                 .toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
               var line = factLine(p.key);
               return '<article class="card pad">' +
                 '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px">' +
-                  '<span class="small" style="letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">' + esc(when) + '</span>' +
+                  '<span class="small" style="letter-spacing:.13em;text-transform:uppercase;color:#B8AF9B">' + esc(pastWhen) + '</span>' +
                   '<span class="small" style="flex:none">' + esc(Store.verse(p.key).ref) + '</span>' +
                 '</div>' +
                 (txt
@@ -3574,7 +3881,6 @@
           : '')
     });
   }
-
 
 
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
@@ -4188,7 +4494,7 @@
     legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
     home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together,
     settings: settings, body: body, photos: photos, capture: capture,
-    record: record, workouts: workouts, cardio: cardio, arrival: arrival,
+    record: record, workouts: workouts, cardio: cardio, arrival: arrival, checkpoint: checkpoint, expeditionComplete: expeditionComplete,
     records: records, badges: badges, reflection: reflection,
     trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,

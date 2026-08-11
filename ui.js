@@ -117,8 +117,14 @@
      measured against the nav so the first card always clears it. */
   function screen(opts) {
     var art = asset(opts.art || CAMP[Store.timeOfDay()]);
+    var fallback = opts.artFallback ? asset(opts.artFallback) : '';
     var scrim = opts.scrim || SCRIM;
-    var photoStyle = 'background-image:' + scrim + ',url(\'' + art + '\')';
+    /* Expedition art is produced independently from code. Reserved v2 paths
+       ship as tiny transparent WebP placeholders over a known-good fallback.
+       Dropping the finished art over the same path immediately replaces that
+       transparent layer without changing screen code. */
+    var photoStyle = 'background-image:' + scrim + ',url(\'' + art + '\')' +
+      (fallback && fallback !== art ? ',url(\'' + fallback + '\')' : '');
     if (opts.photoHeight) photoStyle += ';height:' + opts.photoHeight;
     if (opts.photoPos) photoStyle += ';background-position:' + opts.photoPos;
     if (opts.photoPosition) photoStyle += ';background-position:' + opts.photoPosition;

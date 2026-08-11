@@ -23,6 +23,19 @@
     return 'Dinner';
   }
 
+
+  function entryDateLabel(key) {
+    key = key || Store.todayKey();
+    if (key === Store.todayKey()) return 'Today';
+    return new Date(key + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+
+  function historicalNote(d) {
+    return d && d._date && d._date !== Store.todayKey()
+      ? '<p class="small" style="margin:0 2px 14px;color:var(--gold-lt)">Editing ' + esc(entryDateLabel(d._date)) + '.</p>'
+      : '';
+  }
+
   /* Meals eaten before, most frequent first. Re-logging is the common case. */
   function recentMeals() {
     var days = Store.state().days, seen = {}, out = [];
@@ -78,6 +91,7 @@
       : '';
 
     return sheet('Log a meal', d.name || 'What did you eat?',
+      historicalNote(d) +
       (recent.length
         ? '<div class="rulehead tight"><span class="kicker">Logged before</span><span></span></div>' +
           '<div class="quickwrap">' + recent.map(function (m, i) {
@@ -103,20 +117,15 @@
   }
 
   // ---------------- workout ----------------
-  function todaysMachines() {
-    var S = Store.state(), plan = S.plan || [];
-    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    var name = DOW[new Date().getDay()];
-    for (var i = 0; i < plan.length; i++) {
-      if (plan[i].day === name && plan[i].name !== 'Walk') {
-        var ids = plan[i].ex;
-        var names = ids && ids.length
-          ? Exercises.expand(ids).map(function (e) { return e.name; })
-          : (plan[i].detail || '').split(' \u00b7 ').filter(Boolean);
-        return { name: plan[i].name, machines: names };
-      }
-    }
-    return null;
+  function todaysMachines(key) {
+    key = key || Store.todayKey();
+    var planned = Store.planFor ? Store.planFor(key) : null;
+    if (!planned || planned.name === 'Walk') return null;
+    var ids = planned.ex;
+    var names = ids && ids.length
+      ? Exercises.expand(ids).map(function (e) { return e.name; })
+      : (planned.detail || '').split(' \u00b7 ').filter(Boolean);
+    return { name: planned.name, machines: names };
   }
 
   /* Last weight and reps logged on a machine, so the user types the change, not the number. */
@@ -164,6 +173,7 @@
       '</select></label>';
 
     return sheet('Log a session', d.name || 'Session',
+      historicalNote(d) +
       field('Session', 'name', d.name, '', 'text') +
       field('Minutes', 'minutes', d.minutes, 'min', 'numeric') +
       (rows
@@ -176,26 +186,32 @@
 
   // ---------------- morning ----------------
   function morningSheet(d) {
-    var y = Store.state().days[Store.shift(Store.todayKey(), -1)];
+    var key = d._date || Store.todayKey();
+    var y = Store.state().days[Store.shift(key, -1)];
     var lastW = y && y.weight;
-    return sheet('This morning', 'Three numbers before breakfast.',
+    var past = key !== Store.todayKey();
+    return sheet(past ? 'Morning check-in' : 'This morning', past ? entryDateLabel(key) : 'Three numbers before breakfast.',
+      historicalNote(d) +
       field('Weight', 'weight', d.weight, Store.state().units.weight) +
-      (lastW ? '<p class="small" style="margin:-4px 2px 12px">Yesterday ' + Store.fmtWeight(lastW) + '</p>' : '') +
+      (lastW ? '<p class="small" style="margin:-4px 2px 12px">Previous day ' + Store.fmtWeight(lastW) + '</p>' : '') +
       '<div class="fieldgrid">' +
         field('Resting heart rate', 'restingHr', d.restingHr, 'bpm', 'numeric') +
         field('Sleep', 'sleepHr', d.sleepHr, 'hours') +
       '</div>' +
       '<p class="small" style="margin:8px 2px 0">Skip any of them. A gap is shown as a gap, not smoothed over.</p>' +
       (d.note ? '<p class="small warn" style="margin:10px 2px 0">' + esc(d.note) + '</p>' : ''),
-      'Save the morning');
+      past ? 'Save this morning' : 'Save the morning');
   }
 
   // ---------------- steps ----------------
   function stepsSheet(d) {
-    var t = Store.state().targets.steps;
-    return sheet('Steps today', 'What does your phone say?',
+    var key = d._date || Store.todayKey();
+    var t = Store.scoreTargets ? Store.scoreTargets(key).steps : Store.state().targets.steps;
+    var past = key !== Store.todayKey();
+    return sheet(past ? 'Steps for this day' : 'Steps today', past ? entryDateLabel(key) : 'What does your phone say?',
+      historicalNote(d) +
       field('Steps', 'steps', d.steps, '', 'numeric') +
-      '<p class="small" style="margin:8px 2px 0">Target is ' + t.toLocaleString() + '. Walking distance also moves the expedition.</p>',
+      '<p class="small" style="margin:8px 2px 0">Target is ' + t.toLocaleString() + '. Walking distance also moves the expedition when that date belongs to the active leg.</p>',
       'Save steps');
   }
 
@@ -447,25 +463,26 @@
   var BUILD = { meal: mealSheet, workout: workoutSheet, morning: morningSheet, steps: stepsSheet,
     barcode: barcodeSheet, restaurant: restaurantSheet, scan: scanSheet };
 
-  function draftFor(kind) {
-    var d = Store.day();
-    if (kind === 'meal') return { name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', describe: '', ingredients: '', items: [], aiNote: '', note: '' };
-    if (kind === 'barcode') return { code: '', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', note: '', found: null };
-    if (kind === 'restaurant') return { q: '', dish: '', picked: '', remote: null, note: '', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '' };
-    if (kind === 'scan') return { photo: '', state: 'analysing', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', items: [], note: '', swiped: -1 };
+  function draftFor(kind, key) {
+    key = key || Store.todayKey();
+    var d = Store.day(key), base = { _date: key };
+    if (kind === 'meal') return Object.assign(base, { name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', describe: '', ingredients: '', items: [], aiNote: '', note: '' });
+    if (kind === 'barcode') return Object.assign(base, { code: '', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', note: '', found: null });
+    if (kind === 'restaurant') return Object.assign(base, { q: '', dish: '', picked: '', remote: null, note: '', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '' });
+    if (kind === 'scan') return Object.assign(base, { photo: '', state: 'analysing', name: '', slot: slotForNow(), kcal: '', protein: '', carbs: '', fat: '', items: [], note: '', swiped: -1 });
     if (kind === 'workout') {
-      var t = todaysMachines();
-      return {
+      var t = todaysMachines(key);
+      return Object.assign(base, {
         name: t ? t.name + ' day' : 'Session',
         minutes: '', note: '',
         exercises: (t ? t.machines : []).map(function (m) {
           var last = lastFor(m);
           return { name: m, weight: last ? Store.liftNum(last.weight) : '', reps: last ? last.reps : '', sets: last ? last.sets : 3 };
         })
-      };
+      });
     }
-    if (kind === 'morning') return { weight: d.weight == null ? '' : Store.weightNum(d.weight, Store.state().units.weight === 'kg' ? 1 : 0), restingHr: d.restingHr || '', sleepHr: d.sleepHr || '', note: '' };
-    return { steps: d.steps || '' };
+    if (kind === 'morning') return Object.assign(base, { weight: d.weight == null ? '' : Store.weightNum(d.weight, Store.state().units.weight === 'kg' ? 1 : 0), restingHr: d.restingHr || '', sleepHr: d.sleepHr || '', note: '' });
+    return Object.assign(base, { steps: d.steps || '' });
   }
 
   /* A refusal stops being true the moment the user changes something. Remove it from
@@ -513,8 +530,9 @@
   }
 
   function start(kind, opts) {
-    open = { kind: kind, draft: draftFor(kind) };
     opts = opts || {};
+    var key = /^\d{4}-\d{2}-\d{2}$/.test(String(opts.date || '')) && opts.date <= Store.todayKey() ? opts.date : Store.todayKey();
+    open = { kind: kind, date: key, draft: draftFor(kind, key) };
     if (opts.slot && open.draft && Object.prototype.hasOwnProperty.call(open.draft, 'slot') &&
         ['Breakfast', 'Lunch', 'Dinner', 'Snack'].indexOf(opts.slot) >= 0) open.draft.slot = opts.slot;
     paint();
@@ -550,12 +568,12 @@
             paint(); return;
           }
           mealData.photoId = mealPhotoId;
-          Store.addMeal(mealData);
+          Store.addMeal(mealData, open.date);
           close();
         });
         return;
       }
-      Store.addMeal(mealData);
+      Store.addMeal(mealData, open.date);
     } else if (open.kind === 'workout') {
       var hasNegativeLift = anyNegative([d.minutes].concat(d.exercises.reduce(function (a, e) {
         return a.concat([e.weight, e.reps, e.sets]);
@@ -573,7 +591,7 @@
         name: d.name.trim() || 'Session',
         minutes: Math.round(nonneg(d.minutes)),
         exercises: did.map(function (e) { return { name: e.name, weight: Store.weightToLb(nonneg(e.weight)) || 0, reps: nonneg(e.reps), sets: nonneg(e.sets) || 3 }; })
-      });
+      }, open.date);
     } else if (open.kind === 'morning') {
       if (d.weight === '' && d.restingHr === '' && d.sleepHr === '') {
         d.note = 'Fill in at least one of the three.';
@@ -589,10 +607,10 @@
         weight: weight,
         restingHr: restingHr == null ? null : Math.round(restingHr),
         sleepHr: sleepHr
-      });
+      }, open.date);
     } else {
       if (d.steps !== '' && num(d.steps) < 0) { d.note = 'Steps cannot be negative.'; paint(); return; }
-      Store.setSteps(Math.round(nonneg(d.steps)));
+      Store.setSteps(Math.round(nonneg(d.steps)), open.date);
     }
     close();
   }
@@ -796,7 +814,7 @@
   /* Barcode: use the browser's own detector where it exists, and fall back to
      photographing the label and letting Claude read the digits. Typing always works. */
   function scanBarcode(btn) {
-    if (!('BarcodeDetector' in window)) return barcodePhoto();
+    if (!('BarcodeDetector' in window) || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return barcodePhoto();
     var stream, video, raf, det;
     try {
       det = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
@@ -839,31 +857,40 @@
       .catch(function () { stop(); barcodePhoto(); });
   }
 
-  /* No detector, or camera refused: photograph the label instead. */
+  /* No detector, or camera refused: photograph the label instead.
+     Use the same attached camera input as the rest of InSync. iOS can return a
+     very large HEIC/JPEG frame; resize it through canvas first so Claude always
+     receives a supported, reasonably sized JPEG rather than the raw camera file. */
   function barcodePhoto() {
     if (!Cloud.hasClaude()) {
       if (open) { open.draft.note = 'This browser cannot scan barcodes. Type the number beneath the bars.'; paint(); }
       return;
     }
-    var input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
-    input.onchange = function () {
-      var f = input.files && input.files[0];
-      if (!f || !open) return;
-      var r = new FileReader();
-      r.onload = function () {
-        open.draft.note = 'Reading the label\u2026'; paint();
-        Cloud.readBarcodePhoto(r.result, function (err, code) {
+    Media.capture(function (captureErr, dataUrl) {
+      if (!open) return;
+      if (captureErr || !dataUrl) {
+        open.draft.note = (captureErr && captureErr.message) || 'That photograph could not be opened. Try again or type the number beneath the bars.';
+        paint(); return;
+      }
+      open.draft.note = 'Preparing the barcode photo\u2026'; paint();
+      Media.shrink(dataUrl, 1800, 0.9, function (shrinkErr, prepared) {
+        if (!open) return;
+        if (shrinkErr || !prepared) {
+          open.draft.note = 'That photo format could not be prepared. Try the photograph again or type the number beneath the bars.';
+          paint(); return;
+        }
+        open.draft.note = 'Reading the barcode\u2026'; paint();
+        Cloud.readBarcodePhoto(prepared, function (err, code) {
           if (!open) return;
           if (err) { open.draft.note = err.message; paint(); return; }
-          open.draft.code = code; open.draft.note = ''; paint();
+          open.draft.code = code;
+          open.draft.note = 'Barcode read. Looking up the food\u2026';
+          paint();
           var lk = host.querySelector('[data-lookup]');
           if (lk) lk.click();
         });
-      };
-      r.readAsDataURL(f);
-    };
-    input.click();
+      });
+    });
   }
 
   /* Swipe an ingredient left to reveal Remove. Tap does the same on a desktop. */

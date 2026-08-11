@@ -135,6 +135,166 @@
     }
   };
 
+
+  /* Phase 5.3 — checkpoint/arrival asset manifest.
+     The art paths below are intentionally reserved even before the files exist.
+     UI.screen can layer a known-good fallback behind them, which lets the
+     product ship now and lets finished art be dropped in later without another
+     screen rewrite. Checkpoints are explicit because a few simplified routes
+     have notable place-stops that are not one-to-one with leg endpoints. */
+  var CHECKPOINT_CONFIG = {
+    camino: [
+      { name:'Saint-Jean-Pied-de-Port Trailhead', unlockAfterLeg:-1, primary:true },
+      { name:'Roncesvalles', unlockAfterLeg:0, primary:true },
+      { name:'Zubiri', unlockAfterLeg:1, primary:true },
+      { name:'Pamplona', unlockAfterLeg:2, primary:true },
+      { name:'Puente la Reina', unlockAfterLeg:3, primary:true },
+      { name:'Estella', unlockAfterLeg:4, primary:true },
+      { name:'Los Arcos', unlockAfterLeg:5, primary:true }
+    ],
+    milford: [
+      { name:'Glade Wharf', unlockAfterLeg:-1, primary:true },
+      { name:'Clinton Hut', unlockAfterLeg:0, primary:true },
+      { name:'Mintaro Hut', unlockAfterLeg:1, primary:true },
+      { name:'Dumpling Hut', unlockAfterLeg:2, primary:true },
+      { name:'Sandfly Point', unlockAfterLeg:3, primary:true }
+    ],
+    grand: [
+      { name:'North Rim Trailhead', unlockAfterLeg:-1, primary:true },
+      { name:'Cottonwood Camp', unlockAfterLeg:0, primary:true },
+      { name:'Phantom Ranch', unlockAfterLeg:1, primary:true },
+      { name:'Indian Garden', unlockAfterLeg:2, primary:true },
+      { name:'South Rim', unlockAfterLeg:3, primary:true }
+    ],
+    inca: [
+      { name:'Km 82 Trailhead', unlockAfterLeg:-1, primary:true },
+      { name:'Wayllabamba', unlockAfterLeg:0, primary:true },
+      { name:'Pacaymayo', unlockAfterLeg:1, primary:true },
+      { name:'Wiñay Wayna', unlockAfterLeg:2, primary:true },
+      { name:'Machu Picchu', unlockAfterLeg:3, primary:true }
+    ],
+    jesus: [
+      { name:'Nazareth Trail Start', unlockAfterLeg:-1, primary:true },
+      { name:'Cana', unlockAfterLeg:0, primary:true },
+      { name:'Kibbutz Lavi', unlockAfterLeg:1, primary:true },
+      { name:'Moshav Arbel', unlockAfterLeg:2, primary:true },
+      { name:'Capernaum', unlockAfterLeg:3, primary:true }
+    ],
+    sinai: [
+      { name:"Saint Catherine’s Monastery Trail Start", unlockAfterLeg:-1, primary:true },
+      { name:"Elijah’s Basin", unlockAfterLeg:0, primary:true },
+      { name:'Mount Sinai Summit', unlockAfterLeg:1, primary:true },
+      { name:'Camel Path', unlockAfterLeg:2, primary:true }
+    ],
+    montblanc: [
+      { name:'Les Houches — Start', unlockAfterLeg:-1, primary:true },
+      { name:'Les Contamines', unlockAfterLeg:0, primary:true },
+      { name:'Croix du Bonhomme', unlockAfterLeg:1, primary:true },
+      { name:'Courmayeur', unlockAfterLeg:2, primary:true },
+      { name:'Refuge Bonatti', unlockAfterLeg:3, primary:true },
+      { name:'La Fouly', unlockAfterLeg:4, primary:true },
+      { name:'Champex', unlockAfterLeg:5, primary:true },
+      { name:'Les Houches — Return', unlockAfterLeg:6, primary:true }
+    ],
+    muir: [
+      { name:'Happy Isles Trailhead', unlockAfterLeg:-1, primary:true },
+      { name:'Tuolumne Meadows', unlockAfterLeg:0, primary:true },
+      { name:'Reds Meadow', unlockAfterLeg:1, primary:true },
+      { name:'Mono Creek', unlockAfterLeg:2, primary:true },
+      { name:'Muir Trail Ranch', unlockAfterLeg:3, primary:true },
+      { name:'LeConte Canyon', unlockAfterLeg:4, primary:true },
+      { name:'Whitney Portal', unlockAfterLeg:5, primary:true }
+    ],
+    paine: [
+      { name:'Laguna Amarga', unlockAfterLeg:-1, primary:true },
+      { name:'Serón', unlockAfterLeg:0, primary:true },
+      { name:'Refugio Dickson', unlockAfterLeg:1, primary:true },
+      { name:'John Gardner Pass', unlockAfterLeg:2, primary:true },
+      { name:'Grey Glacier', unlockAfterLeg:2, primary:false },
+      { name:'Paine Grande', unlockAfterLeg:3, primary:true },
+      { name:'Base of the Towers', unlockAfterLeg:4, primary:true }
+    ],
+    appalachian: [
+      { name:'Springer Mountain Trail Start', unlockAfterLeg:-1, primary:true },
+      { name:'Hawk Mountain', unlockAfterLeg:0, primary:true },
+      { name:'Neel Gap', unlockAfterLeg:1, primary:true },
+      { name:'Unicoi Gap', unlockAfterLeg:2, primary:true },
+      { name:'Dicks Creek Gap', unlockAfterLeg:3, primary:true },
+      { name:'Bly Gap', unlockAfterLeg:4, primary:true },
+      { name:'Standing Indian', unlockAfterLeg:5, primary:true },
+      { name:'Wayah Bald', unlockAfterLeg:6, primary:true },
+      { name:'Nantahala Outdoor Center', unlockAfterLeg:7, primary:true }
+    ],
+    kilimanjaro: [
+      { name:'Machame Gate', unlockAfterLeg:-1, primary:true },
+      { name:'Machame Camp', unlockAfterLeg:0, primary:true },
+      { name:'Shira Camp', unlockAfterLeg:1, primary:true },
+      { name:'Barranco', unlockAfterLeg:2, primary:true },
+      { name:'Barafu', unlockAfterLeg:3, primary:true },
+      { name:'Uhuru Peak', unlockAfterLeg:4, primary:true }
+    ],
+    everest: [
+      { name:'Lukla — Start', unlockAfterLeg:-1, primary:true },
+      { name:'Phakding', unlockAfterLeg:0, primary:true },
+      { name:'Namche Bazaar', unlockAfterLeg:1, primary:true },
+      { name:'Tengboche', unlockAfterLeg:2, primary:true },
+      { name:'Dingboche', unlockAfterLeg:3, primary:true },
+      { name:'Lobuche', unlockAfterLeg:4, primary:true },
+      { name:'Everest Base Camp', unlockAfterLeg:5, primary:true },
+      { name:'Kala Patthar', unlockAfterLeg:6, primary:true },
+      { name:'Pheriche', unlockAfterLeg:6, primary:false },
+      { name:'Lukla — Return', unlockAfterLeg:7, primary:true }
+    ]
+  };
+
+  var SECTION_KEYS = ['home','journey','train','nutrition','together','coach','base-camp','arrival'];
+
+  function pad2(n) { return String(Math.max(0, Math.round(+n || 0))).padStart(2, '0'); }
+  function sectionArt(routeId, surface) {
+    routeId = String(routeId || ''); surface = String(surface || '');
+    if (!ROUTES[routeId] || SECTION_KEYS.indexOf(surface) < 0) return '';
+    return 'assets/art/' + routeId + '/sections/' + surface + '.webp';
+  }
+  function travelArt(routeId, legIndex) {
+    routeId = String(routeId || '');
+    if (!ROUTES[routeId]) return '';
+    legIndex = Math.max(0, Math.round(+legIndex || 0));
+    if (!ROUTES[routeId].legs[legIndex]) return '';
+    return 'assets/art/' + routeId + '/travel/leg-' + pad2(legIndex + 1) + '.webp';
+  }
+  function checkpoints(routeId) {
+    routeId = String(routeId || '');
+    var source = CHECKPOINT_CONFIG[routeId] || [];
+    return source.map(function (cp, i) {
+      return {
+        index: i,
+        name: cp.name,
+        unlockAfterLeg: +cp.unlockAfterLeg,
+        primary: cp.primary !== false,
+        art: 'assets/art/' + routeId + '/checkpoints/checkpoint-' + pad2(i) + '.webp'
+      };
+    });
+  }
+  function checkpoint(routeId, index) {
+    var list = checkpoints(routeId);
+    index = Math.max(0, Math.round(+index || 0));
+    return list[index] || null;
+  }
+  function checkpointsForLeg(routeId, legIndex) {
+    legIndex = Math.round(+legIndex || 0);
+    return checkpoints(routeId).filter(function (cp) { return cp.unlockAfterLeg === legIndex; });
+  }
+  function primaryCheckpointForLeg(routeId, legIndex) {
+    var list = checkpointsForLeg(routeId, legIndex);
+    return list.filter(function (cp) { return cp.primary; })[0] || list[0] || null;
+  }
+  function cumulativeMilesToCheckpoint(routeId, checkpointIndex) {
+    var r = ROUTES[String(routeId || '')], cp = checkpoint(routeId, checkpointIndex);
+    if (!r || !cp || cp.unlockAfterLeg < 0) return 0;
+    return +r.legs.slice(0, Math.min(r.legs.length, cp.unlockAfterLeg + 1))
+      .reduce(function (sum, leg) { return sum + (+leg.miles || 0); }, 0).toFixed(1);
+  }
+
   var ROUTE_ORDER = ['camino', 'milford', 'grand', 'inca', 'jesus', 'sinai',
     'montblanc', 'muir', 'paine', 'appalachian', 'kilimanjaro', 'everest'];
   var GRADES = ['Gentle', 'Moderate', 'Hard', 'Severe'];
@@ -156,5 +316,13 @@
     return r ? ((r.legs && r.legs[0] && r.legs[0].art) || r.banner || null) : null;
   }
 
-  window.Journeys = { ROUTES: ROUTES, ORDER: ROUTE_ORDER, GRADES: GRADES, get: get, miles: miles, climb: climb, hero: hero };
+  window.Journeys = {
+    version: 2,
+    ROUTES: ROUTES, ORDER: ROUTE_ORDER, GRADES: GRADES,
+    get: get, miles: miles, climb: climb, hero: hero,
+    sectionArt: sectionArt, travelArt: travelArt,
+    checkpoints: checkpoints, checkpoint: checkpoint,
+    checkpointsForLeg: checkpointsForLeg, primaryCheckpointForLeg: primaryCheckpointForLeg,
+    cumulativeMilesToCheckpoint: cumulativeMilesToCheckpoint
+  };
 })();

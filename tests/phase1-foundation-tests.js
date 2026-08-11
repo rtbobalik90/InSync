@@ -70,7 +70,7 @@ ok(c.InSyncRewards.emit('made.up.event',{})===false,'reward bus rejects undeclar
 S.set('expedition.routeId',''); c.location.hash='#journey'; let html=c.Screens.journey();
 ok(html.includes('Choose the road together')&&html.includes('Choose an expedition'),'Journey has a useful no-expedition state');
 S.set('expedition.routeId','inca');S.set('expedition.legIndex',0);S.set('expedition.legStart',S.todayKey());S.set('expedition.legStartSteps',0);S.setSteps(5000);c.location.hash='#journey';html=c.Screens.journey();
-ok(html.includes('Current expedition')&&html.includes('Route map'),'Journey Hub renders route progress and the leg map');
+ok(html.includes('Current expedition')&&html.includes('Checkpoints'),'Journey Hub renders route progress and the checkpoint map');
 ok(html.includes('Km 82')&&html.includes('Wayllabamba'),'Journey Hub renders the current leg from shared route data');
 ok(html.includes('Expedition passport'),'Journey Hub establishes the permanent passport surface');
 
@@ -79,8 +79,8 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),index=fs.readFileSync
 ok(app.includes("var TABS = ['home', 'journey', 'train', 'nutrition', 'together']"),'router uses Journey in the primary tab set');
 ok(app.includes("else if (root === 'coach') html = Screens.coach()"),'Coach remains routable after leaving bottom navigation');
 ok(index.indexOf('journeys.js')<index.indexOf('screens.js')&&index.indexOf('camp.js')<index.indexOf('store.js'),'foundation modules load before their consumers');
-ok(sw.includes("CACHE = 'insync-v10-22'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
-ok(app.includes("version:'6.0.0-p5'")&&screensSource.includes('Version 6.0.0-p5'),'runtime and Settings preserve the Phase 1 foundation in the Phase 2 build');
+ok(sw.includes("CACHE = 'insync-v10-25'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
+ok(app.includes("version:'6.0.0-p5.3'")&&screensSource.includes('Version 6.0.0-p5.3'),'runtime and Settings preserve the Phase 1 foundation in the Phase 2 build');
 
 console.log(`\n${passed} Phase 1 foundation checks passed, ${failed} failed`);
 if(failed)process.exit(1);

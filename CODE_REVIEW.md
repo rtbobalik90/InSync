@@ -1,50 +1,69 @@
-# InSync 6.0.0-p5 — Nutrition 2.0 Review
+# InSync 6.0.0-p5.3 — Journey Checkpoint Code Review
 
 ## Architecture
-A new `nutrition.js` domain owns deterministic Nutrition decisions. It consumes Store state and planned meals but does not own the network transport or primary screen rendering.
+The new Journey layer is deliberately split between **catalog truth** and **experienced history**.
 
-Responsibilities include:
-- four-slot day/week validation;
-- calorie/protein target-range verification;
-- absolute-exclusion checking;
-- pantry-staple matching;
-- meal-prep timeline derivation;
-- dinner-sized target derivation;
-- Shared Dinner target/privacy model;
-- one-recipe/two-portion validation;
-- target-aware Eating Out fit calculations.
+`journeys.js` owns deterministic route content:
+- route legs and distances;
+- checkpoint names/order;
+- which completed leg unlocks each checkpoint;
+- primary vs secondary checkpoint semantics;
+- section-art paths;
+- Travel/Leg art paths;
+- Checkpoint Arrival art paths;
+- cumulative checkpoint distance.
 
-`cloud.js` still uses Claude to compose recipes and weekly meals, but generated output must clear the Nutrition validators before it is committed as ready.
+`store.js` owns only what actually happened:
+- whether current route progress has passed the unlock boundary;
+- reached timestamp when known;
+- completed leg index;
+- owner leg miles;
+- partner leg miles.
 
-## Targeted repair
-Weekly generation is deliberately failure-local. After the initial plan is assembled, each date is validated independently. Only failing dates are requested again, and verified dates remain intact. This protects completed AI work and avoids spending time/tokens rebuilding a correct week because one day missed its numbers.
+This avoids copying geography into user state and prevents future route-content updates from requiring a destructive local migration.
 
-## Food preference safety
-Soft dislikes and hard exclusions are separate state fields. Hard exclusions are checked in deterministic validators after generation, so a prompt-compliance miss cannot silently place a forbidden ingredient into an accepted plan.
+## Migration safety
+`expedition.arrivals` is additive within existing `insync.v10` state.
 
-## Shared Dinner privacy
-Shared Dinner does not require sharing meal logs or daily targets. The owner may explicitly opt in to sending only:
-- display name;
-- dinner-sized calorie target;
-- dinner-sized protein target.
+Older installs may have `legIndex` progress but no arrival history. Normalization creates bounded migrated checkpoint markers for places that must already be unlocked. Those records are explicitly marked `migrated:true`; the UI does not invent an arrival timestamp or contribution split.
 
-The field is optional within partner sync schema 7, so existing sync compatibility is retained. Partner payload normalization bounds and sanitizes the target before local use.
+## Unlock semantics
+Checkpoint availability remains derivable from route progress:
+- start checkpoint: open immediately;
+- current/future destination: locked;
+- checkpoint attached to an already completed leg: open;
+- completed/walked expedition: all checkpoints open.
 
-## Shared Dinner logging model
-One shared recipe contains two portion records. The local planned/loggable meal uses the current phone owner's calories/protein, while the attached Shared Dinner object preserves both portion instructions for household cooking coordination.
+Because availability is not dependent solely on the new history map, a damaged or older arrival map cannot lock away legitimate prior progress.
 
-## Pantry and real-life logging
-Pantry matching changes shopping-list output only; it never removes an ingredient from the recipe itself. Eating Out is modeled separately from generated meal prep and carries its own source marker in meal history.
+## Arrival recording
+`beginExpedition()` records the trailhead with a real local timestamp.
 
-## State safety
-Nutrition additions are additive inside local state v10:
-- `mealPrefs.mustNot`
-- `mealPrefs.pantry`
-- `mealPrefs.sharedDinnerShare`
-- optional planned-meal `sharedDinner` metadata
-- meal `source` metadata
+`advanceLeg()` keeps the existing distance/fairness gate, then records every checkpoint tied to that completed leg. One checkpoint is designated primary for the immediate Arrived screen. Secondary place checkpoints allow the current simplified route catalog to preserve meaningful locations without forcing an artificial extra mileage leg.
 
-No destructive migration or reset is introduced. Partner sync remains schema 7.
+Partner sync can also record the matching checkpoint when a newer shared leg advances this phone. Sync schema remains 7.
 
-## Faith
-Faith remains parked and dormant in the active shell, with prior source/data preserved for a later design pass.
+## Visual fallback architecture
+The generated v2 art intentionally does not have to be finished yet. The build ships a 4×4 transparent WebP at every reserved v2 image path.
+
+`UI.screen({ art, artFallback })` renders the reserved expedition asset as the top image layer and the current known-good art beneath it. While the placeholder is transparent, the production fallback remains visible. When the final artwork replaces the exact file, the same screen code automatically displays it.
+
+The 238 tiny placeholders are not added to the service-worker core install list; artwork continues to use the existing lazy/stale-while-revalidate path. This avoids bloating first-install shell work while keeping every repository path valid.
+
+## Distinct visual states
+The code intentionally keeps four jobs separate:
+1. App section art — recurring screen atmosphere.
+2. Travel/Leg art — movement through the active route segment.
+3. Checkpoint Arrival art — the scenic place that was reached.
+4. Final Arrival Ceremony art — whole-expedition completion.
+
+Journey shows the starting checkpoint before the first mile, then switches to Travel art. Arrived/checkpoint detail uses checkpoint art. The new `expeditionComplete()` surface uses the final section arrival art.
+
+## Privacy
+Checkpoint history contains bounded expedition progress only. It does not introduce meal history, workout details, body metrics, journal content or private AI context into partner sync. The existing pair-progress boundary remains intact.
+
+## Faith / Training / Nutrition boundaries
+Faith remains parked. The checkpoint work does not touch Faith reward logic or expose its stored content. Training 2.0 and Nutrition 2.0 remain unchanged except that their existing screens can now request expedition-specific section artwork with a fallback.
+
+## Image handoff
+`EXPEDITION_ASSET_DROP_GUIDE.md` is generated from the production Journey catalog and lists every exact asset path across all 12 routes. Artwork can therefore be dropped into the reserved directories later without another feature redesign.
