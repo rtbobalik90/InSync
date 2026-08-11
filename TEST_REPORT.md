@@ -1,24 +1,21 @@
-# InSync 6.0.0-p5.4 — Test Report
+# InSync 6.0.0-p5.5 — Test Report
 
-## Result
-**1,787 automated assertions passed. 0 failed.**
+The production repository passes the full deterministic Node suite after the Train/visual refinement.
 
-This includes the existing active release suites plus:
-- 5 additional Journey checks for time-aware Home asset resolution;
-- 43 Grand Canyon production-art checks verifying every delivered asset exists, is non-placeholder production art, and is wired through the new time-aware Home path.
+New P5.5 coverage verifies:
+- light / medium / heavy expedition scrim system;
+- screen-specific scrim assignment;
+- Train landing contains the weekly overview rather than day-specific readiness/walk controls;
+- previous/next training-week navigation;
+- Your Plan precedes Records / Exercise Library / Body;
+- selected training day owns readiness, walk timer and workout actions;
+- manual workout addition remains available;
+- morning completion marker persistence/sanitization;
+- completed morning and nightly Home prompts disappear;
+- History retains edit paths;
+- runtime/service-worker update identifiers.
 
-The retired Faith Foundation and Phase 3B visual suites remain intentionally skipped while Faith is parked.
+Full suite result before packaging: **1,813 assertions passed, 0 failed**.
 
-## Grand Canyon acceptance coverage
-- Dawn, day, sunset and night Home files are present and production-sized.
-- Journey, Train, Nutrition, Together, Coach, Base Camp and Final Arrival files are present.
-- All four Grand Canyon Travel / Leg files are present.
-- North Rim Trailhead plus all four destination checkpoint files are present.
-- Grand Canyon Home uses the same live InSync time-of-day state as the rest of Home.
-- Routes without a complete four-state pack continue using the generic Home slot.
-- Runtime is `6.0.0-p5.4` and service worker is `insync-v10-26`.
-- Existing checkpoint unlock, arrival, migration, partner contribution and whole-route completion tests remain green.
-- Complete optimized asset bundle remains below the existing 35 MiB production gate.
-
-## Packaged verification
-The final full-build ZIP is extracted into a separate clean directory and the active suite is run again against the exact packaged files. A second clean installation begins from the p5.3 full build, applies only the p5.4 replacement ZIP, and runs the same suite to validate the actual upgrade path.
+Runtime: `6.0.0-p5.5`  
+Service worker: `insync-v10-27`

@@ -116,7 +116,7 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),sw=fs.readFileSync(pa
 ok(app.includes("else if (root === 'checkpoint') html = Screens.checkpoint()"),'router exposes checkpoint detail pages');
 ok(app.includes("else if (root === 'expedition-complete') html = Screens.expeditionComplete()"),'router exposes the separate whole-expedition completion ceremony');
 ok(ui.includes('opts.artFallback')&&ui.includes('fallback && fallback !== art'),'UI shell supports missing-future-art fallbacks without a broken hero');
-ok(app.includes("version:'6.0.0-p5.4'")&&sw.includes("CACHE = 'insync-v10-26'"),'P5.3 runtime and service-worker cache are bumped for installed phones');
+ok(app.includes("version:'6.0.0-p5.5'")&&sw.includes("CACHE = 'insync-v10-27'"),'P5.3 runtime and service-worker cache are bumped for installed phones');
 
 console.log(`\n${passed} Journey checkpoint checks passed, ${failed} failed`);
 if(failed)process.exitCode=1;

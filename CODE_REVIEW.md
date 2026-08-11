@@ -1,18 +1,16 @@
-# InSync 6.0.0-p5.4 — Code Review
+# InSync 6.0.0-p5.5 — Code Review
 
-## Scope
-This release intentionally does not change health calculations, nutrition verification, training progression, partner-sync schema, or local-state version. It installs the Grand Canyon production artwork and adds optional time-aware expedition Home artwork.
+## Review focus
+This pass intentionally changed presentation and information architecture without changing the persisted local-state or partner-sync schema.
 
-## Implementation review
-- `Journeys.homeArt(routeId, timeOfDay)` is deterministic and limited to routes declaring a complete time pack.
-- Grand Canyon declares all four Home states; unfinished expedition packs still resolve to their generic `sections/home.webp` path.
-- `Screens.expeditionSurface()` uses `Store.timeOfDay()` only for Home and preserves existing section-art behavior everywhere else.
-- Service-worker cache advances to `insync-v10-26`, ensuring phones do not retain the tiny cached placeholders at the newly populated Grand Canyon paths.
-- No storage migration is required.
-- Checkpoint lock/privacy behavior is unchanged.
+### Visual scrims
+`ui.js` now owns `SCRIMS.light`, `SCRIMS.medium`, and `SCRIMS.heavy`. Screens choose the appropriate preset rather than carrying unrelated one-off gradients. Train retains the strongest treatment; scenic surfaces use lighter treatments.
 
-## Asset review
-All 20 supplied Grand Canyon images are 941×1672 and share a consistent vertical expedition composition. They were mapped into 20 live production slots: 11 recurring-section/time-state assets, 4 Travel assets and 5 Checkpoint assets. WebP optimization keeps the complete application under the production bundle-size gate.
+### Train architecture
+The main `train()` screen contains no live readiness or walk controls. `trainDay()` owns those day-specific controls. Weekly navigation is hash-based (`#train/week/YYYY-MM-DD`) and therefore requires no new persistent UI state. Past weeks derive labels from recorded workouts/frozen score basis rather than projecting the current plan backward.
 
-## Result
-No blocking code or packaging findings remain after the automated and clean-room checks.
+### Morning completion
+`setMorning()` records `morningCheckInAt`, and normalization validates it. Home also treats existing current-day weight/sleep/resting-HR data as an already-completed morning so P5.4 users are not re-prompted after upgrade.
+
+### Privacy / sync
+No new health fields are added to partner sync. `morningCheckInAt` is local day state only. Partner sync remains schema 7.

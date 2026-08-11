@@ -185,27 +185,29 @@
   function homeRhythmCard() {
     var hour = new Date().getHours(), d = Store.day();
     if (hour >= 4 && hour < 12) {
-      var values = [];
-      if (d.weight != null) values.push(Store.fmtWeight(d.weight));
-      if (d.sleepHr != null) values.push(d.sleepHr + ' h sleep');
-      if (d.restingHr != null) values.push(d.restingHr + ' bpm');
+      /* The priority card is a prompt, not permanent dashboard furniture.
+         Once today's morning check-in has actually been saved it disappears;
+         History remains the place to correct it later. */
+      if (d.morningCheckInAt || d.weight != null || d.sleepHr != null || d.restingHr != null) return '';
       return '<article class="card pad home-rhythm" data-rest-anchor>' +
         '<div class="home-rhythm-head"><span class="kicker sage">Morning check-in</span>' +
-          '<span class="small">' + (values.length ? values.length + ' saved' : 'Before the day gets moving') + '</span></div>' +
-        '<p class="lede" style="margin:0 0 8px">' + (values.length ? 'Your morning is on the record.' : 'Set the baseline for today.') + '</p>' +
-        '<p class="note" style="margin:0 0 14px">' + (values.length ? esc(values.join(' · ')) : 'Weight, sleep and resting heart rate. Skip anything you do not track.') + '</p>' +
-        '<button class="btn block" data-action="log-morning">' + (values.length ? 'Update morning check-in' : 'Morning check-in') + '</button>' +
+          '<span class="small">Before the day gets moving</span></div>' +
+        '<p class="lede" style="margin:0 0 8px">Set the baseline for today.</p>' +
+        '<p class="note" style="margin:0 0 14px">Weight, sleep and resting heart rate. Skip anything you do not track.</p>' +
+        '<button class="btn block" data-action="log-morning">Morning check-in</button>' +
       '</article>';
     }
     if (hour >= 18) {
       var written = (d.reflection || '').trim();
-      var words = written ? written.split(/\s+/).length : 0;
+      /* Closing the day removes the prompt. The saved review remains editable
+         from History instead of consuming Home after the task is complete. */
+      if (written) return '';
       return '<article class="card pad home-rhythm" data-rest-anchor>' +
         '<div class="home-rhythm-head"><span class="kicker gold">Nightly review</span>' +
-          '<span class="small">' + (written ? (d.reflectionAt ? 'Saved ' + esc(d.reflectionAt) : 'Saved') : 'Before you close the day') + '</span></div>' +
-        '<p class="lede" style="margin:0 0 8px">' + (written ? 'The day is written down.' : 'Take a minute and close the day.') + '</p>' +
-        '<p class="note" style="margin:0 0 14px">' + (written ? words + ' words saved. You can still go back and change anything.' : 'Review what happened, what mattered, and anything you want to remember tomorrow.') + '</p>' +
-        '<button class="btn block" data-route="reflection">' + (written ? 'Edit nightly review' : 'Review the day') + '</button>' +
+          '<span class="small">Before you close the day</span></div>' +
+        '<p class="lede" style="margin:0 0 8px">Take a minute and close the day.</p>' +
+        '<p class="note" style="margin:0 0 14px">Review what happened, what mattered, and anything you want to remember tomorrow.</p>' +
+        '<button class="btn block" data-route="reflection">Review the day</button>' +
       '</article>';
     }
     return '';
@@ -235,7 +237,7 @@
     var homeHero = expeditionSurface('home', UI.CAMP[Store.timeOfDay()]);
     return UI.screen({
       tab: 'home', rest: 551, restMeasure: true, overlay: overlay, body: body,
-      art: homeHero.art, artFallback: homeHero.fallback,
+      art: homeHero.art, artFallback: homeHero.fallback, scrim: UI.SCRIMS.light,
       photoHeight: '690px'
     });
   }
@@ -396,7 +398,7 @@
 
     return UI.screen({
       tab: 'journey', rest: 470, restMeasure: true,
-      art: art, artFallback: artFallback, photoPosition: 'center 44%', overlay: overlay,
+      art: art, artFallback: artFallback, scrim: UI.SCRIMS.medium, photoPosition: 'center 44%', overlay: overlay,
       body:
         progress + legCard +
         '<div class="rulehead"><span class="kicker sage">Checkpoints</span><span></span><span class="note">' +
@@ -433,7 +435,7 @@
         tab:null, rest:320, restMeasure:true,
         header:{ back:'journey', title:'Checkpoint', right:'<div style="width:34px"></div>' },
         art: Journeys.sectionArt ? Journeys.sectionArt(routeId, 'journey') : lockedFallback,
-        artFallback: lockedFallback,
+        artFallback: lockedFallback, scrim: UI.SCRIMS.medium,
         photoPosition:'center 44%',
         overlay:
           '<div class="eyebrow">Still ahead</div>' +
@@ -496,7 +498,7 @@
     return UI.screen({
       tab:null, rest:390, restMeasure:true, photoHeight:'560px',
       header:{ back:'journey', title:'Checkpoint', right:'<div style="width:34px"></div>' },
-      art:cp.art, artFallback:fallback, photoPosition:'center 44%',
+      art:cp.art, artFallback:fallback, scrim:UI.SCRIMS.light, photoPosition:'center 44%',
       overlay:
         '<div class="eyebrow">' + esc(isStart ? 'Starting point' : 'Checkpoint ' + index + ' of ' + (Journeys.checkpoints(routeId).length - 1)) + '</div>' +
         '<p class="verse" style="font-size:29px">' + esc(cp.name) + '</p>' +
@@ -592,7 +594,7 @@
 
     var coachHero = expeditionSurface('coach', 'assets/art/coach-desk.webp');
     return UI.screen({
-      tab: 'coach', restMeasure: true, art: coachHero.art, artFallback: coachHero.fallback, photoPos: 'center 34%',
+      tab: 'coach', restMeasure: true, art: coachHero.art, artFallback: coachHero.fallback, scrim: UI.SCRIMS.light, photoPos: 'center 34%',
       overlay: overlay, blur: false,
       body:
         '<article class="card pad">' +
@@ -822,7 +824,7 @@
     var nutritionHero = expeditionSurface('nutrition', 'assets/art/provisions.webp');
     return UI.screen({
       tab: 'nutrition', restMeasure: true, photoHeight: '600px',
-      art: nutritionHero.art, artFallback: nutritionHero.fallback, photoPos: 'center 22%',
+      art: nutritionHero.art, artFallback: nutritionHero.fallback, scrim: UI.SCRIMS.medium, photoPos: 'center 22%',
       overlay:
         '<span class="daytag">' + UI.dayLabel() + '</span>' +
         '<div class="bignum">' + (gap > 0 ? gap : t.protein) +
@@ -906,173 +908,107 @@
     return '<article class="card pad deload-card"><div class="kicker gold">Recovery signal</div><p class="lede" style="margin:8px 0 5px">' + esc(d.label) + '</p><p class="small" style="margin:0 0 13px">' + esc(d.detail) + ' Recent sessions: ' + d.recentSessions + ' · hard-set rate: ' + Math.round(d.hardSetRate * 100) + '%.</p><div class="btnrow"><button class="btn sm" data-action="accept-deload">Use lighter sessions this week</button><button class="btn ghost sm" data-action="dismiss-deload">Not now</button></div></article>';
   }
 
-  function train() {
-    var d = Store.day(), done = d.workouts.length > 0;
-    var S = Store.state();
-    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    var todayName = DOW[new Date().getDay()];
-    var todaysPlan = Store.planFor ? Store.planFor(Store.todayKey()) : null;
-
-    var week = [], weekStartKey=Store.weekStart(Store.todayKey()), todayKey=Store.todayKey();
-    /* This strip is the real Monday–Sunday training week, not a rolling seven
-       days. A rolling window applied the new plan to dates from last week on
-       Mondays and could make old sessions look scheduled under the wrong plan. */
-    for (var i = 0; i < 7; i++) {
-      var k = Store.shift(weekStartKey, i);
-      var dt = new Date(k + 'T12:00:00');
-      var dayName = DOW[dt.getDay()];
-      var scheduled = Store.planFor ? Store.planFor(k) : null;
-      var isFuture=k>todayKey;
-      week.push({
-        letter: dayName.charAt(0),
-        label: scheduled ? scheduled.name : 'Rest',
-        key: k,
-        /* A scheduled walk is completed by its step requirement, not by
-           fabricating a workout record. Rest days are not counted toward the
-           weekly frequency. */
-        done: scheduled && !isFuture ? Store.trainingStatus(k).done : false,
-        today: k === todayKey, future:isFuture
-      });
-    }
-    var sessions = week.filter(function (w) { return w.done; }).length;
-    var target = S.frequency || 4;
-
-    var machines = todaysPlan && todaysPlan.name !== 'Walk'
-      ? (todaysPlan.ex && todaysPlan.ex.length
-          ? Exercises.expand(todaysPlan.ex)
-          : (todaysPlan.detail || '').split(' \u00b7 ').filter(Boolean).map(function (n) {
-              return { id: null, name: n, sets: 3, reps: '10', gif: null, equipment: '' };
-            }))
-      : [];
-
-    var equipmentMismatch = !!(window.Training && machines.some(function (m) { return !Training.equipmentAllows(m); }));
-    var todayTrainingStatus = Store.trainingStatus(Store.todayKey());
-    var headline = done
-      ? 'Session done. That is the day carried.'
-      : todaysPlan
-        ? (todaysPlan.name === 'Walk'
-            ? (todayTrainingStatus.done ? 'Walking day complete. The distance is in.' : 'Walking day. ' + todaysPlan.detail + '.')
-            : todaysPlan.name + ' day. ' + machines.length + ' movements, about ' + (machines.length * 8) + ' minutes.')
-        : 'Rest day. Nothing scheduled.';
-
-    var trainHero = expeditionSurface('train', 'assets/art/train-banner.webp');
-    return UI.screen({
-      tab: 'train', rest: 310, restMeasure: true, photoHeight: '390px',
-      art: trainHero.art, artFallback: trainHero.fallback, photoPosition: 'center 42%',
-      scrim: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
-      overlay: '<div class="eyebrow">Today</div><p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
-      body:
-        readinessCard(Store.todayKey()) +
-        deloadCard() +
-        dailyWalkCard(Store.todayKey(), 'train') +
-        '<article class="card" data-rest-anchor>' +
-          '<div class="cardhead">' +
-            '<div class="title"><i></i>This week</div>' +
-            '<div class="meta">' + sessions + ' of ' + target + '</div>' +
-          '</div>' +
-          '<div class="weekstrip">' +
-            week.map(function (w) {
-              return '<button class="wk' + (w.done ? ' done' : '') + (w.today ? ' today' : '') + '" data-route="trainday/' + w.key + '">' +
-                '<span class="wk-mark">' + (w.done ? UI.icon('check') : '') + '</span>' +
-                '<span class="wk-day">' + w.letter + '</span>' +
-                '<span class="wk-plan">' + esc(w.label) + '</span>' +
-              '</button>';
-            }).join('') +
-          '</div>' +
-          '<p class="small pad-x">' +
-            (sessions >= target
-              ? 'The week is met. Anything else is a bonus.'
-              : (target - sessions) + ' more to hit ' + target + ' this week.') +
-          '</p>' +
-        '</article>' +
-
-        futureTrainingCard() +
-
-        '<article class="card">' +
-          '<div class="cardhead"><div class="title"><i></i>Steps today</div>' +
-          '<div class="meta">' + Math.round((d.steps / S.targets.steps) * 100) + '% of target</div></div>' +
-          '<div class="pad-x" style="padding-top:14px;padding-bottom:15px">' +
-            '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">' +
-              '<span style="font-family:var(--serif);font-size:30px;line-height:1;font-variant-numeric:tabular-nums">' + d.steps.toLocaleString() + '</span>' +
-              '<span class="note">of ' + S.targets.steps.toLocaleString() + '</span>' +
-            '</div>' +
-            '<div class="track"><span style="width:' + Math.min(100, Math.round((d.steps / S.targets.steps) * 100)) + '%"></span></div>' +
-            '<button class="btn ghost block" style="margin-top:14px" data-action="log-steps">' + (d.steps ? 'Update steps' : 'Log steps') + '</button>' +
-          '</div>' +
-        '</article>' +
-        (done
-          ? '<article class="card pad"><div class="kicker sage" style="margin-bottom:11px">Done</div>' +
-            d.workouts.map(function (w) {
-              return '<p class="lede" style="margin:0 0 6px">' + esc(w.name) + ' &middot; ' + w.minutes + ' minutes.</p>' +
-                (w.exercises && w.exercises.length
-                  ? '<p class="small" style="margin:0">' + w.exercises.map(function (x) {
-                      return esc(x.name) + (x.weight ? ' ' + Store.fmtLift(x.weight) : '');
-                    }).join(' \u00b7 ') + '</p>'
-                  : '');
-            }).join('<hr class="hair" />') +
-            '</article>'
-          : todaysPlan && todaysPlan.name === 'Walk'
-            ? '<article class="card pad">' +
-                '<div class="kicker sage" style="margin-bottom:11px">Walking day</div>' +
-                '<p class="lede">' + esc(todaysPlan.detail || 'Get the distance in.') + '</p>' +
-                '<p class="small" style="margin:9px 0 0">Nothing to lift. Steps are the session \u2014 they count toward the leg you and ' + esc(Store.partnerName()) + ' are walking.</p>' +
-              '</article>'
-          : !todaysPlan
-            ? restCard(S)
-            : machines.length
-            ? '<article class="card">' +
-                '<div class="cardhead"><div class="title"><i></i>' + esc(todaysPlan.name) + ' day</div>' +
-                '<div class="meta">' + machines.length + ' movement' + (machines.length === 1 ? '' : 's') + '</div></div>' +
-                machines.map(function (m, idx) {
-                  var last = lastLift(m.name);
-                  var prog = window.Insights ? Insights.progressionFor(m.id || m.name) : null;
-                  return '<button class="exrow"' + (m.id ? ' data-route="exercise/' + m.id + '"' : '') + '>' +
-                    (m.gif
-                      ? '<img class="exgif" src="' + UI.asset(m.gif) + '" alt="" loading="lazy" />'
-                      : '<span class="exnum">' + (idx + 1) + '</span>') +
-                    '<span style="min-width:0;text-align:left">' +
-                      '<span class="exname">' + esc(m.name) + '</span>' +
-                      '<span class="note">' + m.sets + ' \u00d7 ' + esc(String(m.reps)) +
-                        (last ? ' &middot; last ' + Store.fmtLift(last.weight) : '') + '</span>' +
-                      (prog ? '<span class="small" style="display:block;color:var(--sage);margin-top:4px">Next: ' + esc(prog.label) + '</span>' : '') +
-                    '</span>' +
-                    '<span class="exsets">' + esc(m.equipment || '') + '</span>' +
-                  '</button>';
-                }).join('') +
-                '<div class="pad-x" style="padding-bottom:15px;padding-top:13px">' +
-                  (equipmentMismatch ? '<button class="btn block" data-action="write-plan">Rewrite for ' + esc(Training.gymLabel(Training.profile().gymType)) + '</button><p class="small" style="margin:10px 0 0">The old week is preserved until the replacement passes validation.</p>' : '<button class="btn block" data-action="begin" data-session-mode="' + (window.Training && Training.isDeloadWeek(Store.todayKey()) ? 'lighter' : 'planned') + '">Start the session</button>') +
-                '</div>' +
-              '</article>'
-            : '<button class="btn block" data-action="start-session">Log a session</button>') +
-
-
-        planCard() +
-        (window.Insights && Insights.avoidedExerciseIds().length ? '<article class="card pad"><div class="kicker">Movement memory</div><p class="small" style="margin:8px 0 12px">These movements stay out of future coach plans because you marked them as a dislike or discomfort. Tap one if you want to allow it again.</p><div class="prefchips">' + Insights.avoidedExerciseIds().map(function (id) { var ex=Exercises.get(id); return ex ? '<button class="ob-chip" data-action="allow-exercise-again" data-exercise-id="' + esc(id) + '">↺ ' + esc(ex.name) + '</button>' : ''; }).join('') + '</div></article>' : '') +
-        '<button class="btn ghost block" data-route="records">Records and progression</button>' +
-        '<button class="btn ghost block" data-route="exercises">Exercise library</button>' +
-        '<button class="btn ghost block" data-route="body">Body &mdash; weight, photos, sleep</button>'
-    });
+  function selectedTrainingWeek() {
+    var parts = (location.hash || '#train').replace(/^#/, '').split('/');
+    var candidate = parts[1] === 'week' ? parts[2] : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate || '')) return Store.weekStart(Store.todayKey());
+    return Store.weekStart(candidate);
   }
 
+  function trainingWeekLabel(weekStartKey) {
+    var current = Store.weekStart(Store.todayKey());
+    var next = Store.shift(current, 7), prev = Store.shift(current, -7);
+    if (weekStartKey === current) return 'This week';
+    if (weekStartKey === next) return 'Next week';
+    if (weekStartKey === prev) return 'Last week';
+    return dateLabel(weekStartKey) + ' - ' + dateLabel(Store.shift(weekStartKey, 6));
+  }
 
-  function futureTrainingCard() {
-    var S = Store.state(), meta = S.futurePlanMeta || {}, plan = Array.isArray(S.futurePlan) ? S.futurePlan : [];
-    var nextWeek = Store.shift(Store.weekStart(Store.todayKey()), 7);
-    if (meta.weekOf !== nextWeek || !plan.length) return '';
-    var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var cells = [];
+  function historicalPlanLabel(key) {
+    var d = Store.state().days[key] || {};
+    if ((d.workouts || []).length) return d.workouts[0].name.replace(/ day$/i, '') || 'Session';
+    if (d.scoreBasis && d.scoreBasis.planName) return d.scoreBasis.planName;
+    return 'Rest';
+  }
+
+  function trainingWeekCard(weekStartKey) {
+    var S = Store.state(), DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var currentWeek = Store.weekStart(Store.todayKey()), nextWeek = Store.shift(currentWeek, 7);
+    var todayKey = Store.todayKey(), week = [], sessions = 0;
     for (var i=0;i<7;i++) {
-      var key=Store.shift(nextWeek,i), dn=DOW[new Date(key+'T12:00:00').getDay()], scheduled=null;
-      for (var j=0;j<plan.length;j++) if(plan[j].day===dn) scheduled=plan[j];
-      cells.push('<button class="wk future" data-route="trainday/' + key + '">' +
-        '<span class="wk-mark"></span><span class="wk-day">' + dn.charAt(0) + '</span>' +
-        '<span class="wk-plan">' + esc(scheduled ? scheduled.name : 'Rest') + '</span></button>');
+      var k=Store.shift(weekStartKey,i), dt=new Date(k+'T12:00:00'), dayName=DOW[dt.getDay()];
+      var scheduled=Store.planFor ? Store.planFor(k) : null;
+      var rec=S.days[k] || {};
+      var label=scheduled ? scheduled.name : (weekStartKey < currentWeek ? historicalPlanLabel(k) : 'Rest');
+      var future=k>todayKey;
+      var done=!future && (scheduled ? Store.trainingStatus(k).done : (rec.workouts||[]).length>0);
+      if(done) sessions++;
+      week.push({key:k,letter:dayName.charAt(0),label:label,done:done,today:k===todayKey,future:future});
     }
-    return '<article class="card next-training">' +
-      '<div class="cardhead"><div class="title"><i></i>Next week</div><div class="meta ready">READY</div></div>' +
-      '<div class="weekstrip">' + cells.join('') + '</div>' +
-      '<p class="small pad-x">Prepared for ' + dateLabel(nextWeek) + '. Your walk stays available every day and does not replace a gym session.</p>' +
+    var target=S.frequency||4;
+    var prev=Store.shift(weekStartKey,-7), next=Store.shift(weekStartKey,7);
+    var canNext=next<=nextWeek;
+    var dateRange=dateLabel(weekStartKey)+' - '+dateLabel(Store.shift(weekStartKey,6));
+    return '<article class="card training-week-card" data-rest-anchor>' +
+      '<div class="train-week-head">' +
+        '<button class="train-week-arrow" data-route="train/week/'+prev+'" aria-label="Previous training week">‹</button>' +
+        '<div><div class="kicker sage">'+esc(trainingWeekLabel(weekStartKey))+'</div><div class="small">'+esc(dateRange)+'</div></div>' +
+        (canNext ? '<button class="train-week-arrow" data-route="train/week/'+next+'" aria-label="Next training week">›</button>' : '<button class="train-week-arrow" disabled aria-label="No later prepared week">›</button>') +
+      '</div>' +
+      '<div class="cardhead train-week-score"><div class="title"><i></i>Training</div><div class="meta">'+sessions+' of '+target+'</div></div>' +
+      '<div class="weekstrip">' + week.map(function(w){
+        return '<button class="wk'+(w.done?' done':'')+(w.today?' today':'')+'" data-route="trainday/'+w.key+'">' +
+          '<span class="wk-mark">'+(w.done?UI.icon('check'):'')+'</span>' +
+          '<span class="wk-day">'+w.letter+'</span><span class="wk-plan">'+esc(w.label)+'</span></button>';
+      }).join('') + '</div>' +
+      '<p class="small pad-x train-week-copy">' +
+        (weekStartKey===currentWeek
+          ? (sessions>=target ? 'The week is met. Anything else is a bonus.' : (target-sessions)+' more to hit '+target+' this week.')
+          : weekStartKey===nextWeek ? 'Open a day to preview what is prepared. Day-specific readiness and walk tools appear when that day arrives.'
+          : 'Open any day to review what was recorded or add a correction to the history.') +
+      '</p>' +
     '</article>';
+  }
+
+  function trainingToolsCard(weekStartKey) {
+    var currentWeek=Store.weekStart(Store.todayKey());
+    var add = weekStartKey===currentWeek
+      ? '<button class="train-tool-row" data-action="start-session"><span>'+UI.icon('plus')+'</span><span><strong>Add a workout</strong><small>Log something that was not on the plan.</small></span>'+UI.icon('chev')+'</button>'
+      : '';
+    return '<article class="card train-tools">' +
+      '<button class="train-tool-row" data-route="records"><span>'+UI.icon('chart')+'</span><span><strong>Records &amp; progression</strong><small>See strength trends and why the next load is recommended.</small></span>'+UI.icon('chev')+'</button>' +
+      '<button class="train-tool-row" data-route="exercises"><span>'+UI.icon('train')+'</span><span><strong>Exercise library</strong><small>Every movement, equipment option and substitution.</small></span>'+UI.icon('chev')+'</button>' +
+      '<button class="train-tool-row" data-route="body"><span>'+UI.icon('heart')+'</span><span><strong>Body</strong><small>Weight, progress photos, sleep and body history.</small></span>'+UI.icon('chev')+'</button>' + add +
+    '</article>';
+  }
+
+  function train() {
+    var S=Store.state(), weekStartKey=selectedTrainingWeek(), currentWeek=Store.weekStart(Store.todayKey());
+    var weekDays=[];
+    for(var i=0;i<7;i++){
+      var k=Store.shift(weekStartKey,i), rec=S.days[k]||{};
+      if((rec.workouts||[]).length) weekDays.push(rec.workouts.length);
+    }
+    var completed=weekDays.reduce(function(a,b){return a+b;},0), target=S.frequency||4;
+    var headline=weekStartKey===currentWeek
+      ? (completed ? completed+' session'+(completed===1?'':'s')+' recorded. '+Math.max(0,target-completed)+' still open this week.' : 'Your training week is ready. Open a day when you are ready to move.')
+      : trainingWeekLabel(weekStartKey)+'. Open a day to see the full record and plan.';
+    var trainHero=expeditionSurface('train','assets/art/train-banner.webp');
+    var body=trainingWeekCard(weekStartKey) +
+      '<div class="rulehead"><span class="kicker">Your plan</span><span></span></div>' +
+      planCard(weekStartKey) +
+      (weekStartKey===currentWeek ? deloadCard() : '') +
+      '<div class="rulehead"><span class="kicker sage">Training record</span><span></span></div>' +
+      trainingToolsCard(weekStartKey) +
+      (window.Insights && Insights.avoidedExerciseIds().length && weekStartKey===currentWeek
+        ? '<article class="card pad"><div class="kicker">Movement memory</div><p class="small" style="margin:8px 0 12px">These movements stay out of future coach plans because you marked them as a dislike or discomfort. Tap one if you want to allow it again.</p><div class="prefchips">' + Insights.avoidedExerciseIds().map(function(id){var ex=Exercises.get(id);return ex?'<button class="ob-chip" data-action="allow-exercise-again" data-exercise-id="'+esc(id)+'">↺ '+esc(ex.name)+'</button>':'';}).join('') + '</div></article>' : '');
+
+    return UI.screen({
+      tab:'train',rest:310,restMeasure:true,photoHeight:'390px',
+      art:trainHero.art,artFallback:trainHero.fallback,photoPosition:'center 42%',scrim:UI.SCRIMS.heavy,
+      overlay:'<div class="eyebrow">Train</div><p class="verse" style="font-size:25px">'+esc(headline)+'</p>',
+      body:body
+    });
   }
 
 
@@ -1677,7 +1613,7 @@
     var togetherHero = expeditionSurface('together', togetherFallback);
     return UI.screen({
       tab: 'together', rest: 470, restMeasure: true,
-      art: togetherHero.art, artFallback: togetherHero.fallback,
+      art: togetherHero.art, artFallback: togetherHero.fallback, scrim: UI.SCRIMS.light,
       photoPosition: evening ? 'center 62%' : hasExpedition() ? 'center 46%' : 'center 42%',
       overlay: '<div class="eyebrow">' + (evening ? 'This evening' : 'Today') + '</div>' +
         '<p class="verse" style="font-size:26px">' + headline + '</p>' +
@@ -2304,7 +2240,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.4</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.5</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -2825,7 +2761,7 @@
       tab:null,rest:430,restMeasure:true,photoHeight:'590px',
       header:{back:'journey',title:'Expedition complete',right:'<div style="width:34px"></div>'},
       art:Journeys.sectionArt ? Journeys.sectionArt(routeId,'arrival') : fallback,
-      artFallback:fallback,photoPosition:'center 44%',
+      artFallback:fallback,scrim:UI.SCRIMS.light,photoPosition:'center 44%',
       overlay:
         '<div class="eyebrow">Expedition complete</div>' +
         '<p class="verse" style="font-size:30px">' + esc(r.name) + '</p>' +
@@ -2874,7 +2810,7 @@
     return UI.screen({
       tab: null, rest: 420, photoHeight: '500px',
       header: { back: 'journey', title: 'Arrived', right: '<div style="width:34px"></div>' },
-      art: cp ? cp.art : fallback, artFallback: fallback,
+      art: cp ? cp.art : fallback, artFallback: fallback, scrim: UI.SCRIMS.light,
       photoPosition: 'center 46%',
       overlay: '<div class="eyebrow">Leg ' + (a.legIndex + 1) + ' complete</div>' +
         '<p class="verse" style="font-size:28px">You reached ' + esc(cp ? cp.name : (done ? done.to : 'the next checkpoint')) + '.</p>' +
@@ -3006,6 +2942,7 @@
     var dayName = DOW[dt.getDay()];
     var isToday = key === Store.todayKey();
     var isPast = key < Store.todayKey();
+    var isFuture = key > Store.todayKey();
 
     var scheduled = Store.planFor ? Store.planFor(key) : null;
 
@@ -3016,7 +2953,7 @@
         ? (scheduled.name === 'Walk' ? 'Walking day.' : scheduled.name + ' day.')
         : 'Rest day.';
 
-    var body = dailyWalkCard(key, false);
+    var body = readinessCard(key) + dailyWalkCard(key, false);
 
     if (workouts.length) {
       body += workouts.map(function (w) {
@@ -3076,13 +3013,17 @@
     '</article>';
 
     if (isToday && !workouts.length && scheduled && scheduled.name !== 'Walk') {
-      body += '<button class="btn block" data-action="begin" data-session-mode="' + (window.Training && Training.isDeloadWeek(key) ? 'lighter' : 'planned') + '">Start the session</button>';
+      body += '<button class="btn block" data-action="begin" data-session-mode="' + (window.Training && Training.isDeloadWeek(key) ? 'lighter' : 'planned') + '">Start the planned session</button>';
+    }
+    if (!isFuture) {
+      body += '<button class="btn ghost block" data-action="start-session" data-date="' + esc(key) + '">Add another workout</button>';
     }
 
+    var dayTrainHero = expeditionSurface('train', 'assets/art/train-banner.webp');
     return UI.screen({
       tab: null, rest: 300, blur: true,
       header: { back: 'train', title: FULL[dt.getDay()], right: '<div style="width:34px"></div>' },
-      art: 'assets/art/train-banner.webp', photoPosition: 'center 40%',
+      art: dayTrainHero.art, artFallback: dayTrainHero.fallback, scrim: UI.SCRIMS.heavy, photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(key) + (isToday ? ' \u00b7 today' : '') + '</div>' +
         '<p class="verse" style="font-size:25px">' + esc(headline) + '</p>',
       body: body
@@ -3364,32 +3305,37 @@
 
   /* Where the week's training came from, and how to have it rewritten. The
      coach picks from the library, so a written plan is as real as a template. */
-  function planCard() {
-    var S = Store.state();
-    var meta = S.planMeta || {};
-    var written = meta.writtenBy === 'coach';
-    var freq = S.frequency || 4;
-    var body;
+  function planCard(weekStartKey) {
+    var S=Store.state();
+    weekStartKey=weekStartKey||Store.weekStart(Store.todayKey());
+    var current=Store.weekStart(Store.todayKey()), next=Store.shift(current,7);
+    var meta=weekStartKey===next ? (S.futurePlanMeta||{}) : (S.planMeta||{});
+    var written=meta.weekOf===weekStartKey && meta.writtenBy==='coach';
+    var freq=S.frequency||4, body='', action='';
 
-    if (written) {
-      body = (meta.note ? '<p class="lede" style="margin:0 0 13px">' + UI.esc(meta.note) + '</p>' : '') +
-        '<p class="small" style="margin:0 0 14px">Written for the week of ' + dateLabel(meta.weekOf) +
-        '. It rewrites itself each Monday from what you have been lifting.</p>';
+    if (weekStartKey < current) {
+      body='<p class="lede" style="margin:0 0 8px">This week is part of your training history.</p>' +
+        '<p class="small" style="margin:0">Open a day above to see what was recorded or add a correction. InSync does not rewrite a finished week.</p>';
+    } else if (weekStartKey === next) {
+      var futureReady=meta.weekOf===next && Array.isArray(S.futurePlan) && S.futurePlan.length;
+      body=futureReady
+        ? (meta.note?'<p class="lede" style="margin:0 0 13px">'+UI.esc(meta.note)+'</p>':'') + '<p class="small" style="margin:0">Prepared for the week of '+dateLabel(next)+'. It becomes the active plan when that week begins.</p>'
+        : '<p class="lede" style="margin:0 0 8px">Next week has not been prepared yet.</p><p class="small" style="margin:0">The Weekly Campfire will own next-week preparation. Until then, the current plan stays untouched.</p>';
     } else {
-      body = '<p class="lede" style="margin:0 0 13px">A standard split for ' + freq + ' days a week.</p>' +
-        '<p class="small" style="margin:0 0 14px">The same one everybody on ' + freq +
-        ' days gets. The coach can write one that fits your goal and what you have actually been lifting.</p>';
+      if (written) {
+        body=(meta.note?'<p class="lede" style="margin:0 0 13px">'+UI.esc(meta.note)+'</p>':'') +
+          '<p class="small" style="margin:0 0 14px">Written for the week of '+dateLabel(meta.weekOf)+'. Progression uses what you actually log, not a generic increase.</p>';
+      } else {
+        body='<p class="lede" style="margin:0 0 13px">A standard split for '+freq+' days a week.</p>' +
+          '<p class="small" style="margin:0 0 14px">The coach can rewrite the current week around your goal, equipment and recent lifting history.</p>';
+      }
+      action=Cloud.hasClaude()
+        ? '<button class="btn '+(written?'ghost ':'')+'block" data-action="write-plan">'+(written?'Rewrite this week':'Have the coach write it')+'</button>'
+        : '<button class="btn ghost block" data-route="settings">Needs the coach - add a key</button>';
     }
-
-    var action = Cloud.hasClaude()
-      ? '<button class="btn ' + (written ? 'ghost ' : '') + 'block" data-action="write-plan">' +
-          (written ? 'Rewrite this week' : 'Have the coach write it') + '</button>'
-      : '<button class="btn ghost block" data-route="settings">Needs the coach &mdash; add a key</button>';
-
-    return '<article class="card pad">' +
-      '<div class="kicker" style="margin-bottom:11px">Your plan</div>' + body + action +
-    '</article>';
+    return '<article class="card pad training-plan-card">'+body+action+'</article>';
   }
+
 
   /* ---- Exercise library ------------------------------------------------- */
 

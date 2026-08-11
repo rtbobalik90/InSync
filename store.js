@@ -373,6 +373,7 @@
       d.restingHr = d.restingHr == null ? null : Math.round(finiteOr(d.restingHr, null, 20, 300));
       d.sleepHr = d.sleepHr == null ? null : finiteOr(d.sleepHr, null, 0, 24);
       d.reflection = shortText(d.reflection, 50000);
+      d.morningCheckInAt = validTimestamp(d.morningCheckInAt);
       d.noteToPartner = shortText(d.noteToPartner, 5000);
       if (!plainObject(d.readiness)) d.readiness = {};
       d.readiness.energy = ['low','normal','high'].indexOf(d.readiness.energy) >= 0 ? d.readiness.energy : '';
@@ -1452,6 +1453,7 @@
       if (v.sleepHr == null || v.sleepHr === '') d.sleepHr = null;
       else { n = finiteOr(v.sleepHr, null, 0, 24); if (n != null) d.sleepHr = n; }
     }
+    d.morningCheckInAt = new Date().toISOString();
     save(); emit();
   }
   function addWorkout(w, key) {

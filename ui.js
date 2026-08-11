@@ -45,8 +45,16 @@
     night: 'assets/art/camp-night.webp'
   };
 
-  /* Dark where the text sits, clear where the camp does. */
-  var SCRIM = 'linear-gradient(180deg,rgba(10,12,8,.68) 0%,rgba(10,12,8,.54) 18%,rgba(10,12,8,.3) 32%,rgba(10,12,8,.06) 46%,rgba(20,21,15,.72) 74%,#14150F 92%)';
+  /* Expedition artwork needs different amounts of protection by screen.
+     Emotional/scenic surfaces keep more of the image; utility-heavy screens
+     use a stronger scrim. The card stack itself provides most of the lower
+     contrast, so the middle of the photograph is deliberately allowed to live. */
+  var SCRIMS = {
+    light: 'linear-gradient(180deg,rgba(12,13,9,.48) 0%,rgba(12,13,9,.28) 18%,rgba(12,13,9,.10) 34%,rgba(12,13,9,0) 58%,rgba(20,21,15,.18) 76%,rgba(20,21,15,.64) 94%,#14150F 100%)',
+    medium: 'linear-gradient(180deg,rgba(12,13,9,.57) 0%,rgba(12,13,9,.38) 19%,rgba(12,13,9,.14) 38%,rgba(12,13,9,.02) 58%,rgba(20,21,15,.24) 76%,rgba(20,21,15,.70) 94%,#14150F 100%)',
+    heavy: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)'
+  };
+  var SCRIM = SCRIMS.medium;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -206,6 +214,6 @@
 
   window.UI = {
     icon: icon, esc: esc, asset: asset, header: header, nav: nav, screen: screen,
-    bindScroll: bindScroll, restFor: restFor, dayLabel: dayLabel, CAMP: CAMP, TABS: TABS
+    bindScroll: bindScroll, restFor: restFor, dayLabel: dayLabel, CAMP: CAMP, SCRIMS: SCRIMS, TABS: TABS
   };
 })();

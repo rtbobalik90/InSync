@@ -103,8 +103,8 @@ function make(seed){const ls=new LS(seed),ctx={console,localStorage:ls,Date,Math
  const screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
  const css=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
- ok(screens.includes("dailyWalkCard(Store.todayKey(), 'train')"),'main Training screen always renders today’s walk card');
- ok(screens.includes("var body = dailyWalkCard(key, false)"),'training-day detail renders walk on lift, walk, rest and completed days');
+ ok(!screens.includes("dailyWalkCard(Store.todayKey(), 'train')"),'Train landing keeps the live walk timer out of the weekly overview');
+ ok(screens.includes("var body = readinessCard(key) + dailyWalkCard(key, false)"),'training-day detail renders readiness then walk on lift, walk, rest and completed days');
  ok(screens.includes('Past days cannot run a live timer'),'historical day UI explains manual correction instead of offering a live timer');
  ok(screens.includes('This is available every day — lift, walk or recovery'),'walk card explicitly covers recovery days');
  for(const action of ['walk-start','walk-stop','walk-save','walk-manual-save','walk-reset']) ok(app.includes(`action === '${action}'`),`${action} has an app handler`);

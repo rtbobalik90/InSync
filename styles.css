@@ -1398,3 +1398,23 @@ button.journey-leg:focus-visible { outline: 2px solid var(--gold); outline-offse
   .history-edit-grid { grid-template-columns:1fr; }
   .history-edit-grid .wide { grid-column:auto; }
 }
+
+
+/* ---------- P5.5 visual refinement + Train landing ---------- */
+.train-week-head{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:16px 14px 12px;text-align:center;border-bottom:1px solid var(--rule)}
+.train-week-head .kicker{margin-bottom:4px}
+.train-week-arrow{width:40px;height:40px;border:1px solid var(--rule);border-radius:50%;background:rgba(13,14,10,.42);color:var(--ink);font:400 31px/1 var(--serif);display:grid;place-items:center;cursor:pointer;padding:0 0 4px}
+.train-week-arrow:disabled{opacity:.24;cursor:default}
+.train-week-score{border-bottom:0;padding-bottom:7px}
+.training-week-card .weekstrip{padding-top:2px}
+.train-week-copy{padding-top:12px;padding-bottom:15px;margin:0}
+.train-tools{overflow:hidden}
+.train-tool-row{width:100%;display:grid;grid-template-columns:38px minmax(0,1fr) 22px;gap:12px;align-items:center;padding:15px 16px;border:0;border-bottom:1px solid var(--rule);background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.train-tool-row:last-child{border-bottom:0}
+.train-tool-row>span:first-child{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:50%;color:var(--gold-lt)}
+.train-tool-row>span:first-child svg{width:18px;height:18px}
+.train-tool-row>span:nth-child(2){min-width:0}
+.train-tool-row strong{display:block;font-family:var(--serif);font-size:16px;font-weight:500;margin-bottom:3px}
+.train-tool-row small{display:block;color:var(--muted);font-size:11.5px;line-height:1.4}
+.train-tool-row>svg{width:18px;height:18px;color:var(--muted)}
+.training-plan-card .btn{margin-top:2px}

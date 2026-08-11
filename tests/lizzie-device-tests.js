@@ -85,10 +85,11 @@ ctx.fetch=(url,opts)=>{
  ];
  routes.forEach(([fn,hash])=>{ctx.location.hash='#'+hash;try{const html=Sc[fn]();ok(typeof html==='string'&&(fn==='meal'||html.length>20),`Lizzie ${fn} screen renders from her state`)}catch(e){console.error(e.stack||e);ok(false,`Lizzie ${fn} screen renders from her state`)}});
 
- // Ensure current-day walk state and a staged future plan coexist without corrupting Train.
+ // Train stays a weekly overview; day-specific walk/readiness live inside the selected day.
  S.startDailyWalk(S.todayKey()); S.stopDailyWalk(S.todayKey());
  ctx.location.hash='#train'; const train=Sc.train();
- ok(train.includes('Walk timer')&&train.includes('This week')&&train.includes('Next week'),'Lizzie Train can show walk, current week and staged next week together');
+ ctx.location.hash='#trainday/'+S.todayKey(); const trainDay=Sc.trainDay();
+ ok(train.includes('This week')&&!train.includes('Walk timer')&&train.includes('aria-label="Next training week"')&&trainDay.includes('Walk timer'),'Lizzie Train keeps the overview clean while the selected day owns walk/readiness');
 
  const prod=['app.js','cloud.js','screens.js','store.js','insights.js','onboarding.js'].map(f=>fs.readFileSync(path.join(ROOT,f),'utf8')).join('\n');
  ok(!/\bRobert\b/.test(prod),'production app logic contains no hard-coded Robert identity');

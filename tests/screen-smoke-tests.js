@@ -142,13 +142,13 @@ Object.entries({
 const dow=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(Store.todayKey()+'T12:00:00').getDay()];
 Store.set('plan',[{day:dow,name:'Walk',detail:'Treadmill, 45 minutes'}]);Store.set('planMeta',{writtenBy:'coach',weekOf:Store.weekStart(Store.todayKey()),note:''});Store.setSteps(Store.state().targets.steps);
 context.location.hash='#train';const walkHtml=context.Screens.train();
-if (!walkHtml.includes('Walking day complete') || !walkHtml.includes('1 of 4')) { failed += 1; console.error('FAIL completed walk day is not counted toward the weekly training frequency'); } else passed += 1;
+if (!walkHtml.includes('1 of 4')) { failed += 1; console.error('FAIL completed walk day is not counted toward the weekly training frequency'); } else passed += 1;
 Store.set('plan',[]);Store.set('planMeta',{});Store.setSteps(0);
 
-// The day-level walk remains available even when today is a recovery day.
-context.location.hash='#train'; const recoveryWalkHtml=context.Screens.train();
+// The day-level walk remains available even when today is a recovery day, but only after opening the day.
+context.location.hash='#trainday/'+Store.todayKey(); const recoveryWalkHtml=context.Screens.trainDay();
 if (!recoveryWalkHtml.includes('Walk timer') || !recoveryWalkHtml.includes('data-action="walk-start"')) {
-  failed += 1; console.error('FAIL recovery day does not expose the live walk timer');
+  failed += 1; console.error('FAIL recovery day detail does not expose the live walk timer');
 } else passed += 1;
 
 // Past training days are editable history, not live timers; future days are inert.
@@ -169,16 +169,16 @@ if (!calendarWeekHtml.includes('data-route="trainday/'+trainWeekStart+'"') || !c
   failed += 1; console.error('FAIL training strip does not render the real Monday–Sunday calendar week');
 } else passed += 1;
 
-// Real lift history is surfaced on the main Training card as a next-session progression cue.
+// Real lift history is surfaced inside the selected training day as a next-session progression cue.
 const priorA=Store.shift(Store.todayKey(),-14), priorB=Store.shift(Store.todayKey(),-7);
 Store.day(priorA).workouts=[{name:'Chest',minutes:30,exercises:[{name:'Dumbbell chest press',weight:50,reps:10,sets:3}]}];
 Store.day(priorB).workouts=[{name:'Chest',minutes:30,exercises:[{name:'Dumbbell chest press',weight:50,reps:10,sets:3}]}];
 Store.save();
 Store.set('plan',[{day:dow,name:'Chest',detail:'',ex:['dumbbell-chest-press']}]);
 Store.set('planMeta',{writtenBy:'coach',weekOf:Store.weekStart(Store.todayKey()),note:''});
-context.location.hash='#train';
-const progressionHtml=context.Screens.train();
-if (!progressionHtml.includes('Next: Ready to add load')) { failed += 1; console.error('FAIL Training does not show the derived next-session progression cue'); } else passed += 1;
+context.location.hash='#trainday/'+Store.todayKey();
+const progressionHtml=context.Screens.trainDay();
+if (!progressionHtml.includes('Next: Ready to add load')) { failed += 1; console.error('FAIL selected training day does not show the derived next-session progression cue'); } else passed += 1;
 Store.set('plan',[]);Store.set('planMeta',{});
 
 const plannedDate = Store.todayKey();

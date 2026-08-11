@@ -76,8 +76,8 @@ function response(obj){return Promise.resolve({ok:true,status:200,json:()=>Promi
 
  const screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),ui=fs.readFileSync(path.join(ROOT,'ui.js'),'utf8'),onboarding=fs.readFileSync(path.join(ROOT,'onboarding.js'),'utf8');
  ok(app.includes('Cloud.setupNextWeek(baseWeek')&&app.includes('retry only what is missing'),'button uses resumable next-week coordinator with partial-failure guidance');
- ok(screens.includes("dailyWalkCard(Store.todayKey(), 'train')")&&screens.includes('data-rest-anchor'),'Train landing intentionally fits the compact daily walk and This week card in the opening view');
- ok(screens.includes('futureTrainingCard()')&&screens.includes('Your walk stays available every day and does not replace a gym session'),'Train exposes a visible staged next-week training preview');
+ ok(screens.includes('trainingWeekCard(weekStartKey)')&&screens.includes('data-rest-anchor')&&!screens.includes("dailyWalkCard(Store.todayKey(), 'train')"),'Train landing intentionally keeps only the weekly navigator in the opening card');
+ ok(screens.includes('train/week/')&&screens.includes("trainingWeekLabel(weekStartKey)"),'Train exposes staged next week through previous/next week navigation');
  ok(screens.includes('scrim:')&&ui.includes('opts.scrim || SCRIM'),'Train can lower its gradient without changing every other screen');
  ok(onboarding.includes('walking is tracked separately every day')||onboarding.includes('Walking is tracked separately every day'),'onboarding no longer teaches that a walk replaces a gym day');
 
