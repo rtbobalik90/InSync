@@ -1,16 +1,11 @@
-# InSync 6.0.0-p5.7.2 — Test Report
+# InSync 6.0.0-p5.8 — Phase 3 Experience Polish Test Report
 
-Phase 2 Train hero geometry correction.
+- Full deterministic release suite: **1,771 PASS / 0 FAIL**
+- New Phase 3 polish contract: **9 / 9 PASS**
+- JavaScript syntax validation: app.js, ui.js, screens.js, sw.js PASS
+- Local storage schema: unchanged (`insync.v10`)
+- Partner sync schema: unchanged (7)
+- Faith: remains parked
+- Service worker: `insync-v10-32`
 
-Focused regression coverage verifies:
-- the main Train hero extends to 690px rather than ending at 390px;
-- the expedition art remains visually open through the upper/middle hero;
-- the fade begins low in the image and resolves into the app ground only near the card transition;
-- workout-day art remains crisp rather than permanently blurred;
-- historical/current day step editing remains available;
-- runtime and service-worker identifiers are current.
-
-Full deterministic suite: 25 test files passed, 0 failed; 1,762 PASS assertions.
-
-Runtime: `6.0.0-p5.7.2`
-Service worker: `insync-v10-31`
+Phase 3 specifically verifies route-aware screen classes, localized scenic header protection, reduced-motion support, explicit focus-visible behavior, readable two-line training-week labels, tightened Train mobile copy, and current runtime/cache identifiers.

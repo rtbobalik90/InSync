@@ -38,3 +38,15 @@
 - Delayed the dedicated Train fade until roughly 62% of the hero, with the strongest darkening confined to the lower transition into the weekly card.
 - Preserved the crisp workout-day hero treatment.
 - Runtime 6.0.0-p5.7.2; service-worker cache insync-v10-31.
+
+
+## P5.8 - Phase 3 Experience Polish
+- Added route-aware and tab-aware screen classes to the shared UI shell.
+- Rebalanced light/medium/heavy expedition scrims so scenic art remains visible while cards carry most contrast.
+- Lightened header protection on Home, Together, Coach, Journey, Nutrition, Checkpoints and Arrivals.
+- Preserved the approved Train hero geometry and lower-only fade.
+- Improved weekly Train day tiles so multi-word plan names wrap to two lines rather than showing broken ellipses.
+- Added subtle card depth, 14px stack rhythm, 44px header touch targets, focus-visible states and reduced-motion support.
+- Tightened Train hero copy for a cleaner mobile hierarchy.
+- No local-state reset and no partner-sync schema change.
+- Runtime 6.0.0-p5.8; service worker insync-v10-32.

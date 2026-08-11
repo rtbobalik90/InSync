@@ -40,3 +40,12 @@ P5.7: Phase 2 overlay refinement begins with a train-specific hero treatment tha
 
 
 P5.7.2: Train hero geometry corrected. The main Train photograph now extends to 690px instead of ending at 390px, and the fade begins around 62% of the hero so the photograph stays visible until the card transition.
+
+
+## P5.8 - Experience Polish / Phase 3
+- Route-aware screen shell for section-specific visual treatment.
+- Scenic headers and expedition scrims are lighter and more localized.
+- Cards gain subtle depth and more consistent spacing.
+- Train week labels wrap cleanly instead of clipping long workout names.
+- Larger 44px header touch targets, explicit focus states, and reduced-motion support.
+- Runtime 6.0.0-p5.8; service worker insync-v10-32.

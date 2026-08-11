@@ -50,9 +50,9 @@
      use a stronger scrim. The card stack itself provides most of the lower
      contrast, so the middle of the photograph is deliberately allowed to live. */
   var SCRIMS = {
-    light: 'linear-gradient(180deg,rgba(12,13,9,.48) 0%,rgba(12,13,9,.28) 18%,rgba(12,13,9,.10) 34%,rgba(12,13,9,0) 58%,rgba(20,21,15,.18) 76%,rgba(20,21,15,.64) 94%,#14150F 100%)',
-    medium: 'linear-gradient(180deg,rgba(12,13,9,.57) 0%,rgba(12,13,9,.38) 19%,rgba(12,13,9,.14) 38%,rgba(12,13,9,.02) 58%,rgba(20,21,15,.24) 76%,rgba(20,21,15,.70) 94%,#14150F 100%)',
-    heavy: 'linear-gradient(180deg,rgba(10,12,8,.64) 0%,rgba(10,12,8,.48) 20%,rgba(10,12,8,.18) 44%,rgba(10,12,8,.06) 60%,rgba(20,21,15,.28) 74%,rgba(20,21,15,.76) 94%,#14150F 100%)',
+    light: 'linear-gradient(180deg,rgba(12,13,9,.34) 0%,rgba(12,13,9,.18) 18%,rgba(12,13,9,.05) 36%,rgba(12,13,9,0) 62%,rgba(20,21,15,.14) 80%,rgba(20,21,15,.56) 95%,#14150F 100%)',
+    medium: 'linear-gradient(180deg,rgba(12,13,9,.45) 0%,rgba(12,13,9,.27) 19%,rgba(12,13,9,.09) 38%,rgba(12,13,9,0) 61%,rgba(20,21,15,.20) 79%,rgba(20,21,15,.64) 95%,#14150F 100%)',
+    heavy: 'linear-gradient(180deg,rgba(10,12,8,.58) 0%,rgba(10,12,8,.40) 20%,rgba(10,12,8,.15) 44%,rgba(10,12,8,.04) 61%,rgba(20,21,15,.26) 78%,rgba(20,21,15,.72) 95%,#14150F 100%)',
     train: 'linear-gradient(180deg,rgba(10,12,8,.06) 0%,rgba(10,12,8,.02) 14%,rgba(10,12,8,0) 26%,rgba(10,12,8,0) 62%,rgba(20,21,15,.10) 70%,rgba(20,21,15,.28) 80%,rgba(20,21,15,.62) 92%,#14150F 100%)'
   };
   var SCRIM = SCRIMS.medium;
@@ -138,7 +138,11 @@
     if (opts.photoPos) photoStyle += ';background-position:' + opts.photoPos;
     if (opts.photoPosition) photoStyle += ';background-position:' + opts.photoPosition;
 
-    var screenClass = opts.screenClass ? ' ' + opts.screenClass : '';
+    var rootRoute = (location.hash || '#home').replace(/^#/, '').split('/')[0] || 'home';
+    var classes = ['screen-route-' + rootRoute];
+    if (opts.tab) classes.push('screen-tab-' + opts.tab);
+    if (opts.screenClass) classes.push(opts.screenClass);
+    var screenClass = ' ' + classes.join(' ');
     return '<section class="screen' + esc(screenClass) + '">' +
       '<div class="photo' + (opts.blur ? ' blurred' : '') + '"' + (opts.photoId ? ' data-photo="' + esc(opts.photoId) + '"' : '') + ' style="' + photoStyle + '"></div>' +
       header(opts.header || {}) +

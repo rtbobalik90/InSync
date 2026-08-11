@@ -991,7 +991,7 @@
     }
     var completed=weekDays.reduce(function(a,b){return a+b;},0), target=S.frequency||4;
     var headline=weekStartKey===currentWeek
-      ? (completed ? completed+' session'+(completed===1?'':'s')+' recorded. '+Math.max(0,target-completed)+' still open this week.' : 'Your training week is ready. Open a day when you are ready to move.')
+      ? (completed ? completed+' session'+(completed===1?'':'s')+' recorded. '+Math.max(0,target-completed)+' still open this week.' : 'Your week is ready. Open a day when you are ready to move.')
       : trainingWeekLabel(weekStartKey)+'. Open a day to see the full record and plan.';
     var trainHero=expeditionSurface('train','assets/art/train-banner.webp');
     var body=trainingWeekCard(weekStartKey) +
@@ -2240,7 +2240,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.7.2</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.8</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +

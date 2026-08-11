@@ -1,16 +1,19 @@
-# InSync 6.0.0-p5.5 — Code Review
+# InSync 6.0.0-p5.8 — Phase 3 Experience Polish Code Review
 
-## Review focus
-This pass intentionally changed presentation and information architecture without changing the persisted local-state or partner-sync schema.
+## Scope
+This pass deliberately avoids adding new health logic. It standardizes the visual shell and interaction polish across the existing product while preserving the approved Train hero geometry.
 
-### Visual scrims
-`ui.js` now owns `SCRIMS.light`, `SCRIMS.medium`, and `SCRIMS.heavy`. Screens choose the appropriate preset rather than carrying unrelated one-off gradients. Train retains the strongest treatment; scenic surfaces use lighter treatments.
+## Changes reviewed
+- `UI.screen()` now emits route-aware and tab-aware CSS classes without altering route behavior.
+- Expedition scrims were rebalanced to let scenic artwork carry more of the visual experience.
+- Header protection is localized by route instead of relying on one global heavy black lid.
+- Train retains its lower-only transition, with the headline width and copy tuned for mobile.
+- Weekly Train labels use a bounded two-line treatment instead of ellipsis-only clipping.
+- Cards use consistent depth/rhythm, and primary header controls meet a 44px touch target.
+- Focus-visible and prefers-reduced-motion behavior were added without changing core flows.
 
-### Train architecture
-The main `train()` screen contains no live readiness or walk controls. `trainDay()` owns those day-specific controls. Weekly navigation is hash-based (`#train/week/YYYY-MM-DD`) and therefore requires no new persistent UI state. Past weeks derive labels from recorded workouts/frozen score basis rather than projecting the current plan backward.
+## Data / privacy
+No state migration. No partner-sync schema change. No new shared fields. Faith remains parked.
 
-### Morning completion
-`setMorning()` records `morningCheckInAt`, and normalization validates it. Home also treats existing current-day weight/sleep/resting-HR data as an already-completed morning so P5.4 users are not re-prompted after upgrade.
-
-### Privacy / sync
-No new health fields are added to partner sync. `morningCheckInAt` is local day state only. Partner sync remains schema 7.
+## Verification
+Full deterministic suite: 1,771 PASS / 0 FAIL.

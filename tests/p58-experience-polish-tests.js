@@ -1,0 +1,21 @@
+'use strict';
+const fs=require('fs'), path=require('path');
+const ROOT=path.resolve(__dirname,'..');
+const ui=fs.readFileSync(path.join(ROOT,'ui.js'),'utf8');
+const css=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
+const screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8');
+const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
+let passed=0,failed=0;
+function ok(c,m){ if(c){passed++;console.log('PASS:',m)} else {failed++;console.error('FAIL:',m)} }
+ok(ui.includes("'screen-route-' + rootRoute"),'screen shell emits route-aware visual classes');
+ok(ui.includes("'screen-tab-' + opts.tab"),'screen shell emits tab-aware visual classes');
+ok(css.includes('.screen-route-home .header::before')&&css.includes('.screen-route-checkpoint .header::before'),'scenic routes receive localized lighter header protection');
+ok(css.includes('@media (prefers-reduced-motion: reduce)'),'reduced-motion preference is respected');
+ok(css.includes('button:focus-visible'),'keyboard/focus visibility is explicit');
+ok(css.includes('-webkit-line-clamp: 2'),'training week labels can use two lines rather than ellipsis-only truncation');
+ok(screens.includes('Your week is ready. Open a day when you are ready to move.'),'Train hero copy is tightened for mobile');
+ok(app.includes("version:'6.0.0-p5.8'")&&screens.includes('Version 6.0.0-p5.8'),'runtime and Settings identify the Phase 3 polish build');
+ok(sw.includes("CACHE = 'insync-v10-32'"),'service-worker cache is bumped for installed phones');
+console.log(`\nP5.8 experience polish: ${passed} passed, ${failed} failed`);
+process.exitCode=failed?1:0;
