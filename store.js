@@ -106,6 +106,9 @@
     /* Together 2.0 is local-first except for explicitly shared mission/campfire payloads.
        `mode` is deliberately local: each person can choose how Together feels on their phone. */
     together: { schema: 1, mode: 'cooperative', missions: {}, campfires: {} },
+    /* Notes from the Trail are local device state. The release facts ship in code;
+       only read state and one bounded AI story cache live here. */
+    appUpdates: { seen: [], storyCache: { key: '', text: '' } },
     reactionsGiven: {},
     /* Base Camp is local-first in Phase 1. Nothing here is sent to the partner
        sync payload yet; later game phases can opt specific public-safe fields in. */
@@ -824,6 +827,14 @@
       if(!validDateKey(k)||!plainObject(r)){delete S.together.campfires[k];return;}
       S.together.campfires[k]={ weekOf:k, openedAt:validTimestamp(r.openedAt), closedAt:validTimestamp(r.closedAt), intent:shortText(r.intent,280).trim(), intentUpdatedAt:validTimestamp(r.intentUpdatedAt) };
     });
+    if (!plainObject(S.appUpdates)) S.appUpdates = clone(DEFAULT.appUpdates);
+    S.appUpdates.seen = Array.isArray(S.appUpdates.seen) ? S.appUpdates.seen.map(function(x){ return shortText(x,120).trim(); })
+      .filter(function(x,i,a){ return !!x && safeKey(x) && a.indexOf(x)===i; }).slice(-240) : [];
+    if (!plainObject(S.appUpdates.storyCache)) S.appUpdates.storyCache = { key:'', text:'' };
+    S.appUpdates.storyCache = {
+      key: shortText(S.appUpdates.storyCache.key, 1200).trim(),
+      text: shortText(S.appUpdates.storyCache.text, 900).trim()
+    };
     if (!plainObject(S.reactionsGiven)) S.reactionsGiven = {};
     Object.keys(S.reactionsGiven).forEach(function (id) {
       if (!validActivityIdKey(id) || ['heart','clap','fire'].indexOf(S.reactionsGiven[id]) < 0) delete S.reactionsGiven[id];

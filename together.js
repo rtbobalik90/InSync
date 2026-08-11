@@ -77,6 +77,10 @@
   }
 
   function campfireFor(weekOf) { var all=cfg().campfires||{}; return all[weekOf]||null; }
+  function closedCampfires() {
+    var all=cfg().campfires||{};
+    return Object.keys(all).filter(function(k){return all[k]&&all[k].closedAt;}).sort().reverse().map(function(k){return all[k];});
+  }
   function setCampfireIntent(weekOf, text) {
     if(!validWeek(weekOf)) return false; text=String(text||'').trim().slice(0,280);
     var all=Object.assign({},cfg().campfires||{}), r=Object.assign({},all[weekOf]||{});
@@ -131,6 +135,6 @@
   window.InSyncTogether={ MODES:MODES, MISSIONS:MISSIONS, mode:mode, modeDef:modeDef, setMode:setMode,
     missionDef:missionDef, missionFor:missionFor, setMission:setMission, clearMission:clearMission, localProgress:localProgress,
     partnerMission:partnerMission, missionStatus:missionStatus, currentWeek:currentWeek, nextWeek:nextWeek,
-    campfireFor:campfireFor, setCampfireIntent:setCampfireIntent, closeCampfire:closeCampfire, partnerCampfireIntent:partnerCampfireIntent,
+    campfireFor:campfireFor, closedCampfires:closedCampfires, setCampfireIntent:setCampfireIntent, closeCampfire:closeCampfire, partnerCampfireIntent:partnerCampfireIntent,
     weeklySummary:weeklySummary, partnerWeeklySummary:partnerWeeklySummary, sharePayload:sharePayload, sharedDinnerStatus:sharedDinnerStatus };
 })();

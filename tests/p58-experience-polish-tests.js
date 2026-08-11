@@ -15,7 +15,7 @@ ok(css.includes('@media (prefers-reduced-motion: reduce)'),'reduced-motion prefe
 ok(css.includes('button:focus-visible'),'keyboard/focus visibility is explicit');
 ok(css.includes('-webkit-line-clamp: 2'),'training week labels can use two lines rather than ellipsis-only truncation');
 ok(screens.includes('Your week is ready. Open a day when you are ready to move.'),'Train hero copy is tightened for mobile');
-ok(app.includes("version:'6.0.0-p6.0'")&&screens.includes('Version 6.0.0-p6.0'),'runtime and Settings identify the Phase 3 polish build');
-ok(sw.includes("CACHE = 'insync-v10-33'"),'service-worker cache is bumped for installed phones');
+ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2'),'runtime and Settings identify the Phase 3 polish build');
+ok(sw.includes("CACHE = 'insync-v10-35'"),'service-worker cache is bumped for installed phones');
 console.log(`\nP5.8 experience polish: ${passed} passed, ${failed} failed`);
 process.exitCode=failed?1:0;

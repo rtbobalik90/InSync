@@ -1,39 +1,32 @@
-# InSync 6.0.0-p6.0 — Together 2.0 + Weekly Campfire
+# InSync 6.0.0-p6.2 — Notes from the Trail
 
-## Together 2.0
-- Added Cooperative, Competitive and Quiet Support presentation modes.
-- Cooperative emphasizes combined weekly progress; Competitive retains the fair 10-point daily contest; Quiet Support removes score comparisons from Together.
-- The mode is intentionally local to each phone.
+## New
+- Story-based launch update sheet: **Notes from the Trail**.
+- Multiple unseen updates stack until the person clears them.
+- Individual × controls and **Clear all** mark release entries read on that phone only.
+- **Close** hides the sheet for the current app session without marking entries read.
+- **View Trail Notes** opens a permanent detailed release journal.
+- Settings now includes a persistent Trail Notes entry for later review.
 
-## Duo Missions
-- Added four bounded shared missions: Twelve Together, Training Team, Eight Strong Days and Four Full Days.
-- Missions can be selected for this week or next week.
-- Progress combines only after both phones choose the same mission.
-- Mission progress never changes health targets or rewards overtraining/grinding.
+## AI-assisted story
+- Optional Claude story generation receives only the exact hardcoded release-note facts.
+- The `trail.notes` prompt has no personal context allow-list and explicitly forbids invented facts.
+- Story output is bounded and cached only for the exact unread-note set.
+- Offline/no-AI fallback is deterministic and immediate.
 
-## Weekly Campfire
-- Added a dedicated `#campfire` experience.
-- Shows deterministic week stats and privacy-safe partner aggregates.
-- Reuses the grounded Coach weekly review when available.
-- Adds one explicitly shared carry-forward intention.
-- Includes the Next Week Command Center for training and meals.
-- Coordinates next week's Duo Mission and Shared Dinner.
-- Closing the Campfire marks the local review complete and establishes the two existing measurable next-week goals without locking plans.
+## Included first-run journal
+The first Trail Notes capable build includes concise milestones for:
+- Journey checkpoints and destination pages.
+- Grand Canyon production artwork.
+- Train weekly/day restructuring and visual polish.
+- Together 2.0, Duo Missions and Weekly Campfire.
+- P6.1 Campfire/Together follow-through.
+- Notes from the Trail itself.
 
-## Partner experience
-- Added one-tap encouragement.
-- Added notifications for partner Duo Mission proposals and Campfire intentions.
-- Existing conversation, trail moments, reactions, expedition progress and badges remain available.
-
-## Sync / privacy
-- Partner sync schema: 8.
-- New shared fields are sanitized and bounded.
-- Together mode remains local-only.
-- Weekly health aggregates continue to obey the existing privacy toggles.
-- No private reflection, journal, photo, exact weight or raw food history is added to sync.
-
-## Technical
-- Added `together.js` to the online and offline shell.
-- Runtime: `6.0.0-p6.0`.
-- Service worker cache: `insync-v10-33`.
-- No local-state reset.
+## Compatibility
+- No data reset.
+- Local storage: `insync.v10`.
+- Partner sync: schema 8 unchanged.
+- Trail Notes read state stays local and is never added to partner payloads.
+- Runtime: `6.0.0-p6.2`.
+- Service worker: `insync-v10-35`.

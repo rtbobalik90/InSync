@@ -1,30 +1,28 @@
-# InSync 6.0.0-p6.0 — Together 2.0 + Weekly Campfire
+# InSync 6.0.0-p6.2 — Notes from the Trail
 
-InSync is a private, local-first two-person health and expedition PWA. Phase 6 turns Together from a partner-status surface into a true shared workflow while preserving individual health targets and privacy.
+P6.2 adds a local, story-based release journal so each phone can understand what changed between app updates.
 
-## Phase 6 highlights
-- Together styles: Cooperative, Competitive, Quiet Support. The choice is local to each phone and never forces the partner into the same presentation.
-- Duo Missions: four bounded shared objectives for the current or next week. Missions use aggregate progress only and never change calories, step targets, training volume or expedition rules.
-- Weekly Campfire: weekly review, privacy-safe partner summary, optional Coach interpretation, shared carry-forward intention, next-week training/meal readiness, Duo Mission planning, Shared Dinner coordination and a close-the-week ritual.
-- Quick encouragement: one-tap supportive messages plus the existing conversation and reaction feed.
-- Shared Dinner coordination is surfaced inside Together and Campfire without exposing exact food logs.
-- Partner notifications for Duo Mission proposals and Campfire intentions.
-- Home's weekly-review teaser now opens Weekly Campfire.
+## Notes from the Trail
+- Unseen release entries stack independently on each phone.
+- The launch popup has one × per entry, Clear All, Close, and View Trail Notes.
+- × / Clear All mark notes read on only that device.
+- Close hides the popup for the current app session without clearing the queue; unread notes return on the next app launch/update session.
+- View Trail Notes opens the complete, persistent release journal. It is also available later from Settings > About > Trail Notes.
+- The full journal is never deleted when a note is marked read.
 
-## Privacy / sync
-- Local state key remains `insync.v10`; no data reset.
-- Partner sync advances to schema 8.
-- Together presentation mode stays local-only.
-- Partner sync adds only explicit Together workflow data: Duo Mission id/progress, short Campfire intention, next-week readiness and privacy-safe weekly aggregates.
-- Existing privacy toggles still control weekly workout, step and nutrition aggregates.
-- Private reflections, photos, exact weight, raw meal history and private journals are not added to Together sync.
+## AI story layer
+- Release facts are hardcoded in `trail-notes.js`.
+- If Claude is configured, InSync may rewrite only those exact facts into a short field-journal paragraph.
+- The AI prompt explicitly forbids inventing features, numbers, actions, promises or results.
+- The generated story is cached against the exact set of unread note IDs.
+- If the unread set changes, the old story is discarded and a new one can be written.
+- If AI is unavailable, a deterministic local story is shown immediately.
+- No user health data or partner data is required for this AI request.
 
-## Files added
-- `together.js` — Together 2.0 domain logic and bounded share payload.
-- `tests/together-2-campfire-tests.js` — dedicated Phase 6 regression suite.
-
-## Release identity
-- Runtime: `6.0.0-p6.0`
-- Service worker: `insync-v10-33`
-- Local state: `insync.v10`
-- Partner sync: schema 8
+## Compatibility
+- Local store remains `insync.v10`.
+- Partner sync remains schema 8.
+- Trail Notes read state is local-only and absent from partner sync.
+- Faith remains parked.
+- Runtime: `6.0.0-p6.2`
+- Service worker: `insync-v10-35`

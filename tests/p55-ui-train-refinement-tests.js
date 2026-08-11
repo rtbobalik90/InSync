@@ -41,7 +41,7 @@ ok(store.includes('d.morningCheckInAt = new Date().toISOString()'),'saving a mor
 ok(screens.includes("if (d.morningCheckInAt || d.weight != null || d.sleepHr != null || d.restingHr != null) return '';"),'completed morning check-in disappears from Home, including pre-P5.5 saved mornings');
 ok(screens.includes("if (written) return '';"),'completed nightly review disappears from Home');
 ok(screens.includes('data-action="log-morning" data-date=')&&screens.includes('Edit nightly review'),'History still provides correction/edit paths after Home prompts disappear');
-ok(app.includes("version:'6.0.0-p6.0'")&&screens.includes('Version 6.0.0-p6.0')&&sw.includes("CACHE = 'insync-v10-33'"),'current runtime and cache are bumped for installed phones');
+ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2')&&sw.includes("CACHE = 'insync-v10-35'"),'current runtime and cache are bumped for installed phones');
 
 // Store behavior: setMorning must mark the day without changing local-state schema.
 class LS{constructor(){this.m=new Map()}getItem(k){return this.m.has(k)?this.m.get(k):null}setItem(k,v){this.m.set(k,String(v))}removeItem(k){this.m.delete(k)}}

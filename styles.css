@@ -1511,3 +1511,87 @@ button.journey-leg:focus-visible { outline: 2px solid var(--gold); outline-offse
   .encourage-grid { grid-template-columns:1fr; }
   .campfire-pair { grid-template-columns:1fr; }
 }
+
+/* P6.1 Together interaction feedback */
+
+.encourage-status { min-height:18px; margin-top:10px; color:var(--faint); font-size:11.5px; line-height:1.4; }
+.encourage-status.sending { color:var(--gold-mid); }
+.encourage-status.done { color:var(--sage-lt); }
+.encourage-status.waiting { color:var(--muted); }
+.encourage-chip.sent { border-color:rgba(143,161,132,.72); color:var(--sage-lt); background:rgba(143,161,132,.09); }
+
+/* ---------- P6.2 Notes from the Trail ---------- */
+.trail-notes-layer {
+  position: absolute; inset: 0; z-index: 95; display: grid; align-items: end;
+  padding-top: env(safe-area-inset-top); pointer-events: auto;
+}
+.trail-notes-scrim {
+  position: absolute; inset: 0; background: rgba(6,7,5,.70);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  animation: mfade .2s ease both;
+}
+.trail-notes-card {
+  position: relative; width: 100%; max-height: min(86vh, 760px); max-height: min(86dvh, 760px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: #0D0E0A; border: 1px solid rgba(198,161,93,.28); border-bottom: 0;
+  border-radius: 22px 22px 0 0; box-shadow: 0 -18px 60px rgba(0,0,0,.34);
+  animation: mrise .26s cubic-bezier(.2,.8,.3,1) both;
+}
+.trail-notes-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 18px 18px 15px; border-bottom: 1px solid var(--rule); flex: none;
+}
+.trail-notes-head h2 {
+  margin: 5px 0 0; font: 500 25px/1.15 var(--serif); color: var(--ink);
+}
+.trail-clear-all {
+  min-height: 44px; padding: 0 4px 0 12px; border: 0; background: transparent;
+  color: var(--gold-lt); font: 600 10.5px/1 var(--sans); letter-spacing: .12em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.trail-notes-body {
+  padding: 16px 17px 18px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.trail-story {
+  position: relative; padding: 15px 15px 15px 47px; margin-bottom: 15px;
+  border: 1px solid rgba(143,161,132,.20); border-radius: 15px;
+  background: linear-gradient(145deg,rgba(33,37,27,.92),rgba(17,18,13,.96));
+}
+.trail-story-mark {
+  position: absolute; left: 16px; top: 17px; color: var(--gold); font-size: 16px;
+}
+.trail-story p { margin: 0; font: 400 16.5px/1.55 var(--serif); color: #EDE4D3; }
+.trail-notes-count {
+  margin: 0 2px 9px; color: var(--sage-lt); font: 600 10.5px/1.3 var(--sans);
+  letter-spacing: .15em; text-transform: uppercase;
+}
+.trail-note-stack { display: grid; gap: 9px; }
+.trail-note-item {
+  position: relative; padding: 14px 44px 14px 14px; border: 1px solid var(--rule);
+  border-radius: 14px; background: rgba(20,21,15,.74);
+}
+.trail-note-item h3 { margin: 4px 0 5px; font: 500 17px/1.3 var(--serif); color: var(--ink); }
+.trail-note-item p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.trail-note-version { color: var(--gold-mid); font: 600 9.5px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+.trail-note-x {
+  position: absolute; right: 8px; top: 8px; width: 36px; height: 36px; display: grid; place-items: center;
+  border: 0; background: transparent; color: var(--faint); font: 300 27px/1 var(--sans); border-radius: 50%;
+}
+.trail-note-x:active { background: rgba(243,237,225,.06); color: var(--ink); }
+.trail-notes-foot {
+  display: grid; grid-template-columns: .8fr 1.2fr; gap: 9px; flex: none;
+  padding: 12px 17px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--rule);
+  background: rgba(13,14,10,.98);
+}
+.trail-notes-foot .btn { min-height: 50px; padding-left: 10px; padding-right: 10px; }
+.trail-journal-entry.unread { border-color: rgba(198,161,93,.38); box-shadow: 0 0 0 1px rgba(198,161,93,.06) inset; }
+.trail-journal-entry.unread .cardhead .meta { color: var(--gold-lt); }
+.trail-notes-screen .header::before {
+  background: linear-gradient(180deg,rgba(16,17,12,.64) 0%,rgba(16,17,12,.28) 55%,rgba(16,17,12,0) 100%);
+}
+@media (max-width: 355px) {
+  .trail-notes-head { padding-left: 14px; padding-right: 14px; }
+  .trail-notes-body { padding-left: 14px; padding-right: 14px; }
+  .trail-notes-foot { padding-left: 14px; padding-right: 14px; }
+  .trail-notes-head h2 { font-size: 23px; }
+}

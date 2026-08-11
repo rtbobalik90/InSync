@@ -24,6 +24,8 @@
   var lastRenderedKey = '';
   var sessionWalkTicker = null;
   var sessionRestTicker = null;
+  var trailNotesHiddenSession = false;
+  var trailStoryRequestKey = '';
 
   function formatSessionWalkClock(ms) {
     var total = Math.max(0, Math.floor((ms || 0) / 1000));
@@ -127,6 +129,8 @@
     else if (root === 'planner') html = Screens.planner();
     else if (root === 'weekly-review') html = Screens.weeklyReview();
     else if (root === 'campfire') html = Screens.campfire();
+    else if (root === 'campfire-history') html = Screens.campfireHistory();
+    else if (root === 'trail-notes') html = InSyncTrailNotes.screen();
     else if (root === 'duo-mission') html = Screens.duoMission();
     else if (root === 'calendar') html = Screens.calendar();
     else if (root === 'day-history') html = Screens.dayHistory();
@@ -158,6 +162,47 @@
        peeks above the nav, too large and the first card is clipped behind it. */
     measureRest();
     if (keepScroll) restoreSheetScroll(key, keepScroll);
+    maybeTrailNotes();
+  }
+
+
+  function trailNotesLayer() { return app.querySelector('.trail-notes-layer'); }
+
+  function requestTrailNotesStory(list) {
+    if (!window.InSyncTrailNotes || !list || !list.length) return;
+    var key=InSyncTrailNotes.keyFor(list);
+    if (InSyncTrailNotes.cachedStory(list)) return;
+    if (trailStoryRequestKey===key) return;
+    if (!window.Cloud || !Cloud.hasClaude || !Cloud.hasClaude() || !Cloud.trailNotesStory) return;
+    trailStoryRequestKey=key;
+    Cloud.trailNotesStory(list,function(err,text){
+      if (trailStoryRequestKey===key) trailStoryRequestKey='';
+      if (err || !text || !window.InSyncTrailNotes) return;
+      var now=InSyncTrailNotes.unseen();
+      if (InSyncTrailNotes.keyFor(now)!==key) return;
+      InSyncTrailNotes.saveStory(now,text);
+      var story=trailNotesLayer()&&trailNotesLayer().querySelector('[data-trail-story]');
+      if (story) story.textContent=text;
+    });
+  }
+
+  function showTrailNotesModal() {
+    if (!window.InSyncTrailNotes || trailNotesHiddenSession || !Store.state().onboarded) return;
+    var root=base(current());
+    if (['trail-notes','session','session-done','arrival','earned','capture'].indexOf(root)>=0) return;
+    if (Store.session && Store.session()) return;
+    if (document.querySelector('.modal-card')) return;
+    var list=InSyncTrailNotes.unseen();
+    var existing=trailNotesLayer();
+    if (!list.length) { if(existing)existing.remove(); return; }
+    if (existing) existing.remove();
+    app.insertAdjacentHTML('beforeend',InSyncTrailNotes.modal(list,InSyncTrailNotes.cachedStory(list)||InSyncTrailNotes.fallbackStory(list)));
+    requestTrailNotesStory(list);
+  }
+
+  function maybeTrailNotes() {
+    if (!window.InSyncTrailNotes || trailNotesHiddenSession) return;
+    setTimeout(function(){ if(!document.hidden) showTrailNotesModal(); },0);
   }
 
 
@@ -322,8 +367,33 @@
 
     var action = el.getAttribute('data-action');
 
+    if (action === 'trail-notes-close') {
+      trailNotesHiddenSession=true;
+      var trailLayer=trailNotesLayer(); if(trailLayer)trailLayer.remove();
+      return;
+    }
+    if (action === 'trail-notes-view') {
+      trailNotesHiddenSession=true;
+      var viewLayer=trailNotesLayer(); if(viewLayer)viewLayer.remove();
+      location.hash='#trail-notes';
+      return;
+    }
+    if (action === 'trail-note-dismiss') {
+      if (!window.InSyncTrailNotes) return;
+      InSyncTrailNotes.dismiss(el.getAttribute('data-id')||'');
+      trailStoryRequestKey='';
+      if (base(current())==='trail-notes') render(); else showTrailNotesModal();
+      return;
+    }
+    if (action === 'trail-notes-clear-all') {
+      if (!window.InSyncTrailNotes) return;
+      InSyncTrailNotes.clearAll(); trailStoryRequestKey='';
+      if (base(current())==='trail-notes') render(); else { var clearLayer=trailNotesLayer(); if(clearLayer)clearLayer.remove(); }
+      return;
+    }
+
     if (action === 'set-together-mode') {
-      if (window.InSyncTogether) InSyncTogether.setMode(el.getAttribute('data-value'));
+      if (window.InSyncTogether && InSyncTogether.setMode(el.getAttribute('data-value'))) render();
       return;
     }
     if (action === 'choose-duo-mission' || action === 'accept-duo-mission') {
@@ -335,10 +405,20 @@
     }
     if (action === 'quick-encouragement') {
       var encouragement=(el.getAttribute('data-text')||'').trim(); if(!encouragement)return;
-      Store.setPartnerNote(encouragement);
-      el.disabled=true; var eWas=el.textContent; el.textContent='Sent';
-      if (window.Cloud && Cloud.hasGit && Cloud.hasGit()) Cloud.push(function(){ render(); });
-      else setTimeout(function(){ if(el&&el.isConnected){el.disabled=false;el.textContent=eWas;} },900);
+      var messageId=Store.setPartnerNote(encouragement); if(!messageId)return;
+      var host=el.closest('.encouragement-card'), status=host&&host.querySelector('[data-encouragement-status]');
+      var eWas=el.textContent; el.disabled=true; el.classList.add('sent'); el.textContent='Sent ✓';
+      function encourageStatus(text, kind){ if(!status)return; status.textContent=text; status.className='encourage-status'+(kind?' '+kind:''); }
+      if (window.Cloud && Cloud.hasGit && Cloud.hasGit()) {
+        encourageStatus('Saved here · syncing to '+Store.partnerName()+'…','sending');
+        Cloud.push(function(err){
+          encourageStatus(err?'Saved here · sync will retry automatically.':'Sent to '+Store.partnerName()+' ✓',err?'waiting':'done');
+          setTimeout(function(){if(el&&el.isConnected){el.disabled=false;el.classList.remove('sent');el.textContent=eWas;}},1600);
+        });
+      } else {
+        encourageStatus('Saved on this phone. Connect partner sync to deliver it.','waiting');
+        setTimeout(function(){if(el&&el.isConnected){el.disabled=false;el.classList.remove('sent');el.textContent=eWas;}},1600);
+      }
       return;
     }
     if (action === 'save-campfire-intent') {
@@ -359,6 +439,9 @@
       InSyncTogether.closeCampfire(closeWeek);
       if(window.Insights&&Insights.setNextWeekGoals)Insights.setNextWeekGoals(closeWeek);
       if(window.Cloud&&Cloud.hasGit&&Cloud.hasGit())Cloud.push(function(){});
+      /* Completion is local. Returning to Together immediately removes this
+         person's teaser; the partner must close their own local Campfire. */
+      location.hash='#together';
       return;
     }
 
@@ -1282,6 +1365,7 @@
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && window.Insights && Insights.activateScheduledPlan) Insights.activateScheduledPlan();
     if (!document.hidden && Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(true);
+    if (!document.hidden) maybeTrailNotes();
   });
 
   /* iOS suspends a Home Screen PWA in the background, but while InSync is
@@ -1321,7 +1405,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p6.0', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p6.2', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

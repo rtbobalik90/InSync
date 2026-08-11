@@ -110,6 +110,24 @@
     return claude(messages, o, cb);
   }
 
+  /* Notes from the Trail receives only hardcoded release facts. Claude may
+     shape voice, never content; the caller falls back locally on any failure. */
+  function trailNotesStory(entries, cb) {
+    if (!hasClaude()) return cb(new Error('AI is not connected.'));
+    if (!window.InSyncTrailNotes || !Array.isArray(entries) || !entries.length) return cb(new Error('No trail notes to summarize.'));
+    var facts = InSyncTrailNotes.factsText(entries);
+    ai('trail.notes', [{ role:'user', content:
+      'Write one short field-journal paragraph titled by tone, not with a heading, about what changed in InSync while the person was away.\n\n' +
+      'STRICT FACT RULE: use ONLY the release facts below. Do not infer, invent, promise or embellish any feature, behavior, number, person action or result. Do not mention software versions unless it reads naturally. ' +
+      'Voice: a note from the trail or camp journal; grounded, warm, concise, a little story-like, never fantasy. 60 to 100 words. No bullets. No emoji. No exclamation marks.\n\n' + facts
+    }], { system: VOICE, maxTokens: 190 }, function(err, text){
+      if (err) return cb(err);
+      text=String(text||'').trim().replace(/\s+/g,' ').slice(0,900);
+      if (!text) return cb(new Error('The trail note came back empty.'));
+      cb(null,text);
+    });
+  }
+
   // Today's next step, written rather than templated.
   function coachLine(cb) {
     var k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), s = Store.state();
@@ -1660,7 +1678,7 @@
     proposeTargets: proposeTargets, validateTrainingPlan: validatePlan,
     testClaude: testClaude,
     hasClaude: hasClaude, hasGit: hasGit,
-    coachLine: coachLine, chooseVerse: chooseVerse, writePlan: writePlan, weeklyNote: weeklyNote, weeklyReview: weeklyReview, ask: ask,
+    coachLine: coachLine, chooseVerse: chooseVerse, writePlan: writePlan, weeklyNote: weeklyNote, weeklyReview: weeklyReview, trailNotesStory: trailNotesStory, ask: ask,
     parseMeal: parseMeal, parseMealPhoto: parseMealPhoto,
     readBarcodePhoto: readBarcodePhoto,
     restaurantMenu: restaurantMenu, menuItem: menuItem,

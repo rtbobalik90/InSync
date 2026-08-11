@@ -84,7 +84,7 @@ T.setMode('competitive');html=c.Screens.together();
 ok(html.includes('Today’s points')&&html.includes('This week’s challenge'),'Competitive mode restores the fair daily/weekly contest');
 T.setMode('cooperative');html=c.Screens.together();
 ok(html.includes('Our week')&&html.includes('points together'),'Cooperative mode leads with combined weekly progress');
-ok(html.includes('Weekly Campfire')&&html.includes('Duo Mission')&&html.includes('Shared Dinner'),'Together 2.0 surfaces the three shared-workflow pillars');
+ok(!html.includes('Weekly Campfire')&&html.includes('Duo Mission')&&html.includes('Shared Dinner'),'a locally closed Campfire leaves Together while the remaining shared workflows stay visible');
 ok(html.includes('Quick encouragement'),'Together includes one-tap encouragement without requiring score comparison');
 
 c.location.hash='#duo-mission';html=c.Screens.duoMission();
@@ -101,6 +101,6 @@ ok(app.includes("root === 'campfire'")&&app.includes("root === 'duo-mission'"),'
 ok(app.includes("action === 'quick-encouragement'")&&app.includes("action === 'close-campfire'"),'Together interactions are wired through explicit actions');
 ok(index.includes('together.js')&&sw.includes("'together.js'"),'Together module is loaded online and cached offline');
 ok(cloud.includes('schema: 8')&&cloud.includes('together: window.InSyncTogether'),'partner sync is intentionally bumped and carries Together 2.0 explicit payload');
-ok(app.includes("version:'6.0.0-p6.0'")&&sw.includes("CACHE = 'insync-v10-33'"),'Phase 6 runtime and cache identifiers are current');
+ok(app.includes("version:'6.0.0-p6.2'")&&sw.includes("CACHE = 'insync-v10-35'"),'Phase 6 runtime and cache identifiers are current');
 
 console.log(`\nTogether 2.0 / Campfire: ${passed} passed, ${failed} failed`);process.exit(failed?1:0);

@@ -1,23 +1,25 @@
-# InSync 6.0.0-p6.0 — Phase 6 Test Report
+# InSync 6.0.0-p6.2 — Test Report
 
 ## Result
-- Full repository deterministic suite: **1,815 PASS assertions / 0 failures** across 27 test files.
-- Dedicated Together 2.0 / Weekly Campfire suite: **43 PASS / 0 failures**.
+- Full deterministic repository suite: **1,868 PASS assertions / 0 failures** across **29 test files**.
+- Dedicated P6.2 Notes from the Trail suite: **30 PASS / 0 failures**.
 
-## Phase 6 coverage
-- Three local Together presentation modes.
-- Competitive score visibility vs Quiet Support score hiding.
-- Cooperative combined-week view.
-- Four Duo Mission definitions across current and next week.
-- Deterministic mission progress and two-phone agreement behavior.
-- Mission progress bounded at the sync boundary.
-- Weekly summary obeys existing privacy toggles.
-- Campfire intention is explicit, bounded and shareable.
-- Private reflection data is absent from Together payload.
-- Weekly Campfire screen includes review, Next Week Command Center, Duo Mission, Shared Dinner and close flow.
-- Sync schema 8 sanitation.
-- Offline shell includes `together.js`.
-- Runtime/cache identity is current.
+## P6.2 coverage
+- First Trail Notes build exposes six concise historical milestone entries.
+- Unseen notes stack locally.
+- Individual clear leaves other notes unread.
+- Clear All clears the current unread queue.
+- Read state is local and persistent.
+- Story cache is keyed to the exact unread ID set and invalidates when that set changes.
+- Offline fallback is deterministic.
+- Detailed journal distinguishes New and Read entries.
+- Popup exposes Close, Clear All and View Trail Notes.
+- Close is session-only and does not clear note state.
+- Settings preserves a permanent Trail Notes entry after popup clearance.
+- AI prompt has no personal-context allow-list and receives exact release facts only.
+- Trail Notes state is absent from partner-sync code.
+- New module is loaded by the app and cached by the service worker.
+- Runtime/cache identity is P6.2 / `insync-v10-35`.
 
 ## Regression coverage
-The complete pre-Phase-6 suites also pass, including training, nutrition, barcode/photo fallback, historical editing, Journey checkpoints, Grand Canyon production art, cloud sync, device symmetry, completion features, Faith parked state, screen smoke and production integrity.
+All prior deterministic suites pass, including cloud sync, Together/Campfire, Journey checkpoints, Grand Canyon artwork, Train 2.0, Nutrition 2.0, historical editing, barcode fallback, Faith parked state, screen smoke and production integrity.

@@ -107,12 +107,13 @@
     '</article>';
   }
 
-  function expeditionCard() {
+  function expeditionCard(restAnchor) {
+    var anchor = restAnchor ? ' data-rest-anchor' : '';
     var r = route();
-    if (!r) return noExpeditionCard();
+    if (!r) return noExpeditionCard(restAnchor);
     var l = leg(), e = Store.state().expedition;
     if (!l) {
-      return '<article class="card pad accent">' +
+      return '<article class="card pad accent"' + anchor + '>' +
         '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
         '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 7px">' + esc(r.name) + '</h3>' +
         '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition together when you are ready.</p>' +
@@ -120,7 +121,7 @@
     }
     var walked = Store.legMine() + Store.legHers();
     var pct = Math.min(100, Math.round((walked / l.miles) * 100));
-    return '<article class="card pad">' +
+    return '<article class="card pad"' + anchor + '>' +
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px">' +
         '<div>' +
           '<div class="kicker sage" style="margin-bottom:6px">Leg ' + (e.legIndex + 1) + ' of ' + r.legs.length + ' &middot; ' + esc(r.name) + '</div>' +
@@ -139,13 +140,14 @@
 
   /* Nothing chosen yet. This is the state a new pair opens the app in, and it
      asks for the one decision that unlocks the rest. */
-  function noExpeditionCard() {
+  function noExpeditionCard(restAnchor) {
+    var anchor = restAnchor ? ' data-rest-anchor' : '';
     var S = Store.state(), st = handshakeState();
     var line = st === 'waiting' ? 'Sent to ' + esc(Store.partnerName()) + '. Nothing starts until they answer.'
       : st === 'invited' ? esc(Store.partnerName()) + ' has proposed the ' + esc(S.invite.routeName) + '.'
       : st === 'accepted' ? esc(S.invite.routeName) + ' is agreed and ready to begin.'
       : 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.';
-    return '<article class="card pad">' +
+    return '<article class="card pad"' + anchor + '>' +
       '<div class="kicker" style="margin-bottom:11px">No expedition yet</div>' +
       '<p class="lede" style="margin:0 0 14px">' + line + '</p>' +
       '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>' +
@@ -1619,10 +1621,27 @@
       : hasExpedition() ? ((leg() && leg().art) || routeHero(Store.state().expedition.routeId) || 'assets/art/expedition-overlook.webp')
       : 'assets/art/expedition-none.webp';
     var togetherHero = expeditionSurface('together', togetherFallback);
-    var body = campfireTeaserCard(S, p) + togetherModeCard(modeInfo) + duoMissionCard(currentMission, p) + expeditionCard() + unlockCard(S);
-    if (mode === 'competitive') body += todayCard(Store.pointRows(), mine, herToday, p) + weekCard(S, p) + challengeCard(S, p, mine, herToday);
-    else if (mode === 'cooperative') body += cooperativeWeekCard(S, p);
-    body += sharedDinnerTogetherCard(S, p) + encouragementCard(p) + notesCard(S, p, pd) + activityCard(S, p, pd) + badgeStrip(S, p) +
+    var campfire = campfireTeaserCard(S, p);
+    var top = campfire || expeditionCard(true);
+    var expeditionLater = campfire ? expeditionCard() : '';
+    var body;
+
+    /* Each Together style is a genuinely different information hierarchy, not
+       just a label. The local mode never changes partner state. */
+    if (mode === 'competitive') {
+      body = top + togetherModeCard(modeInfo) +
+        todayCard(Store.pointRows(), mine, herToday, p) + weekCard(S, p) + challengeCard(S, p, mine, herToday) +
+        duoMissionCard(currentMission, p) + expeditionLater + unlockCard(S) +
+        sharedDinnerTogetherCard(S, p) + encouragementCard(p);
+    } else if (mode === 'quiet') {
+      body = top + togetherModeCard(modeInfo) + encouragementCard(p) + expeditionLater + unlockCard(S) +
+        sharedDinnerTogetherCard(S, p) + duoMissionCard(currentMission, p);
+    } else {
+      body = top + togetherModeCard(modeInfo) + duoMissionCard(currentMission, p) + expeditionLater + unlockCard(S) +
+        cooperativeWeekCard(S, p) + sharedDinnerTogetherCard(S, p) + encouragementCard(p);
+    }
+
+    body += notesCard(S, p, pd) + activityCard(S, p, pd) + badgeStrip(S, p) +
       (hasExpedition() ? '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>' : '') +
       '<button class="btn ghost block" data-route="notifications">Notifications</button>';
 
@@ -1653,7 +1672,8 @@
     if (!window.Insights || !window.InSyncTogether) return '';
     var week=Insights.reviewWeekKey(), end=Store.shift(week,6), rec=InSyncTogether.campfireFor(week), partner=InSyncTogether.partnerCampfireIntent(week);
     var ready=Insights.reviewReady(week), next=Insights.nextWeekStatus(week), label=dateLabel(week)+' – '+dateLabel(end);
-    var lead=rec&&rec.closedAt ? 'Campfire closed. The next week can keep moving.' : ready ? 'The week is ready to close.' : 'The fire is here whenever the last week needs a look.';
+    if (rec && rec.closedAt) return '';
+    var lead=ready ? 'The week is ready to close.' : 'The fire is here whenever the last week needs a look.';
     return '<article class="card pad accent campfire-teaser" data-rest-anchor>' +
       '<div class="campfire-title"><div><div class="kicker gold">Weekly Campfire</div><p class="lede" style="margin:8px 0 3px">' + lead + '</p></div><span class="campfire-mark">✦</span></div>' +
       '<p class="small" style="margin:0 0 13px">' + esc(label) + ' · Training ' + (next.training?'ready':'open') + ' · Meals ' + next.mealCount + '/28</p>' +
@@ -1696,7 +1716,7 @@
 
   function encouragementCard(p) {
     var lines=['Proud of you today.','Keep going — I see the work.','Nice work showing up.','I love doing this with you.'];
-    return '<article class="card pad encouragement-card"><div class="kicker sage">Quick encouragement</div><p class="small" style="margin:8px 0 12px">Send '+esc(p.name)+' something useful without opening a scoreboard.</p><div class="encourage-grid">' + lines.map(function(x){return '<button class="encourage-chip" data-action="quick-encouragement" data-text="'+esc(x)+'">'+esc(x)+'</button>';}).join('') + '</div></article>';
+    return '<article class="card pad encouragement-card"><div class="kicker sage">Quick encouragement</div><p class="small" style="margin:8px 0 12px">Send '+esc(p.name)+' something useful without opening a scoreboard.</p><div class="encourage-grid">' + lines.map(function(x){return '<button class="encourage-chip" data-action="quick-encouragement" data-text="'+esc(x)+'">'+esc(x)+'</button>';}).join('') + '</div><div class="encourage-status" data-encouragement-status role="status" aria-live="polite"></div></article>';
   }
 
   function todayCard(rows, mine, herToday, p) {
@@ -2051,6 +2071,29 @@
       art:'assets/art/coach-desk.webp', photoPosition:'center 34%', overlay:'<div class="eyebrow">' + esc(label) + '</div><p class="verse" style="font-size:25px">Look back once. Then move the week forward.</p>', body:body });
   }
 
+  function campfireHistory() {
+    if (!window.InSyncTogether || !window.Insights) { location.hash='#calendar'; return ''; }
+    var week=location.hash.split('/')[1] || '', record=InSyncTogether.campfireFor(week);
+    if (!record || !record.closedAt) return UI.screen({tab:null,rest:240,header:{back:'calendar',title:'Campfire'},body:'<article class="card pad"><p class="note">That Campfire is not in your archive.</p><button class="btn ghost block" style="margin-top:12px" data-route="calendar">Back to History</button></article>'});
+    var end=Store.shift(week,6), stats=Insights.weekStats(week), label=dateLabel(week)+' – '+dateLabel(end);
+    var goals=(Store.state().weeklyGoals||{})[Store.shift(week,7)]||[];
+    var body='<article class="card pad" data-rest-anchor><div class="kicker gold">Campfire archive</div><p class="lede" style="margin:8px 0 5px">'+esc(label)+'</p><p class="small" style="margin:0">Closed '+esc(new Date(record.closedAt).toLocaleString([], {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}))+'. This is your local completed review.</p></article>';
+    if(stats){
+      body+='<article class="card pad"><div class="kicker sage">Your week</div><div class="campfire-ready-grid">'+
+        '<div class="campfire-stat"><span>Score</span><strong>'+esc(stats.points)+'</strong><small>'+esc(stats.loggedDays)+' logged days</small></div>'+
+        '<div class="campfire-stat"><span>Training</span><strong>'+esc(stats.workouts)+'</strong><small>sessions</small></div>'+
+        '<div class="campfire-stat"><span>Avg steps</span><strong>'+Math.round(stats.avgSteps||0).toLocaleString()+'</strong><small>per logged day</small></div>'+
+        '<div class="campfire-stat"><span>Trail</span><strong>'+Store.fmtDistance(stats.expeditionMiles||0)+'</strong><small>that week</small></div>'+
+      '</div></article>';
+    }
+    body+='<article class="card pad"><div class="kicker sage">What you carried forward</div>'+
+      (record.intent?'<p class="lede" style="margin:9px 0 0">'+esc(record.intent)+'</p>':'<p class="small" style="margin:9px 0 0">No shared intention was saved for this Campfire.</p>')+'</article>';
+    if(goals.length) body+='<article class="card pad"><div class="kicker">Goals that followed</div><div class="plainlist" style="margin-top:10px">'+goals.map(function(g){return '<div style="padding:9px 0;border-top:1px solid var(--rule)">'+esc(g.label)+'</div>';}).join('')+'</div></article>';
+    body+='<button class="btn ghost block" data-route="calendar/'+esc(week.slice(0,7))+'">Back to History &amp; Calendar</button>';
+    var hero=expeditionSurface('together','assets/art/campfire.webp');
+    return UI.screen({tab:null,rest:330,header:{back:'calendar/'+week.slice(0,7),title:'Campfire archive',right:'<div style="width:44px"></div>'},art:hero.art,artFallback:hero.fallback,scrim:UI.SCRIMS.light,photoPosition:'center 62%',overlay:'<div class="eyebrow">'+esc(label)+'</div><p class="verse" style="font-size:26px">A week you closed and kept.</p>',body:body});
+  }
+
   function duoMission() {
     if(!window.InSyncTogether){location.hash='#together';return '';}
     var cur=InSyncTogether.currentWeek(), next=InSyncTogether.nextWeek(cur), p=Store.partnerRef();
@@ -2346,8 +2389,9 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p6.0</div></div>' +
+            '<div class="meta">Version 6.0.0-p6.2</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
+          row('Trail Notes', 'Read what changed while you were away', '<button class="btn ghost tiny" data-route="trail-notes">Open</button>') +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
           '<p class="small pad-x" style="padding-bottom:15px">No account, no sign-out, no user switching. There is nothing to log in to.</p>' +
@@ -3646,6 +3690,9 @@
     if (!/^\d{4}-\d{2}$/.test(part)) part = Store.todayKey().slice(0,7);
     var y = +part.slice(0,4), m = +part.slice(5,7)-1, first = new Date(y,m,1), count = new Date(y,m+1,0).getDate();
     var startPad = first.getDay(), cells = [], S = Store.state(), today = Store.todayKey(), startKey = Store.startKey();
+    var closedCampfires = window.InSyncTogether && InSyncTogether.closedCampfires ? InSyncTogether.closedCampfires() : [];
+    var campfireByEnd = {};
+    closedCampfires.forEach(function(cf){ if(cf&&cf.weekOf) campfireByEnd[Store.shift(cf.weekOf,6)] = cf; });
     for (var pad=0;pad<startPad;pad++) cells.push('<div class="calday blank"></div>');
     var loggedDays=0, workoutCount=0, mealCount=0;
     for (var n=1;n<=count;n++) {
@@ -3654,7 +3701,7 @@
       var w=d&&d.workouts?d.workouts.length:0, meals=d&&d.meals?d.meals.length:0; workoutCount+=w; mealCount+=meals;
       var dayPhotos=(S.photos||[]).filter(function(ph){return ph&&ph.date===key;}).length;
       var p=active&&!future?Store.points(key):0;
-      var marks=(meals?'●':'')+(w?'▲':'')+(d&&d.reflection?'✎':'')+(d&&d.weight!=null?'◆':'')+(dayPhotos?'▣':'');
+      var marks=(meals?'●':'')+(w?'▲':'')+(d&&d.reflection?'✎':'')+(d&&d.weight!=null?'◆':'')+(dayPhotos?'▣':'')+(campfireByEnd[key]?'✦':'');
       if (key < startKey || future) cells.push('<div class="calday muted"><span>'+n+'</span></div>');
       else cells.push('<button class="calday'+(logged?' logged':'')+(key===today?' today':'')+'" data-route="day-history/'+key+'"><span class="calnum">'+n+'</span>'+
         (logged?'<strong>'+p+'</strong>':'<em>—</em>')+(marks?'<small>'+marks+'</small>':'')+'</button>');
@@ -3666,7 +3713,8 @@
       overlay:'<div class="eyebrow">Your log</div><p class="verse" style="font-size:25px">'+esc(monthName)+'</p>',
       body:'<article class="card pad"><div class="weeknav"><button class="btn ghost sm" data-route="calendar/'+monthShift(part,-1)+'">Previous</button><button class="btn ghost sm" data-route="calendar/'+Store.todayKey().slice(0,7)+'">This month</button><button class="btn ghost sm" data-route="calendar/'+monthShift(part,1)+'">Next</button></div>'+
         '<div class="calendar-head">'+['S','M','T','W','T','F','S'].map(function(x){return '<span>'+x+'</span>';}).join('')+'</div><div class="calendar-grid">'+cells.join('')+'</div>'+
-        '<p class="small" style="margin:13px 0 0">● meal · ▲ training · ✎ reflection · ◆ weigh-in · ▣ progress photo. A number is the score for that day.</p></article>'+
+        '<p class="small" style="margin:13px 0 0">● meal · ▲ training · ✎ reflection · ◆ weigh-in · ▣ progress photo · ✦ Campfire closed. A number is the score for that day.</p></article>'+
+        (function(){var rows=closedCampfires.filter(function(cf){var end=Store.shift(cf.weekOf,6);return end.slice(0,7)===part;});if(!rows.length)return '';return '<div class="rulehead"><span class="kicker sage">Weekly Campfires</span><span></span><span class="note">'+rows.length+'</span></div><article class="card">'+rows.map(function(cf){var end=Store.shift(cf.weekOf,6);return '<button class="setrow" data-route="campfire-history/'+esc(cf.weekOf)+'"><div><div class="setname">'+esc(dateLabel(cf.weekOf))+' – '+esc(dateLabel(end))+'</div><div class="small">Closed '+esc(new Date(cf.closedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'}))+(cf.intent?' · '+esc(cf.intent):'')+'</div></div><span class="chev">›</span></button>';}).join('')+'</article>';})()+
         '<article class="card"><div class="ledger"><div><div class="label">Logged</div><div class="figure">'+loggedDays+'</div><div class="foot">days</div></div><div><div class="label">Training</div><div class="figure">'+workoutCount+'</div><div class="foot">sessions</div></div><div><div class="label">Meals</div><div class="figure">'+mealCount+'</div><div class="foot">logged</div></div></div></article>'
     });
   }
@@ -4549,7 +4597,7 @@
     handshake: handshake, routeName: routeName, earnedMoment: earnedMoment,
     legCount: function () { var r = route(); return r ? r.legs.length : 0; },
     legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
-    home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together, campfire: campfire, duoMission: duoMission,
+    home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together, campfire: campfire, campfireHistory: campfireHistory, duoMission: duoMission,
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival, checkpoint: checkpoint, expeditionComplete: expeditionComplete,
     records: records, badges: badges, reflection: reflection,
