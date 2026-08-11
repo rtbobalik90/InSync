@@ -15,7 +15,7 @@ ok(/Media\.shrink\(dataUrl, 1800, 0\.9/.test(log),'barcode camera image is conve
 ok(log.includes('Preparing the barcode photo')&&log.includes('Reading the barcode')&&log.includes('Barcode read. Looking up the food'),'barcode fallback exposes visible capture/read/lookup progress');
 ok(log.includes("!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia") ,'live detector safely falls back when camera mediaDevices API is unavailable');
 ok(cloud.includes("['image/jpeg','image/png','image/gif','image/webp']"),'barcode vision upload admits only image formats supported by the AI image path');
-ok(sw.includes("insync-v10-32")&&app.includes("6.0.0-p5.8"),'hotfix bumps runtime and offline cache so installed phones receive the patch');
+ok(sw.includes("insync-v10-33")&&app.includes("6.0.0-p6.0"),'hotfix bumps runtime and offline cache so installed phones receive the patch');
 
 const ctx={console,localStorage:new LS(),Date,Math,JSON,String,Number,Object,Array,RegExp,Intl,parseInt,parseFloat,isFinite,isNaN,setTimeout,clearTimeout,
  location:{hostname:'example.test',pathname:'/insync/',hash:'',protocol:'https:'},navigator:{},CustomEvent:function(){},UI:{esc:s=>String(s==null?'':s),asset:s=>s},window:null,

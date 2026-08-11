@@ -1,19 +1,26 @@
-# InSync 6.0.0-p5.8 — Phase 3 Experience Polish Code Review
+# InSync 6.0.0-p6.0 — Phase 6 Code Review
 
-## Scope
-This pass deliberately avoids adding new health logic. It standardizes the visual shell and interaction polish across the existing product while preserving the approved Train hero geometry.
+## Review result
+Phase 6 is additive over the P5.8 production baseline. Existing health, expedition, training, nutrition, history and Grand Canyon art systems remain intact.
 
-## Changes reviewed
-- `UI.screen()` now emits route-aware and tab-aware CSS classes without altering route behavior.
-- Expedition scrims were rebalanced to let scenic artwork carry more of the visual experience.
-- Header protection is localized by route instead of relying on one global heavy black lid.
-- Train retains its lower-only transition, with the headline width and copy tuned for mobile.
-- Weekly Train labels use a bounded two-line treatment instead of ellipsis-only clipping.
-- Cards use consistent depth/rhythm, and primary header controls meet a 44px touch target.
-- Focus-visible and prefers-reduced-motion behavior were added without changing core flows.
+## Architecture
+- New `together.js` isolates Together-specific mode, mission, Campfire and share-payload logic.
+- Screens render Together workflows but do not calculate raw mission/share semantics themselves.
+- Partner sync remains sanitized at the Cloud boundary and normalized again by Store.
+- The local Together mode is deliberately excluded from sync to prevent presentation preference conflicts.
 
-## Data / privacy
-No state migration. No partner-sync schema change. No new shared fields. Faith remains parked.
+## Privacy review
+- Duo Mission sync contains mission week/id plus bounded aggregate progress.
+- Campfire sync contains only a user-entered short shared intention.
+- Weekly partner summary always shares points/logged-day context; workouts/steps/protein aggregates only cross when their existing privacy toggles allow them.
+- No new private journal, reflection, photo, exact bodyweight, meal-log or workout-set detail is shared.
 
-## Verification
-Full deterministic suite: 1,771 PASS / 0 FAIL.
+## Safety / game-design review
+- Duo Missions are finite weekly targets and explicitly state that extra grinding does not change health prescriptions.
+- Missions do not alter calorie targets, step targets, training frequency, progression logic, recovery recommendations or expedition completion rules.
+- Spiritual practices remain outside the scoring/mission system.
+
+## Compatibility
+- Local storage remains `insync.v10` with additive normalization for `together` state.
+- Sync schema advances from 7 to 8; older payloads without Together data remain readable, and schema-8 core fields remain readable by earlier sanitizers that ignore unknown fields.
+- P5.8 -> P6 replacement upgrade is non-destructive.

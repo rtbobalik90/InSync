@@ -11,6 +11,6 @@ ok(!screens.includes("tab:'train',rest:310,restMeasure:true,photoHeight:'390px'"
 ok(ui.includes("rgba(10,12,8,0) 62%") && ui.includes("rgba(20,21,15,.10) 70%"),'Train fade begins low in the hero rather than mid-image');
 ok(ui.includes("rgba(20,21,15,.62) 92%,#14150F 100%"),'Train fade still resolves into app ground at the bottom');
 ok(screens.includes("tab: null, rest: 300, screenClass:'train-screen'"),'Workout-day screen stays crisp and uses the train-specific treatment');
-ok(app.includes("version:'6.0.0-p5.8'"),'Runtime version is P5.7.2');
-ok(sw.includes("CACHE = 'insync-v10-32'"),'Service-worker cache is bumped');
+ok(app.includes("version:'6.0.0-p6.0'"),'Runtime version is P5.7.2');
+ok(sw.includes("CACHE = 'insync-v10-33'"),'Service-worker cache is bumped');
 console.log(`\nP5.7.2 Train hero geometry checks: ${passed} passed, ${failed} failed.`); if(failed) process.exit(1);

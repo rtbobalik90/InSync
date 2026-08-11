@@ -1074,6 +1074,16 @@
         note: S.proposal.summary || 'New targets to approve', route: 'settings', when: S.proposal.date });
     }
 
+    if (window.InSyncTogether && pd && pd.together) {
+      var mWeek=InSyncTogether.currentWeek(), pm=InSyncTogether.partnerMission(mWeek), lm=InSyncTogether.missionFor(mWeek);
+      if (pm && (!lm || lm.id !== pm.id)) {
+        var md=InSyncTogether.missionDef(pm.id);
+        add('duoMission',{ id:'action:duo-mission:'+mWeek+':'+pm.id, g:0, name:p+' proposed a Duo Mission', note:md?md.name:'Open Together to review it', route:'duo-mission', when:Store.todayKey() });
+      }
+      var rw=window.Insights&&Insights.reviewWeekKey?Insights.reviewWeekKey():Store.shift(Store.weekStart(Store.todayKey()),-7), pci=InSyncTogether.partnerCampfireIntent(rw);
+      if (pci && pci.text) add('campfire',{ id:'info:campfire:'+rw+':'+String(pci.updatedAt||pci.text).slice(0,40), g:1, name:p+' added a Campfire intention', note:pci.text, route:'campfire', when:Store.todayKey() });
+    }
+
     if (pd && pd.date === Store.todayKey()) {
       var bits = [];
       if (pd.steps != null) bits.push(pd.steps.toLocaleString() + ' steps');
@@ -1579,59 +1589,114 @@
   /* Together. Every figure here is derived — partner data from the partner sync file,
      never a constant, and the week from the points each day actually earned. */
   function together() {
-    var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData;
-    var today = Store.todayKey();
-    var mine = Store.points();
+    var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData, T = window.InSyncTogether;
+    var today = Store.todayKey(), mine = Store.points();
     var herToday = pd && pd.date === today && typeof pd.points === 'number' ? pd.points : null;
+    var mode = T ? T.mode() : 'cooperative', modeInfo = T ? T.modeDef(mode) : {name:'Cooperative'};
+    var currentMission = T ? T.missionStatus(T.currentWeek()) : null;
     var evening = Store.timeOfDay() === 'night';
-
-    var rows = Store.pointRows();
-    var open = rows.filter(function (r) { return !r.done; }).sort(function (a, b) { return b.value - a.value; });
-    var closer = open[0];
-
     var headline, sub;
-    if (herToday === null) {
-      headline = mine + ' of 10 today.';
-      sub = pd
-        ? esc(p.name) + ' has not synced today.'
-        : 'Nothing from ' + esc(p.name) + ' yet.';
+
+    if (mode === 'competitive') {
+      if (herToday === null) { headline = mine + ' of 10 today.'; sub = pd ? esc(p.name) + ' has not synced today.' : 'Nothing from ' + esc(p.name) + ' yet.'; }
+      else {
+        var gap = herToday - mine;
+        headline = gap > 0 ? gap + ' point' + (gap === 1 ? '' : 's') + ' back.' : gap === 0 ? 'Level.' : Math.abs(gap) + ' ahead.';
+        sub = 'Friendly competition. Same ten-point scale.';
+      }
+    } else if (mode === 'quiet') {
+      headline = 'Same road. No scoreboard needed.';
+      sub = pd && pd.date === today ? esc(p.name) + ' checked in today.' : 'Encourage the person, not the number.';
     } else {
-      var gap = herToday - mine;
-      headline = gap > 0 ? gap + ' point' + (gap === 1 ? '' : 's') + ' back.'
-        : gap === 0 ? 'Level.' : Math.abs(gap) + ' ahead.';
-      sub = gap > 0 && closer
-        ? (closer.value >= gap ? esc(closer.label) + ' alone covers it.' : esc(closer.label) + ' is the biggest of what is left.')
-        : gap === 0 ? 'Whatever either of you does next breaks it.'
-        : open.length ? open.length + ' still open on your side.' : 'Nothing outstanding.';
+      var combinedToday = mine + (herToday == null ? 0 : herToday);
+      headline = herToday == null ? 'Your side is moving.' : combinedToday + ' points together today.';
+      sub = currentMission && currentMission.def && currentMission.agreed
+        ? currentMission.def.name + ': ' + currentMission.combined + ' of ' + currentMission.def.target + ' ' + currentMission.def.unit + '.'
+        : 'Build the week together.';
     }
 
     var togetherFallback = evening ? 'assets/art/campfire.webp'
       : hasExpedition() ? ((leg() && leg().art) || routeHero(Store.state().expedition.routeId) || 'assets/art/expedition-overlook.webp')
-      /* Nothing agreed yet: the desk the route gets chosen at, not a trail
-         neither of them has committed to. */
       : 'assets/art/expedition-none.webp';
     var togetherHero = expeditionSurface('together', togetherFallback);
+    var body = campfireTeaserCard(S, p) + togetherModeCard(modeInfo) + duoMissionCard(currentMission, p) + expeditionCard() + unlockCard(S);
+    if (mode === 'competitive') body += todayCard(Store.pointRows(), mine, herToday, p) + weekCard(S, p) + challengeCard(S, p, mine, herToday);
+    else if (mode === 'cooperative') body += cooperativeWeekCard(S, p);
+    body += sharedDinnerTogetherCard(S, p) + encouragementCard(p) + notesCard(S, p, pd) + activityCard(S, p, pd) + badgeStrip(S, p) +
+      (hasExpedition() ? '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>' : '') +
+      '<button class="btn ghost block" data-route="notifications">Notifications</button>';
+
     return UI.screen({
       tab: 'together', rest: 470, restMeasure: true,
       art: togetherHero.art, artFallback: togetherHero.fallback, scrim: UI.SCRIMS.light,
       photoPosition: evening ? 'center 62%' : hasExpedition() ? 'center 46%' : 'center 42%',
-      overlay: '<div class="eyebrow">' + (evening ? 'This evening' : 'Today') + '</div>' +
+      overlay: '<div class="eyebrow">Together · ' + esc(modeInfo.name) + '</div>' +
         '<p class="verse" style="font-size:26px">' + headline + '</p>' +
         '<p class="attrib" style="text-transform:none;letter-spacing:0;font-size:13px;color:rgba(243,237,225,.82)">' + sub + '</p>',
-      body:
-        expeditionCard() +
-        unlockCard(S) +
-        todayCard(rows, mine, herToday, p) +
-        weekCard(S, p) +
-        challengeCard(S, p, mine, herToday) +
-        notesCard(S, p, pd) +
-        activityCard(S, p, pd) +
-        badgeStrip(S, p) +
-        /* The no-expedition card already carries this button; two of them on
-           one screen is the same request twice. */
-        (hasExpedition() ? '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>' : '') +
-        '<button class="btn ghost block" data-route="notifications">Notifications</button>'
+      body: body
     });
+  }
+
+  function togetherModeCard(modeInfo) {
+    if (!window.InSyncTogether) return '';
+    return '<article class="card pad together-mode-card">' +
+      '<div class="kicker sage">Together style</div>' +
+      '<p class="lede" style="margin:8px 0 4px">' + esc(modeInfo.name) + '</p>' +
+      '<p class="small" style="margin:0 0 13px">' + esc(modeInfo.detail) + ' This choice only changes your phone.</p>' +
+      '<div class="together-mode-grid">' + InSyncTogether.MODES.map(function(m){
+        return '<button class="ob-chip' + (m.id===modeInfo.id?' on':'') + '" data-action="set-together-mode" data-value="' + esc(m.id) + '">' + esc(m.name) + '</button>';
+      }).join('') + '</div>' +
+    '</article>';
+  }
+
+  function campfireTeaserCard(S, p) {
+    if (!window.Insights || !window.InSyncTogether) return '';
+    var week=Insights.reviewWeekKey(), end=Store.shift(week,6), rec=InSyncTogether.campfireFor(week), partner=InSyncTogether.partnerCampfireIntent(week);
+    var ready=Insights.reviewReady(week), next=Insights.nextWeekStatus(week), label=dateLabel(week)+' – '+dateLabel(end);
+    var lead=rec&&rec.closedAt ? 'Campfire closed. The next week can keep moving.' : ready ? 'The week is ready to close.' : 'The fire is here whenever the last week needs a look.';
+    return '<article class="card pad accent campfire-teaser" data-rest-anchor>' +
+      '<div class="campfire-title"><div><div class="kicker gold">Weekly Campfire</div><p class="lede" style="margin:8px 0 3px">' + lead + '</p></div><span class="campfire-mark">✦</span></div>' +
+      '<p class="small" style="margin:0 0 13px">' + esc(label) + ' · Training ' + (next.training?'ready':'open') + ' · Meals ' + next.mealCount + '/28</p>' +
+      (partner&&partner.text?'<div class="partner-intent"><span>'+esc(p.name)+' is carrying</span><strong>'+esc(partner.text)+'</strong></div>':'') +
+      '<button class="btn block" data-route="campfire">Open the Campfire</button>' +
+    '</article>';
+  }
+
+  function duoMissionCard(status, p) {
+    if (!window.InSyncTogether) return '';
+    status=status||InSyncTogether.missionStatus(InSyncTogether.currentWeek());
+    if (!status.mine && status.theirs) {
+      var proposed=InSyncTogether.missionDef(status.theirs.id);
+      return '<article class="card pad duo-card"><div class="kicker sage">Duo Mission</div><p class="lede" style="margin:8px 0 6px">' + esc(p.name) + ' proposed ' + esc(proposed?proposed.name:'a mission') + '.</p>' +
+        '<p class="small" style="margin:0 0 13px">' + esc(proposed?proposed.detail:'Choose whether to join it for this week.') + '</p>' +
+        '<div class="btnrow"><button class="btn" data-action="accept-duo-mission" data-week="'+esc(status.weekOf)+'" data-id="'+esc(status.theirs.id)+'">Join mission</button><button class="btn ghost" data-route="duo-mission">See missions</button></div></article>';
+    }
+    if (!status.mine) return '<article class="card pad duo-card"><div class="kicker sage">Duo Mission</div><p class="lede" style="margin:8px 0 6px">Give the week one shared objective.</p><p class="small" style="margin:0 0 13px">A Duo Mission uses bounded aggregate progress. It never changes either person’s health targets.</p><button class="btn ghost block" data-route="duo-mission">Choose a mission</button></article>';
+    var d=status.def, pct=Math.min(100,Math.round((status.combined/(d.target||1))*100));
+    var partnerLine=status.agreed ? esc(p.name)+' joined · '+status.partnerProgress+' contributed' : status.theirs ? esc(p.name)+' picked a different mission.' : 'Waiting for '+esc(p.name)+' to join after sync.';
+    return '<article class="card pad duo-card"><div class="kicker sage">Duo Mission</div><div class="mission-head"><p class="lede" style="margin:8px 0 4px">'+esc(d.name)+'</p><strong>'+status.combined+' / '+d.target+' '+esc(d.unit)+'</strong></div>' +
+      '<div class="track"><span style="width:'+pct+'%'+(status.done?';background:var(--sage)':'')+'"></span></div><p class="small" style="margin:9px 0 4px">'+esc(d.detail)+'</p><p class="note" style="margin:0 0 13px">'+partnerLine+'</p>' +
+      '<button class="btn ghost block" data-route="duo-mission">Manage Duo Mission</button></article>';
+  }
+
+  function cooperativeWeekCard(S,p) {
+    var hist=S.partnerHistory||{}, today=Store.todayKey(), start=Store.weekStart(today), my=0, hers=0, known=0, days=0;
+    for(var i=0;i<7;i++){var k=Store.shift(start,i);if(k>today)break;days++;if(Store.activeOn(k))my+=Store.points(k);if(typeof hist[k]==='number'){hers+=hist[k];known++;}}
+    return '<article class="card pad"><div class="kicker">Our week</div><div class="coop-total"><strong>'+(my+hers)+'</strong><span>points together</span></div>' +
+      '<p class="small" style="margin:8px 0 0">Your '+my+' points plus '+(known?esc(p.name)+'’s '+hers+' across '+known+' synced day'+(known===1?'':'s'):'the partner side when it syncs')+'. The total is context, not a ranking.</p></article>';
+  }
+
+  function sharedDinnerTogetherCard(S,p) {
+    if(!window.InSyncTogether)return '';
+    var st=InSyncTogether.sharedDinnerStatus();
+    return '<article class="card pad"><div class="kicker gold">Shared Dinner</div><p class="lede" style="margin:8px 0 6px">One dinner. Two portions.</p>' +
+      '<p class="small" style="margin:0 0 13px">'+(st.ready?'Both dinner-sized targets are shared. You can build one household recipe with a portion for each of you.':st.mine?esc(p.name)+' has not shared a dinner-sized target yet. Your own meal data stays private.':'Turn on Shared Dinner when you want one recipe sized separately for both people.')+'</p>' +
+      '<button class="btn ghost block" data-route="planner">'+(st.ready?'Plan a Shared Dinner':'Open meal planning')+'</button></article>';
+  }
+
+  function encouragementCard(p) {
+    var lines=['Proud of you today.','Keep going — I see the work.','Nice work showing up.','I love doing this with you.'];
+    return '<article class="card pad encouragement-card"><div class="kicker sage">Quick encouragement</div><p class="small" style="margin:8px 0 12px">Send '+esc(p.name)+' something useful without opening a scoreboard.</p><div class="encourage-grid">' + lines.map(function(x){return '<button class="encourage-chip" data-action="quick-encouragement" data-text="'+esc(x)+'">'+esc(x)+'</button>';}).join('') + '</div></article>';
   }
 
   function todayCard(rows, mine, herToday, p) {
@@ -1926,10 +1991,10 @@
     if (!Insights.reviewReady(week)) return '';
     var review = Insights.reviewFor(week), stats = Insights.weekStats(week);
     return '<article class="card pad' + (onCoach ? '' : ' accent') + '">' +
-      '<div class="kicker' + (onCoach ? '' : ' sage') + '">Weekly review ready</div>' +
+      '<div class="kicker' + (onCoach ? '' : ' sage') + '">Weekly Campfire ready</div>' +
       '<p class="lede" style="margin:8px 0 7px">' + (review ? esc(review.carry || review.summary) : stats.points + ' points · ' + stats.workouts + ' sessions · ' + Store.fmtDistance(stats.expeditionMiles) + ' walked') + '</p>' +
       '<p class="small" style="margin:0 0 13px">Close the week, notice the pattern, then set up training and meals for the next one.</p>' +
-      '<button class="btn ghost block" data-route="weekly-review">Open weekly review</button>' +
+      '<button class="btn ghost block" data-route="campfire">Open Weekly Campfire</button>' +
     '</article>';
   }
 
@@ -1986,6 +2051,45 @@
       art:'assets/art/coach-desk.webp', photoPosition:'center 34%', overlay:'<div class="eyebrow">' + esc(label) + '</div><p class="verse" style="font-size:25px">Look back once. Then move the week forward.</p>', body:body });
   }
 
+  function duoMission() {
+    if(!window.InSyncTogether){location.hash='#together';return '';}
+    var cur=InSyncTogether.currentWeek(), next=InSyncTogether.nextWeek(cur), p=Store.partnerRef();
+    function weekMissionSection(week,label){
+      var status=InSyncTogether.missionStatus(week), end=Store.shift(week,6);
+      return '<div class="rulehead"><span class="kicker '+(week===cur?'sage':'')+'">'+esc(label)+'</span><span></span><span class="note">'+dateLabel(week)+' – '+dateLabel(end)+'</span></div>' +
+        (status.mine?duoMissionCard(status,p):status.theirs?duoMissionCard(status,p):'<article class="card pad"><p class="small" style="margin:0">Nothing chosen yet.</p></article>') +
+        '<article class="card mission-picker">' + InSyncTogether.MISSIONS.map(function(m){
+          var on=status.mine&&status.mine.id===m.id;
+          return '<button class="mission-option'+(on?' on':'')+'" data-action="choose-duo-mission" data-week="'+esc(week)+'" data-id="'+esc(m.id)+'"><span><strong>'+esc(m.name)+'</strong><small>'+esc(m.detail)+'</small></span><b>'+m.target+' '+esc(m.unit)+'</b></button>';
+        }).join('') + '</article>';
+    }
+    var hero=expeditionSurface('together','assets/art/campfire.webp');
+    return UI.screen({tab:null,rest:315,header:{back:'together',title:'Duo Mission',right:'<div style="width:44px"></div>'},art:hero.art,artFallback:hero.fallback,scrim:UI.SCRIMS.light,photoPosition:'center 56%',
+      overlay:'<div class="eyebrow">Together</div><p class="verse" style="font-size:25px">One shared objective. No extra grinding.</p><p class="attrib" style="text-transform:none;letter-spacing:0">Healthy ceilings still win.</p>',
+      body:weekMissionSection(cur,'This week')+weekMissionSection(next,'Next week')+'<article class="card pad"><div class="kicker">How missions work</div><p class="small" style="margin:8px 0 0">Only the mission id and bounded progress are shared. Changing a Duo Mission never changes training, calories, steps targets or expedition rules. Both phones must choose the same mission before progress is combined.</p></article>'});
+  }
+
+  function campfire() {
+    if(!window.Insights||!window.InSyncTogether){location.hash='#together';return '';}
+    var S=Store.state(), p=Store.partnerRef(), week=Insights.reviewWeekKey(), end=Store.shift(week,6), st=Insights.weekStats(week), review=Insights.reviewFor(week), ready=Insights.reviewReady(week);
+    var partner=InSyncTogether.partnerWeeklySummary(week), record=InSyncTogether.campfireFor(week), partnerIntent=InSyncTogether.partnerCampfireIntent(week), next=Insights.nextWeekStatus(week), nextMission=InSyncTogether.missionStatus(next.weekOf), dinner=InSyncTogether.sharedDinnerStatus();
+    var label=dateLabel(week)+' – '+dateLabel(end), hasClaude=window.Cloud&&Cloud.hasClaude&&Cloud.hasClaude();
+    function stat(label,value,note){return '<div class="campfire-stat"><span>'+esc(label)+'</span><strong>'+esc(String(value))+'</strong>'+(note?'<small>'+esc(note)+'</small>':'')+'</div>';}
+    var body='<article class="card pad campfire-week"><div class="kicker gold">Around the fire</div><div class="campfire-pair">' +
+      '<section><h3>You</h3>'+stat('Points',st.points,'of '+(st.daysAvailable*10))+stat('Sessions',st.workouts,'training')+stat('Avg steps',st.avgSteps.toLocaleString(),st.stepDays+' logged')+stat('Avg protein',st.avgProtein+' g',st.nutritionDays+' meal days')+'</section>' +
+      '<section><h3>'+esc(p.name)+'</h3>'+(partner?stat('Points',partner.points,'shared')+(partner.workouts!=null?stat('Sessions',partner.workouts,'shared'):'')+(partner.avgSteps!=null?stat('Avg steps',Math.round(partner.avgSteps).toLocaleString(),'shared'):'')+(partner.avgProtein!=null?stat('Avg protein',Math.round(partner.avgProtein)+' g','shared'):''):'<p class="small">Waiting for a sync from this review week.</p>')+'</section></div>' +
+      '<p class="note" style="margin:12px 0 0">Partner health details appear only when their existing privacy settings allow the weekly aggregate.</p></article>';
+    if(review) body+='<article class="card pad accent"><div class="kicker sage">Coach review</div><p class="lede" style="margin:8px 0 9px">'+esc(review.summary)+'</p>'+(review.win?'<p class="small"><b>Win:</b> '+esc(review.win)+'</p>':'')+(review.pattern?'<p class="small"><b>Pattern:</b> '+esc(review.pattern)+'</p>':'')+(review.carry?'<p class="small"><b>Carry:</b> '+esc(review.carry)+'</p>':'')+aiWhyBlock('weekly-review','Why did Coach say this?')+'</article>';
+    else body+='<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:8px 0 13px">The numbers above are deterministic. Coach can write a short interpretation without changing them.</p>'+(hasClaude&&ready?'<button class="btn block" data-action="generate-weekly-review" data-week="'+esc(week)+'">Write the review</button>':!hasClaude?'<button class="btn ghost block" data-route="settings">Connect Claude to write it</button>':'<p class="note">This week is still in progress.</p>')+'</article>';
+    body+='<article class="card pad"><div class="kicker sage">What we carry forward</div><p class="small" style="margin:8px 0 10px">One short intention is shared with '+esc(p.name)+'. Keep private journaling out of this box.</p><textarea class="reflect campfire-intent" data-campfire-intent maxlength="280" placeholder="One thing I want us to protect or do next week…">'+esc(record&&record.intent||'')+'</textarea><button class="btn ghost block" style="margin-top:10px" data-action="save-campfire-intent" data-week="'+esc(week)+'">Save shared intention</button>'+(partnerIntent&&partnerIntent.text?'<div class="partner-intent" style="margin-top:12px"><span>'+esc(p.name)+' is carrying</span><strong>'+esc(partnerIntent.text)+'</strong></div>':'')+'</article>';
+    body+='<article class="card pad"><div class="kicker gold">Next Week Command Center</div><p class="lede" style="margin:8px 0 6px">'+(next.training&&next.meals?'The bones of next week are ready.':'Prepare the week before it starts.')+'</p><div class="campfire-ready-grid">'+stat('Training',next.training?'Ready':'Open','')+stat('Meals',next.mealCount+'/28',next.meals?'ready':'planned')+'</div>'+(next.training&&next.meals?'<div class="btnrow" style="margin-top:13px"><button class="btn ghost" data-route="train">Training</button><button class="btn ghost" data-route="planner">Meals</button></div>':hasClaude?'<button class="btn block" style="margin-top:13px" data-action="setup-next-week" data-week="'+esc(week)+'">Set up next week</button>':'<button class="btn ghost block" style="margin-top:13px" data-route="settings">Connect Claude to prepare it</button>')+'</article>';
+    body+=duoMissionCard(nextMission,p).replace('Manage Duo Mission','Choose next week’s mission').replace('data-route="duo-mission"','data-route="duo-mission"');
+    body+='<article class="card pad"><div class="kicker">Shared Dinner</div><p class="lede" style="margin:8px 0 5px">'+(dinner.ready?'Both portions are ready.':'One recipe can still serve two targets.')+'</p><p class="small" style="margin:0 0 12px">'+(dinner.ready?'Plan one household dinner for next week with personalized portions.':'Shared Dinner stays opt-in; exact food logs never cross.')+'</p><button class="btn ghost block" data-route="planner">Open meal planning</button></article>';
+    body+='<article class="card pad accent"><div class="kicker gold">Close the Campfire</div><p class="small" style="margin:8px 0 13px">Closing marks this weekly review complete on your phone and locks in the two suggested goals for next week. It does not lock your meal or training plans.</p>'+(record&&record.closedAt?'<button class="btn block" disabled>Campfire closed</button><p class="note" style="margin:9px 0 0">Closed '+esc(new Date(record.closedAt).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+'.</p>':'<button class="btn block" data-action="close-campfire" data-week="'+esc(week)+'">Close this Campfire</button>')+'</article>';
+    var hero=expeditionSurface('together','assets/art/campfire.webp');
+    return UI.screen({tab:null,rest:340,header:{back:'together',title:'Weekly Campfire',right:'<div style="width:44px"></div>'},art:hero.art,artFallback:hero.fallback,scrim:UI.SCRIMS.light,photoPosition:'center 64%',overlay:'<div class="eyebrow">'+esc(label)+'</div><p class="verse" style="font-size:26px">Look back once. Then build the next week together.</p>',body:body});
+  }
+
   // ---------------- Settings ----------------
   function relativeWhen(ms) {
     if (!ms) return 'not yet';
@@ -2010,7 +2114,7 @@
     var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
     return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p5.3 · ' + esc(updateStatus) + '</span></div>' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p6.0 · ' + esc(updateStatus) + '</span></div>' +
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2024,6 +2128,8 @@
     ['note', 'They leave you a note', ''],
     ['challengeExpiring', 'The weekly challenge is ending', 'Sunday only'],
     ['leg', 'A leg opens', ''],
+    ['duoMission', 'They propose a Duo Mission', 'A shared objective needs your answer'],
+    ['campfire', 'They add a Campfire intention', 'Shared weekly planning'],
     ['badge', 'A badge is earned', '']
   ];
 
@@ -2240,7 +2346,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.8</div></div>' +
+            '<div class="meta">Version 6.0.0-p6.0</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -4443,7 +4549,7 @@
     handshake: handshake, routeName: routeName, earnedMoment: earnedMoment,
     legCount: function () { var r = route(); return r ? r.legs.length : 0; },
     legCountFor: function (id) { var r = ROUTES[id]; return r ? r.legs.length : 0; },
-    home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together,
+    home: home, journey: journey, coach: coach, nutrition: nutrition, train: train, together: together, campfire: campfire, duoMission: duoMission,
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival, checkpoint: checkpoint, expeditionComplete: expeditionComplete,
     records: records, badges: badges, reflection: reflection,

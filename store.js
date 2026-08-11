@@ -28,7 +28,7 @@
     privacy: { weight: false, calories: true, workouts: true, steps: true },
     /* Notification-centre preferences. The daily logging
        reminder is deliberately absent: it fires hardest on the worst days. */
-    notifs: { invite: true, accept: true, note: true, challengeExpiring: true, leg: true, badge: false },
+    notifs: { invite: true, accept: true, note: true, challengeExpiring: true, leg: true, duoMission: true, campfire: true, badge: false },
     /* Stable ids of informational notifications already opened in the centre.
        Action-required items are never cleared merely by viewing them. */
     notificationInfoSeen: [],
@@ -103,6 +103,9 @@
     },
     weeklyReviews: {},
     weeklyGoals: {},
+    /* Together 2.0 is local-first except for explicitly shared mission/campfire payloads.
+       `mode` is deliberately local: each person can choose how Together feels on their phone. */
+    together: { schema: 1, mode: 'cooperative', missions: {}, campfires: {} },
     reactionsGiven: {},
     /* Base Camp is local-first in Phase 1. Nothing here is sent to the partner
        sync payload yet; later game phases can opt specific public-safe fields in. */
@@ -555,6 +558,31 @@
           protein: Math.round(sdProtein)
         };
       } else delete S.partnerData.sharedDinnerProfile;
+      if (plainObject(S.partnerData.together)) {
+        var pt = S.partnerData.together;
+        var cleanMissions = [];
+        if (Array.isArray(pt.duoMissions)) pt.duoMissions.slice(-4).forEach(function (m) {
+          if (!plainObject(m) || !validDateKey(m.weekOf)) return;
+          var mid = shortText(m.id, 80).trim(), prog = finiteOr(m.progress, null, 0, 100000), up = validTimestamp(m.updatedAt);
+          if (!mid || prog == null) return;
+          cleanMissions.push({ weekOf:String(m.weekOf), id:mid, progress:prog, updatedAt:up });
+        });
+        var cleanWeek = null;
+        if (plainObject(pt.weekSummary) && validDateKey(pt.weekSummary.weekOf)) {
+          cleanWeek = { weekOf:String(pt.weekSummary.weekOf), points:Math.max(0,finiteOr(pt.weekSummary.points,0,0,1000)), loggedDays:Math.max(0,Math.round(finiteOr(pt.weekSummary.loggedDays,0,0,7))) };
+          ['workouts','avgSteps','expeditionMiles','avgProtein'].forEach(function(f){
+            if (pt.weekSummary[f] != null) { var n=finiteOr(pt.weekSummary[f],null,0,1000000); if(n!=null) cleanWeek[f]=n; }
+          });
+        }
+        var cleanIntent = null;
+        if (plainObject(pt.campfireIntent) && validDateKey(pt.campfireIntent.weekOf)) {
+          var ciText=shortText(pt.campfireIntent.text,280).trim();
+          if(ciText) cleanIntent={ weekOf:String(pt.campfireIntent.weekOf), text:ciText, updatedAt:validTimestamp(pt.campfireIntent.updatedAt), closedAt:validTimestamp(pt.campfireIntent.closedAt) };
+        }
+        var cleanNext = null;
+        if (plainObject(pt.nextWeek) && validDateKey(pt.nextWeek.weekOf)) cleanNext={ weekOf:String(pt.nextWeek.weekOf), training:!!pt.nextWeek.training, meals:!!pt.nextWeek.meals, mealCount:Math.max(0,Math.min(28,Math.round(finiteOr(pt.nextWeek.mealCount,0,0,28)))) };
+        S.partnerData.together={ duoMissions:cleanMissions, weekSummary:cleanWeek, campfireIntent:cleanIntent, nextWeek:cleanNext };
+      } else delete S.partnerData.together;
       S.partnerData.updated = validTimestamp(S.partnerData.updated);
       S.partnerData.seenPartnerUpdated = validTimestamp(S.partnerData.seenPartnerUpdated);
       S.partnerData.activity = Array.isArray(S.partnerData.activity) ? S.partnerData.activity.filter(plainObject).map(function (a) {
@@ -779,6 +807,22 @@
       S.weeklyGoals[k] = S.weeklyGoals[k].filter(plainObject).slice(0, 4).map(function (g) {
         return { id: shortText(g.id, 60), label: shortText(g.label, 240), target: Math.max(1, Math.round(finiteOr(g.target, 1, 1, 20))) };
       }).filter(function (g) { return !!g.id && !!g.label; });
+    });
+    if (!plainObject(S.together)) S.together = clone(DEFAULT.together);
+    S.together.schema = 1;
+    S.together.mode = ['cooperative','competitive','quiet'].indexOf(S.together.mode) >= 0 ? S.together.mode : 'cooperative';
+    if (!plainObject(S.together.missions)) S.together.missions = {};
+    Object.keys(S.together.missions).forEach(function(k){
+      var m=S.together.missions[k];
+      if(!validDateKey(k)||!plainObject(m)){ delete S.together.missions[k]; return; }
+      var id=shortText(m.id,80).trim(); if(!id){delete S.together.missions[k];return;}
+      S.together.missions[k]={ id:id, weekOf:k, selectedAt:validTimestamp(m.selectedAt), updatedAt:validTimestamp(m.updatedAt) };
+    });
+    if (!plainObject(S.together.campfires)) S.together.campfires = {};
+    Object.keys(S.together.campfires).forEach(function(k){
+      var r=S.together.campfires[k];
+      if(!validDateKey(k)||!plainObject(r)){delete S.together.campfires[k];return;}
+      S.together.campfires[k]={ weekOf:k, openedAt:validTimestamp(r.openedAt), closedAt:validTimestamp(r.closedAt), intent:shortText(r.intent,280).trim(), intentUpdatedAt:validTimestamp(r.intentUpdatedAt) };
     });
     if (!plainObject(S.reactionsGiven)) S.reactionsGiven = {};
     Object.keys(S.reactionsGiven).forEach(function (id) {
@@ -2441,7 +2485,7 @@
     abandonSession: abandonSession, finishSession: finishSession,
     saveReflection: saveReflection, markVerseRead: markVerseRead, verse: verse, verseList: verseList, records: records,
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
-    legMine: legMine, legHers: legHers,
+    miles: miles, walkDistanceMilesForDay: walkDistanceMilesForDay, legMine: legMine, legHers: legHers,
     checkpointUnlocked: checkpointUnlocked, checkpointArrival: checkpointArrival,
     partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, identityKey: identityKey,
     advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,

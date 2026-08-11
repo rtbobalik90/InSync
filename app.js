@@ -126,6 +126,8 @@
     else if (root === 'trends') html = Screens.trends();
     else if (root === 'planner') html = Screens.planner();
     else if (root === 'weekly-review') html = Screens.weeklyReview();
+    else if (root === 'campfire') html = Screens.campfire();
+    else if (root === 'duo-mission') html = Screens.duoMission();
     else if (root === 'calendar') html = Screens.calendar();
     else if (root === 'day-history') html = Screens.dayHistory();
     else if (root === 'planned-meal') html = Screens.plannedMeal();
@@ -319,6 +321,46 @@
     }
 
     var action = el.getAttribute('data-action');
+
+    if (action === 'set-together-mode') {
+      if (window.InSyncTogether) InSyncTogether.setMode(el.getAttribute('data-value'));
+      return;
+    }
+    if (action === 'choose-duo-mission' || action === 'accept-duo-mission') {
+      if (!window.InSyncTogether) return;
+      var missionWeek=el.getAttribute('data-week')||InSyncTogether.currentWeek(), missionId=el.getAttribute('data-id');
+      if (!InSyncTogether.setMission(missionWeek,missionId)) return;
+      if (window.Cloud && Cloud.hasGit && Cloud.hasGit()) Cloud.push(function(err){ if(err) console.warn('Duo Mission sync:',err.message); });
+      return;
+    }
+    if (action === 'quick-encouragement') {
+      var encouragement=(el.getAttribute('data-text')||'').trim(); if(!encouragement)return;
+      Store.setPartnerNote(encouragement);
+      el.disabled=true; var eWas=el.textContent; el.textContent='Sent';
+      if (window.Cloud && Cloud.hasGit && Cloud.hasGit()) Cloud.push(function(){ render(); });
+      else setTimeout(function(){ if(el&&el.isConnected){el.disabled=false;el.textContent=eWas;} },900);
+      return;
+    }
+    if (action === 'save-campfire-intent') {
+      if(!window.InSyncTogether)return;
+      var cWeek=el.getAttribute('data-week')||(window.Insights&&Insights.reviewWeekKey?Insights.reviewWeekKey():Store.weekStart(Store.todayKey()));
+      var cInput=app.querySelector('[data-campfire-intent]');
+      InSyncTogether.setCampfireIntent(cWeek,cInput?cInput.value:'');
+      var cWas=el.textContent; el.textContent='Saved';
+      if(window.Cloud&&Cloud.hasGit&&Cloud.hasGit())Cloud.push(function(){});
+      setTimeout(function(){if(el&&el.isConnected)el.textContent=cWas;},1000);
+      return;
+    }
+    if (action === 'close-campfire') {
+      if(!window.InSyncTogether)return;
+      var closeWeek=el.getAttribute('data-week')||(window.Insights&&Insights.reviewWeekKey?Insights.reviewWeekKey():Store.weekStart(Store.todayKey()));
+      var intentInput=app.querySelector('[data-campfire-intent]');
+      if(intentInput)InSyncTogether.setCampfireIntent(closeWeek,intentInput.value);
+      InSyncTogether.closeCampfire(closeWeek);
+      if(window.Insights&&Insights.setNextWeekGoals)Insights.setNextWeekGoals(closeWeek);
+      if(window.Cloud&&Cloud.hasGit&&Cloud.hasGit())Cloud.push(function(){});
+      return;
+    }
 
     /* Send a note: save it, then push if sync is configured. The status line
        only claims it was sent once the push actually returns. */
@@ -1279,7 +1321,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p5.8', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p6.0', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

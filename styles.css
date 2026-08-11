@@ -1471,3 +1471,43 @@ button.journey-leg:focus-visible { outline: 2px solid var(--gold); outline-offse
   .weekstrip { padding-left: 9px; padding-right: 9px; gap: 3px; }
   .wk-plan { font-size: 9.2px; }
 }
+
+/* ---------- Phase 6: Together 2.0 + Weekly Campfire ---------- */
+.together-mode-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+.together-mode-grid .ob-chip { min-height:42px; padding:8px 7px; font-size:10px; line-height:1.2; }
+.campfire-title { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.campfire-mark { width:42px; height:42px; display:grid; place-items:center; flex:none; border:1px solid rgba(198,161,93,.32); border-radius:50%; color:var(--gold-lt); font-size:19px; background:rgba(198,161,93,.06); }
+.partner-intent { border:1px solid rgba(143,161,132,.23); background:rgba(143,161,132,.07); border-radius:12px; padding:11px 12px; margin:0 0 13px; display:grid; gap:4px; }
+.partner-intent span { color:var(--sage-lt); font-size:10px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; }
+.partner-intent strong { font-family:var(--serif); font-size:15px; line-height:1.38; font-weight:500; }
+.mission-head { display:flex; align-items:baseline; justify-content:space-between; gap:14px; }
+.mission-head strong { color:var(--gold-mid); font:500 16px/1.2 var(--serif); white-space:nowrap; }
+.coop-total { display:flex; align-items:baseline; gap:10px; margin-top:8px; }
+.coop-total strong { font:500 40px/1 var(--serif); color:var(--gold-lt); }
+.coop-total span { color:var(--muted); font-size:13px; }
+.encourage-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.encourage-chip { min-height:50px; border:1px solid var(--line); border-radius:10px; background:rgba(243,237,225,.025); color:var(--ink); padding:10px 11px; font-size:11.5px; line-height:1.35; text-align:left; }
+.encourage-chip:active { transform:scale(.985); background:rgba(198,161,93,.08); }
+.mission-picker { overflow:hidden; }
+.mission-option { width:100%; min-height:76px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:center; border:0; border-bottom:1px solid var(--rule); background:transparent; color:inherit; padding:14px 16px; text-align:left; }
+.mission-option:last-child { border-bottom:0; }
+.mission-option.on { background:rgba(198,161,93,.065); }
+.mission-option strong { display:block; font:500 16px/1.25 var(--serif); margin-bottom:4px; }
+.mission-option small { display:block; color:var(--muted); font-size:11px; line-height:1.38; }
+.mission-option b { color:var(--gold-mid); font:500 14px/1.2 var(--serif); white-space:nowrap; }
+.campfire-pair { display:grid; grid-template-columns:1fr 1fr; gap:1px; margin-top:13px; overflow:hidden; border:1px solid var(--rule); border-radius:12px; background:var(--rule); }
+.campfire-pair section { padding:14px; background:rgba(13,14,10,.97); min-width:0; }
+.campfire-pair h3 { margin:0 0 11px; font:500 17px/1.2 var(--serif); }
+.campfire-stat { display:grid; gap:2px; padding:9px 0; border-top:1px solid var(--rule); }
+.campfire-stat:first-of-type { border-top:0; padding-top:0; }
+.campfire-stat span { color:var(--muted); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.campfire-stat strong { font:500 19px/1.15 var(--serif); }
+.campfire-stat small { color:var(--faint); font-size:10.5px; line-height:1.3; }
+.campfire-ready-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.campfire-ready-grid .campfire-stat { border:1px solid var(--rule); border-radius:10px; padding:12px; }
+.reflect.campfire-intent { min-height:96px; font-size:16px; }
+@media (max-width:360px) {
+  .together-mode-grid { grid-template-columns:1fr; }
+  .encourage-grid { grid-template-columns:1fr; }
+  .campfire-pair { grid-template-columns:1fr; }
+}

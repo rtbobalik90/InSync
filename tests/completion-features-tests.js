@@ -93,7 +93,7 @@ function plan(w){return new Promise(r=>C.planMealsWeek(w,(err,map)=>r({err,map})
  // Reactions are toggleable and travel as a small sync map.
  ok(!I.setReaction('__proto__','heart'),'reaction storage rejects unsafe/non-activity ids');
  const partnerEvent='a:lizzie:'+today+':protein';ok(I.setReaction(partnerEvent,'heart'),'partner activity can be reacted to');eq(I.reactionsGiven()[partnerEvent],'heart','reaction is stored locally for sync');ok(I.setReaction(partnerEvent,'heart'),'tapping the same reaction toggles it off');ok(!I.reactionsGiven()[partnerEvent],'reaction can be removed');I.setReaction(partnerEvent,'fire');
- const share=C.sharePayload();eq(share.schema,7,'completion features use sync schema 7');eq(share.reactions[partnerEvent],'fire','reaction is included in shared payload');ok(Array.isArray(share.activity),'shared payload carries a bounded activity feed');
+ const share=C.sharePayload();eq(share.schema,8,'completion features use current sync schema 8');eq(share.reactions[partnerEvent],'fire','reaction is included in shared payload');ok(Array.isArray(share.activity),'shared payload carries a bounded activity feed');
 
  // Sync health has explicit healthy/error/ack facts rather than a vague string.
  S.setSecret('githubToken','token');S.set('connections.githubRepo','rtbobalik90/insync-sync');S.set('connections.lastSync',new Date().toISOString());
@@ -106,7 +106,7 @@ function plan(w){return new Promise(r=>C.planMealsWeek(w,(err,map)=>r({err,map})
  ok(screens.includes('Not-for-me memory')&&app.includes("action === 'allow-meal-again'"),'thumbs-down meal memory can be reviewed and reversed');
  ok(screens.includes('Swap exercise')&&app.includes("action === 'swap-exercise'"),'training exposes and wires exercise substitution');
  ok(screens.includes('Movement memory')&&app.includes("action === 'allow-exercise-again'"),'remembered movement exclusions can be explicitly allowed again');
- ok(screens.includes('Weekly review ready')&&app.includes("action === 'setup-next-week'"),'weekly review and next-week setup are wired');
+ ok(screens.includes('Weekly Campfire ready')&&app.includes("action === 'setup-next-week'"),'weekly review and next-week setup are wired');
  ok(screens.includes('History &amp; calendar')&&screens.includes('function dayHistory')&&screens.includes('Progress photos')&&screens.includes('Trail distance'),'complete calendar/day history includes photos and trail distance');
  ok(screens.includes('Coach noticed')&&cloud.includes('Insights.patternsText'),'pattern-aware coaching is both proactive and supplied to Claude');
  ok(screens.includes('Sync healthy')||screens.includes('syncHealthPanel'),'Settings exposes a real sync-health panel');

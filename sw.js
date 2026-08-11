@@ -1,11 +1,11 @@
 /* InSync service worker. Code is network-first so fixes land promptly. Artwork
    is stale-while-revalidate: the cached image opens instantly, while the same
    request quietly refreshes it for the next view. */
-var CACHE = 'insync-v10-32';
+var CACHE = 'insync-v10-33';
 var SHELL = [
   './', 'index.html', 'styles.css',
   'domains.js', 'contracts.js', 'journeys.js', 'theme.js', 'rewards.js', 'camp.js',
-  'store.js', 'intelligence.js', 'prompt-registry.js', 'cloud.js', 'ui.js', 'media.js', 'exercises.js', 'training.js', 'nutrition.js', 'insights.js', 'foods.js',
+  'store.js', 'intelligence.js', 'prompt-registry.js', 'cloud.js', 'ui.js', 'media.js', 'exercises.js', 'training.js', 'nutrition.js', 'insights.js', 'together.js', 'foods.js',
   'badges.js', 'screens.js', 'onboarding.js', 'log.js', 'app.js',
   'manifest.webmanifest',
   'assets/icon-192.png', 'assets/icon-512.png', 'assets/icon-maskable-512.png',

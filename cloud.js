@@ -784,6 +784,28 @@
         if (aid && at && !isNaN(Date.parse(at))) out.prayerAcks.push({ id:aid, at:at });
       });
     }
+    if (raw.together && Object.prototype.toString.call(raw.together) === '[object Object]') {
+      var tg={duoMissions:[],weekSummary:null,campfireIntent:null,nextWeek:null};
+      if(Array.isArray(raw.together.duoMissions)) raw.together.duoMissions.slice(-4).forEach(function(m){
+        if(!m||Object.prototype.toString.call(m)!=='[object Object]'||!validDateKey(m.weekOf))return;
+        var mid=cleanText(m.id,80), mp=boundedNumber(m.progress,0,100000,null), mu=cleanText(m.updatedAt,80);
+        if(mu&&isNaN(Date.parse(mu)))mu=''; if(mid&&mp!=null)tg.duoMissions.push({weekOf:m.weekOf,id:mid,progress:mp,updatedAt:mu});
+      });
+      var ws=raw.together.weekSummary;
+      if(ws&&Object.prototype.toString.call(ws)==='[object Object]'&&validDateKey(ws.weekOf)){
+        tg.weekSummary={weekOf:ws.weekOf,points:boundedNumber(ws.points,0,1000,0),loggedDays:Math.round(boundedNumber(ws.loggedDays,0,7,0))};
+        [['workouts',0,100],['avgSteps',0,200000],['expeditionMiles',0,5000],['avgProtein',0,1000]].forEach(function(sp){if(ws[sp[0]]!=null){var n=boundedNumber(ws[sp[0]],sp[1],sp[2],null);if(n!=null)tg.weekSummary[sp[0]]=n;}});
+      }
+      var ci=raw.together.campfireIntent;
+      if(ci&&Object.prototype.toString.call(ci)==='[object Object]'&&validDateKey(ci.weekOf)){
+        var cit=cleanText(ci.text,280), ciu=cleanText(ci.updatedAt,80), cic=cleanText(ci.closedAt,80);
+        if(ciu&&isNaN(Date.parse(ciu)))ciu=''; if(cic&&isNaN(Date.parse(cic)))cic='';
+        if(cit)tg.campfireIntent={weekOf:ci.weekOf,text:cit,updatedAt:ciu,closedAt:cic};
+      }
+      var nw=raw.together.nextWeek;
+      if(nw&&Object.prototype.toString.call(nw)==='[object Object]'&&validDateKey(nw.weekOf))tg.nextWeek={weekOf:nw.weekOf,training:!!nw.training,meals:!!nw.meals,mealCount:Math.round(boundedNumber(nw.mealCount,0,28,0))};
+      out.together=tg;
+    }
     return out;
   }
 
@@ -791,7 +813,7 @@
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
-      schema: 7,
+      schema: 8,
       name: s.profile.name,
       initials: s.profile.initials,
       date: k,
@@ -813,6 +835,10 @@
          never enter this payload. */
       sharedPrayer: window.Faith && Faith.sharedPrayerPayload ? Faith.sharedPrayerPayload() : null,
       prayerAcks: window.Faith && Faith.sharedPrayerAcks ? Faith.sharedPrayerAcks() : [],
+      /* Together 2.0 shares only explicit shared-workflow state: bounded Duo Mission
+         progress, a short Campfire intention, planning readiness and privacy-safe
+         weekly aggregates. The local Together presentation mode never crosses. */
+      together: window.InSyncTogether && InSyncTogether.sharePayload ? InSyncTogether.sharePayload() : null,
       messages: (s.sentMessages || []).slice(-50).map(function (m) {
         return {
           id: cleanText(m.id, 120), date: validDateKey(m.date) ? m.date : k,
