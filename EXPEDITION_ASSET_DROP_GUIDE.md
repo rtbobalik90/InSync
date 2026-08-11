@@ -95,7 +95,18 @@ Base folder: `assets/art/milford/`
 
 ## Grand Canyon rim to rim — `grand`
 
+**STATUS: PRODUCTION ART DELIVERED in p5.4.**
+
 Base folder: `assets/art/grand/`
+
+### Time-aware Home (Grand Canyon first complete pack)
+
+- Dawn: `assets/art/grand/sections/home-dawn.webp`
+- Day: `assets/art/grand/sections/home-day.webp`
+- Sunset/dusk: `assets/art/grand/sections/home-sunset.webp`
+- Night: `assets/art/grand/sections/home-night.webp`
+
+InSync selects these automatically from `Store.timeOfDay()`. The generic `sections/home.webp` remains a reserved compatibility slot.
 
 ### App sections
 

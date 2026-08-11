@@ -1,57 +1,32 @@
-# InSync 6.0.0-p5.3 — Journey Checkpoints & Expedition Art Slots
+# InSync 6.0.0-p5.4 — Grand Canyon Production Art Pack
 
-## Reached places are now real destinations
-Journey no longer treats a route only as a list of mileage segments. Each expedition now has a checkpoint catalog beginning with its actual starting place and continuing through the destinations reached along the road.
+## First expedition art pack installed
+Grand Canyon Rim to Rim is now the first expedition to replace the transparent Theme Engine placeholders with finished production artwork.
 
-- Starting checkpoint unlocks when the expedition begins.
-- Before the first mile, Journey shows the starting checkpoint art slot.
-- Once walking begins, Journey changes to the active Travel/Leg artwork.
-- Completing a leg unlocks its destination checkpoint.
-- The arrival moment now uses the dedicated scenic checkpoint image slot rather than simply recycling travel artwork.
-- Reached locations remain tappable from Journey and open a permanent checkpoint detail page.
-- Locked future checkpoint pages do not expose their destination artwork.
+Installed:
+- 4 time-aware Home / Daily Camp images
+- Journey hero
+- Train hero
+- Nutrition / Provisions hero
+- Together hero
+- Coach hero
+- Base Camp environment
+- Final Arrival Ceremony
+- 4 active Travel / Leg images
+- 5 scenic Checkpoint Arrival images
 
-## Checkpoint detail pages
-Unlocked place pages include:
-- scenic checkpoint hero;
-- reached date when it is known;
-- route and checkpoint identity;
-- previous-leg breakdown;
-- leg distance;
-- cumulative distance from the route start;
-- climb when the catalog provides it;
-- local/partner contribution for newly recorded checkpoints.
+## Home changes with the real day
+The Grand Canyon Home hero now follows InSync's existing dawn/day/sunset/night state. The four images supplied for Daily Camp are all used rather than collapsing the set into one static Home image.
 
-Existing users retain previously reached locations. Migration never fabricates a date or contribution split when the old state did not contain enough information.
+## Checkpoint system
+The p5.3 behavior remains intact: Travel art represents movement between places; checkpoint art represents the place actually reached. North Rim Trailhead is available at expedition start, then Cottonwood Camp, Phantom Ranch, Indian Garden and South Rim unlock as their legs are completed.
 
-## Whole-route completion is separate
-The final checkpoint and the expedition-completion ceremony are intentionally separate product moments.
-
-- Final checkpoint: **you reached this actual place**.
-- Arrival Ceremony: **you completed the entire expedition**.
-
-A new `#expedition-complete/<routeId>` surface uses `sections/arrival.webp`, summarizes distance/legs/places, shows recorded contribution when trustworthy, and provides a route-memory list back into the reached checkpoint pages.
-
-## Image-ready Theme Engine slots
-Every one of the 12 routes now reserves deterministic image paths for:
-- eight app sections;
-- each Travel/Leg image;
-- each Checkpoint Arrival image.
-
-The feature can ship before new images are generated. Transparent v2 placeholders reveal the current known-good production art underneath until the finished files replace them. See `EXPEDITION_ASSET_DROP_GUIDE.md` for exact drop paths.
-
-## Storage and sync
-- Adds `expedition.arrivals` inside local state v10.
-- Starting and newly reached checkpoint records are local-first.
-- Partner progress can create the matching arrival record when sync advances the shared leg.
-- Partner sync remains schema 7.
-- No data reset required.
+## Performance
+The original vertical PNGs were converted to optimized WebP while retaining the 941×1672 source dimensions. The complete build remains under the existing production asset-size gate.
 
 ## Versioning
-- App/UI: `6.0.0-p5.3`
+- App/UI: `6.0.0-p5.4`
 - Local state: `insync.v10`
 - Partner sync: schema `7`
-- Service worker: `insync-v10-25`
-
-## Still preserved from p5.2
-Time-aware Home Morning Check-In/Nightly Review, editable past-day history, barcode-photo hotfix, Training 2.0, Nutrition 2.0 and parked Faith all remain intact.
+- Service worker: `insync-v10-26`
+- No reset required

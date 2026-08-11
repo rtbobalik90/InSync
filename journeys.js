@@ -249,12 +249,27 @@
 
   var SECTION_KEYS = ['home','journey','train','nutrition','together','coach','base-camp','arrival'];
 
+  /* Optional time-aware Home packs. Routes stay on sections/home.webp until
+     all four states are delivered; this prevents half-finished expeditions
+     from falling through to missing art. Grand Canyon is the first complete
+     time-aware Home pack. */
+  var HOME_TIME_PACKS = { grand:true };
+
   function pad2(n) { return String(Math.max(0, Math.round(+n || 0))).padStart(2, '0'); }
   function sectionArt(routeId, surface) {
     routeId = String(routeId || ''); surface = String(surface || '');
     if (!ROUTES[routeId] || SECTION_KEYS.indexOf(surface) < 0) return '';
     return 'assets/art/' + routeId + '/sections/' + surface + '.webp';
   }
+  function homeArt(routeId, timeOfDay) {
+    routeId = String(routeId || '');
+    if (!ROUTES[routeId]) return '';
+    if (!HOME_TIME_PACKS[routeId]) return sectionArt(routeId, 'home');
+    var t = String(timeOfDay || 'day');
+    if (t !== 'dawn' && t !== 'day' && t !== 'sunset' && t !== 'night') t = 'day';
+    return 'assets/art/' + routeId + '/sections/home-' + t + '.webp';
+  }
+
   function travelArt(routeId, legIndex) {
     routeId = String(routeId || '');
     if (!ROUTES[routeId]) return '';
@@ -320,7 +335,7 @@
     version: 2,
     ROUTES: ROUTES, ORDER: ROUTE_ORDER, GRADES: GRADES,
     get: get, miles: miles, climb: climb, hero: hero,
-    sectionArt: sectionArt, travelArt: travelArt,
+    sectionArt: sectionArt, homeArt: homeArt, travelArt: travelArt,
     checkpoints: checkpoints, checkpoint: checkpoint,
     checkpointsForLeg: checkpointsForLeg, primaryCheckpointForLeg: primaryCheckpointForLeg,
     cumulativeMilesToCheckpoint: cumulativeMilesToCheckpoint

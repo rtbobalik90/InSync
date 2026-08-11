@@ -1279,7 +1279,7 @@
     })();
   })();
 
-  window.InSyncRuntime = { version:'6.0.0-p5.3', updateStatus:'checking' };
+  window.InSyncRuntime = { version:'6.0.0-p5.4', updateStatus:'checking' };
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     var hadController=!!navigator.serviceWorker.controller, reloadingForUpdate=false, updateReloadTimer=null;
     function applyUpdateWhenSafe() {

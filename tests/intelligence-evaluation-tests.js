@@ -116,8 +116,8 @@ function response(text,stop='end_turn'){return Promise.resolve({ok:true,status:2
  // Wiring/version/offline shell.
  const index=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
  ok(index.indexOf('intelligence.js')<index.indexOf('cloud.js')&&index.indexOf('prompt-registry.js')<index.indexOf('cloud.js'),'Intelligence and Prompt Registry load before Cloud');
- ok(sw.includes("CACHE = 'insync-v10-25'")&&sw.includes("'intelligence.js'")&&sw.includes("'prompt-registry.js'"),'Phase 2 Intelligence files are part of the offline shell');
- ok(app.includes("version:'6.0.0-p5.3'")&&settings.includes('Version 6.0.0-p5.3'),'runtime and Settings identify the Phase 2 build');
+ ok(sw.includes("CACHE = 'insync-v10-26'")&&sw.includes("'intelligence.js'")&&sw.includes("'prompt-registry.js'"),'Phase 2 Intelligence files are part of the offline shell');
+ ok(app.includes("version:'6.0.0-p5.4'")&&settings.includes('Version 6.0.0-p5.4'),'runtime and Settings identify the Phase 2 build');
 
  console.log(`\n${passed} Phase 2 Intelligence checks passed, ${failed} failed`);if(failed)process.exit(1);
 })().catch(e=>{console.error(e);process.exit(1)});

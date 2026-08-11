@@ -26,10 +26,12 @@
      underneath until that new file exists in the bundle. */
   function expeditionSurface(surface, fallback) {
     var id = Store.state().expedition.routeId;
-    return {
-      art: id && window.Journeys && Journeys.sectionArt ? Journeys.sectionArt(id, surface) : fallback,
-      fallback: fallback
-    };
+    var art = fallback;
+    if (id && window.Journeys) {
+      if (surface === 'home' && Journeys.homeArt) art = Journeys.homeArt(id, Store.timeOfDay());
+      else if (Journeys.sectionArt) art = Journeys.sectionArt(id, surface);
+    }
+    return { art: art, fallback: fallback };
   }
   function checkpointFallback(routeId, cp) {
     var r = ROUTES[routeId] || {};
@@ -2302,7 +2304,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.3</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.4</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +

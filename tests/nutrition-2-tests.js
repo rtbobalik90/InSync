@@ -64,11 +64,11 @@ function plan(){return new Promise(resolve=>C.planMealsWeek(week,(err,m)=>resolv
  ctx.fetch=weekFetch; const r=await plan();ok(!r.err,'weekly planner repairs a failing day and returns a verified week');ok(repairCalls>=1,'planner makes a targeted day-repair request instead of rebuilding the whole week');
  const verified=N.validateWeek(r.m,week,S.state().targets,S.state().mealPrefs);ok(verified.ok,'returned generated week passes deterministic seven-day verification');
  const cloud=fs.readFileSync(path.join(ROOT,'cloud.js'),'utf8'),screens=fs.readFileSync(path.join(ROOT,'screens.js'),'utf8'),app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),log=fs.readFileSync(path.join(ROOT,'log.js'),'utf8'),index=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
- ok(index.includes('<script src="nutrition.js"></script>')&&sw.includes("'nutrition.js'")&&sw.includes("insync-v10-25"),'Nutrition 2.0 engine is in production and offline shell');
+ ok(index.includes('<script src="nutrition.js"></script>')&&sw.includes("'nutrition.js'")&&sw.includes("insync-v10-26"),'Nutrition 2.0 engine is in production and offline shell');
  ok(screens.includes('Must never include')&&screens.includes('Pantry staples already on hand'),'planner exposes separate hard exclusions and pantry staples');
  ok(screens.includes('Plan verification')&&screens.includes('Prep timeline'),'planner exposes verified status and a cooking timeline');
  ok(screens.includes('Shared Dinner')&&app.includes("action === 'build-shared-dinner'")&&cloud.includes('function buildSharedDinner'),'Shared Dinner is wired from recipe UI through AI and deterministic validation');
  ok(log.includes('Fit it into today')&&log.includes("source: open.kind === 'restaurant'"),'Eating Out mode is target-aware and logged as a distinct source');
- ok(app.includes("version:'6.0.0-p5.3'")&&screens.includes('Version 6.0.0-p5.3'),'runtime and Settings identify Phase 5');
+ ok(app.includes("version:'6.0.0-p5.4'")&&screens.includes('Version 6.0.0-p5.4'),'runtime and Settings identify Phase 5');
  console.log(`\n${passed} Nutrition 2.0 checks passed, ${failed} failed`);if(failed)process.exitCode=1;
 })();

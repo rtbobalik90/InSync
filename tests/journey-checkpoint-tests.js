@@ -23,6 +23,11 @@ eq(J.checkpoint('grand',2).name,'Phantom Ranch','Grand Canyon destination list i
 ok(J.checkpoint('grand',2).art.endsWith('/grand/checkpoints/checkpoint-02.webp'),'checkpoint art has a deterministic drop-in slot');
 ok(J.travelArt('grand',0).endsWith('/grand/travel/leg-01.webp'),'active leg art has a deterministic drop-in slot');
 ok(J.sectionArt('grand','home').endsWith('/grand/sections/home.webp'),'app-section art has a deterministic drop-in slot');
+ok(J.homeArt('grand','dawn').endsWith('/grand/sections/home-dawn.webp'),'Grand Canyon Home has a dawn slot');
+ok(J.homeArt('grand','day').endsWith('/grand/sections/home-day.webp'),'Grand Canyon Home has a day slot');
+ok(J.homeArt('grand','sunset').endsWith('/grand/sections/home-sunset.webp'),'Grand Canyon Home has a sunset slot');
+ok(J.homeArt('grand','night').endsWith('/grand/sections/home-night.webp'),'Grand Canyon Home has a night slot');
+ok(J.homeArt('inca','night').endsWith('/inca/sections/home.webp'),'routes without a complete time pack keep the generic Home slot');
 eq(J.checkpoints('everest').length,10,'Everest manifest can preserve notable route places beyond simple leg endpoints');
 ok(J.checkpoints('paine').some(x=>x.name==='Grey Glacier'),'Patagonia manifest retains Grey Glacier as a place checkpoint');
 
@@ -88,7 +93,7 @@ ok(migratedHtml.includes('will not invent an arrival date or contribution split'
 
 // New expedition section art is wired with fallback across recurring screens.
 S.set('expedition.routeId','grand');c.location.hash='#home';html=c.Screens.home();
-ok(html.includes('assets/art/grand/sections/home.webp')&&html.includes('assets/art/camp-'),'Home is ready for expedition section art with a camp fallback');
+ok(html.includes('assets/art/grand/sections/home-')&&html.includes('.webp')&&html.includes('assets/art/camp-'),'Home uses the delivered time-aware Grand Canyon art with a camp fallback');
 c.location.hash='#train';html=c.Screens.train();
 ok(html.includes('assets/art/grand/sections/train.webp')&&html.includes('assets/art/train-banner.webp'),'Train is ready for expedition section art with its existing fallback');
 c.location.hash='#nutrition';html=c.Screens.nutrition();
@@ -111,7 +116,7 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),sw=fs.readFileSync(pa
 ok(app.includes("else if (root === 'checkpoint') html = Screens.checkpoint()"),'router exposes checkpoint detail pages');
 ok(app.includes("else if (root === 'expedition-complete') html = Screens.expeditionComplete()"),'router exposes the separate whole-expedition completion ceremony');
 ok(ui.includes('opts.artFallback')&&ui.includes('fallback && fallback !== art'),'UI shell supports missing-future-art fallbacks without a broken hero');
-ok(app.includes("version:'6.0.0-p5.3'")&&sw.includes("CACHE = 'insync-v10-25'"),'P5.3 runtime and service-worker cache are bumped for installed phones');
+ok(app.includes("version:'6.0.0-p5.4'")&&sw.includes("CACHE = 'insync-v10-26'"),'P5.3 runtime and service-worker cache are bumped for installed phones');
 
 console.log(`\n${passed} Journey checkpoint checks passed, ${failed} failed`);
 if(failed)process.exitCode=1;
