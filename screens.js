@@ -1004,7 +1004,7 @@
         ? '<article class="card pad"><div class="kicker">Movement memory</div><p class="small" style="margin:8px 0 12px">These movements stay out of future coach plans because you marked them as a dislike or discomfort. Tap one if you want to allow it again.</p><div class="prefchips">' + Insights.avoidedExerciseIds().map(function(id){var ex=Exercises.get(id);return ex?'<button class="ob-chip" data-action="allow-exercise-again" data-exercise-id="'+esc(id)+'">↺ '+esc(ex.name)+'</button>':'';}).join('') + '</div></article>' : '');
 
     return UI.screen({
-      tab:'train',rest:310,restMeasure:true,photoHeight:'390px',screenClass:'train-screen',
+      tab:'train',rest:310,restMeasure:true,photoHeight:'690px',screenClass:'train-screen',
       art:trainHero.art,artFallback:trainHero.fallback,photoPosition:'center 42%',scrim:UI.SCRIMS.train,
       overlay:'<div class="eyebrow">Train</div><p class="verse" style="font-size:25px">'+esc(headline)+'</p>',
       body:body
@@ -2240,7 +2240,7 @@
 
         '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
-            '<div class="meta">Version 6.0.0-p5.6</div></div>' +
+            '<div class="meta">Version 6.0.0-p5.7.2</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
@@ -3024,7 +3024,7 @@
 
     var dayTrainHero = expeditionSurface('train', 'assets/art/train-banner.webp');
     return UI.screen({
-      tab: null, rest: 300, blur: true, screenClass:'train-screen',
+      tab: null, rest: 300, screenClass:'train-screen',
       header: { back: 'train', title: FULL[dt.getDay()], right: '<div style="width:34px"></div>' },
       art: dayTrainHero.art, artFallback: dayTrainHero.fallback, scrim: UI.SCRIMS.train, photoPosition: 'center 40%',
       overlay: '<div class="eyebrow">' + dateLabel(key) + (isToday ? ' \u00b7 today' : '') + '</div>' +

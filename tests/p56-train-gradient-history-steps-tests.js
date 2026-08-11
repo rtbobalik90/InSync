@@ -11,8 +11,8 @@ const log=fs.readFileSync(path.join(ROOT,'log.js'),'utf8');
 const store=fs.readFileSync(path.join(ROOT,'store.js'),'utf8');
 const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
 
-ok(ui.includes("train: 'linear-gradient(180deg,rgba(10,12,8,0) 0%,rgba(10,12,8,0) 58%"),'Train scrim has no dark wash across the top 58 percent');
-ok(ui.includes("rgba(20,21,15,.70) 91%,#14150F 100%"),'Train scrim still blends into the dark card stack at the bottom');
+ok(ui.includes("rgba(10,12,8,0) 62%"),'Train scrim keeps the upper and middle hero visually open');
+ok(ui.includes("rgba(20,21,15,.62) 92%,#14150F 100%"),'Train scrim still blends into the dark card stack at the bottom');
 ok(screens.includes("scrim:UI.SCRIMS.train"),'Train landing uses the dedicated Train scrim');
 ok(screens.includes("scrim: UI.SCRIMS.train"),'Train day uses the dedicated Train scrim');
 
@@ -25,7 +25,7 @@ ok(screens.includes('<button class="btn ghost sm" data-action="log-steps" data-d
 ok(app.includes("if (action === 'log-steps') { Log.open('steps', { date: editDate }); return; }"),'dated steps action passes the selected date into the logging sheet');
 ok(log.includes("Store.setSteps(Math.round(nonneg(d.steps)), open.date);"),'steps sheet saves to its selected date rather than today');
 ok(log.includes("var key = d._date || Store.todayKey();")&&log.includes("past ? 'Steps for this day' : 'Steps today'"),'steps sheet labels historical edits explicitly');
-ok(app.includes("version:'6.0.0-p5.6'")&&sw.includes("CACHE = 'insync-v10-28'"),'P5.6 runtime and cache identifiers are current');
+ok(app.includes("version:'6.0.0-p5.7.2'")&&sw.includes("CACHE = 'insync-v10-31'"),'P5.6 runtime and cache identifiers are current');
 
 // Behavior check: Store.setSteps writes to the supplied prior date without touching today.
 class LS{constructor(){this.m=new Map()}getItem(k){return this.m.has(k)?this.m.get(k):null}setItem(k,v){this.m.set(k,String(v))}removeItem(k){this.m.delete(k)}}

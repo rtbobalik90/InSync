@@ -19,6 +19,6 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
 const sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
 ok(journeys.includes("var HOME_TIME_PACKS = { grand:true }")&&journeys.includes("/sections/home-' + t + '.webp'"),'Grand Canyon declares a complete four-state Home art pack');
 ok(screens.includes("surface === 'home' && Journeys.homeArt")&&screens.includes('Store.timeOfDay()'),'Home selects expedition artwork from the live time-of-day state');
-ok(app.includes("version:'6.0.0-p5.6'")&&sw.includes("CACHE = 'insync-v10-28'"),'P5.4 runtime and cache invalidate previously cached transparent placeholders');
+ok(app.includes("version:'6.0.0-p5.7.2'")&&sw.includes("CACHE = 'insync-v10-31'"),'P5.4 runtime and cache invalidate previously cached transparent placeholders');
 console.log(`\n${passed} Grand Canyon art-pack checks passed, ${failed} failed`);
 if(failed)process.exitCode=1;

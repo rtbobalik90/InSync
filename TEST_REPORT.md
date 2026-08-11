@@ -1,19 +1,16 @@
-# InSync 6.0.0-p5.6 — Test Report
+# InSync 6.0.0-p5.7.2 — Test Report
 
-This release adds regression coverage for the Train hero scrim and historical step editing.
+Phase 2 Train hero geometry correction.
 
-P5.6-specific checks verify that:
-- Train has no global dark wash across the top 58% of the hero;
-- Train still fades strongly into the card stack at the bottom;
-- Train landing and Train day both use the dedicated scrim;
-- current and prior Train days expose Add/Edit steps;
-- future days stay non-editable;
-- the dated action passes the selected date through Log.open;
-- Log saves steps to `open.date`;
-- Store writes corrected historical steps to that day without changing today;
-- runtime and service-worker IDs are bumped.
+Focused regression coverage verifies:
+- the main Train hero extends to 690px rather than ending at 390px;
+- the expedition art remains visually open through the upper/middle hero;
+- the fade begins low in the image and resolves into the app ground only near the card transition;
+- workout-day art remains crisp rather than permanently blurred;
+- historical/current day step editing remains available;
+- runtime and service-worker identifiers are current.
 
-Full-suite totals are recorded after packaging verification.
+Full deterministic suite: 25 test files passed, 0 failed; 1,762 PASS assertions.
 
-Runtime: `6.0.0-p5.6`  
-Service worker: `insync-v10-28`
+Runtime: `6.0.0-p5.7.2`
+Service worker: `insync-v10-31`

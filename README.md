@@ -37,3 +37,6 @@ UI exposes light, medium and heavy scrim presets. Scenic/emotional screens prese
 
 
 P5.7: Phase 2 overlay refinement begins with a train-specific hero treatment that removes the heavy full-screen wash and keeps the canyon image open through the upper and middle frame.
+
+
+P5.7.2: Train hero geometry corrected. The main Train photograph now extends to 690px instead of ending at 390px, and the fade begins around 62% of the hero so the photograph stays visible until the card transition.
