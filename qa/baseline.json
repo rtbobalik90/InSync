@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "release": "6.0.0-p6.2",
+  "release": "6.0.0-p6.2 Base Camp + Cookbook integration RC1",
   "timezone": "America/Chicago",
-  "testFileCount": 34,
+  "testFileCount": 45,
   "timeoutMs": 60000,
   "placeholderSha256": "67064639f8bc55ecd7e9d4e79d4381ee1b79941542ff0330cb9f4d3df8f654ef",
   "reservedSlotSha256": [

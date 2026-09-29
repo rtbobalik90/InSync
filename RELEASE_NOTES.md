@@ -1,3 +1,21 @@
+# InSync Base Camp + Cookbook Integration RC1
+
+- Combined the full-media Base Camp 1.0 candidate and the later cookbook code while preserving all Base Camp modules and substantive artwork.
+- Updated the offline shell to contain both module sets under cache `insync-v10-39`.
+- This is a development candidate. Mobile certification is not complete, and the generated cookbook recipes are draft content that must not be represented as finished or production approved.
+
+# InSync Universal Cookbook Foundation
+
+- Added a bundled offline catalog foundation containing 1,440 structured recipe records across 12 launch cuisines.
+- Added 120 records per cuisine, split evenly across breakfast, lunch, dinner, and snack.
+- Added canonical ingredient quantities with switchable household and weight displays.
+- Added independent 1–20 eater scaling to each planned meal.
+- Household ingredient quantities and the consolidated shopping list now respond to eater count.
+- Added offline weekly planning around active profile calorie/protein targets.
+- Added dietary-pattern and allergen filters before plan selection.
+- Preserved batch-lunch, dinner-leftover, favorite, dislike, pantry, and week-scoped planning behavior.
+- Added explicit provenance and review states. Foundation recipes remain calculated drafts until nutrition and culinary review.
+
 # InSync 6.0.0-p6.2 — Notes from the Trail
 
 ## Base Camp 1.0 and Sprint 1 integration

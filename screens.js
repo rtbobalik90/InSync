@@ -116,7 +116,7 @@
       return '<article class="card pad accent"' + anchor + '>' +
         '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
         '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 7px">' + esc(r.name) + '</h3>' +
-        '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition together when you are ready.</p>' +
+        '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition when you are ready.</p>' +
       '</article>';
     }
     var walked = Store.legMine() + Store.legHers();
@@ -133,7 +133,7 @@
       '</div>' +
       '<div class="track"><span style="width:' + pct + '%"></span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:9px">' +
-        '<span>' + Store.fmtDistance(walked) + ' walked together</span><span>' + Store.fmtDistance(l.miles) + '</span>' +
+        '<span>' + Store.fmtDistance(walked) + (Store.hasPartner() ? ' walked together' : ' walked') + '</span><span>' + Store.fmtDistance(l.miles) + '</span>' +
       '</div>' +
     '</article>';
   }
@@ -146,7 +146,8 @@
     var line = st === 'waiting' ? 'Sent to ' + esc(Store.partnerName()) + '. Nothing starts until they answer.'
       : st === 'invited' ? esc(Store.partnerName()) + ' has proposed the ' + esc(S.invite.routeName) + '.'
       : st === 'accepted' ? esc(S.invite.routeName) + ' is agreed and ready to begin.'
-      : 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.';
+      : Store.hasPartner() ? 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.'
+      : 'Twelve real routes, three open to you now. Choose one and start walking.';
     return '<article class="card pad"' + anchor + '>' +
       '<div class="kicker" style="margin-bottom:11px">No expedition yet</div>' +
       '<p class="lede" style="margin:0 0 14px">' + line + '</p>' +
@@ -279,14 +280,14 @@
         art: 'assets/art/expedition-none.webp', photoPosition: 'center 42%',
         overlay:
           '<div class="eyebrow">Journey</div>' +
-          '<p class="verse">Choose the road together.</p>' +
+          '<p class="verse">Choose your road.</p>' +
           '<p class="attrib" style="text-transform:none;letter-spacing:0">Your expedition becomes the world the rest of InSync moves through.</p>',
         body:
           noExpeditionCard() +
           '<article class="card pad">' +
             '<div class="kicker sage" style="margin-bottom:9px">The Road</div>' +
-            '<p class="lede" style="margin:0 0 10px">One shared route. Both of your walking moves it.</p>' +
-            '<p class="small">Pick the first expedition together. Travel art carries the active leg; reached checkpoints become permanent places you can open again.</p>' +
+            '<p class="lede" style="margin:0 0 10px">' + (Store.hasPartner() ? 'One shared route. Both of your walking moves it.' : 'Your walking moves the route forward.') + '</p>' +
+            '<p class="small">Pick the first expedition. Travel art carries the active leg; reached checkpoints become permanent places you can open again.</p>' +
           '</article>' +
           '<button class="btn block" data-route="handshake">Choose an expedition</button>'
       });
@@ -1046,7 +1047,7 @@
     var e = Store.state().expedition, l = leg();
     if (!l) return null;
     var walked = Store.legMine() + Store.legHers();
-    var both = Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
+    var both = !Store.hasPartner() || Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
     return {
       walked: walked,
       miles: l.miles,
@@ -1405,6 +1406,7 @@
   }
 
   function handshakeState() {
+    if (!Store.hasPartner()) return 'propose';
     var inv = Store.state().invite;
     if (!inv) return 'propose';
     if (inv.accepted) return 'accepted';
@@ -1417,7 +1419,7 @@
     if (st === 'waiting') return 'Waiting on ' + Store.partnerName();
     if (st === 'invited' || st === 'counter') return Store.partnerName() + ' proposed the ' + inv.routeName;
     if (st === 'accepted') return inv.routeName + ' is agreed';
-    return hasExpedition() ? 'Propose the next expedition' : 'Choose the first expedition';
+    return hasExpedition() ? (Store.hasPartner() ? 'Propose the next expedition' : 'Choose the next expedition') : 'Choose the first expedition';
   }
 
   function sub(text) {
@@ -1440,18 +1442,20 @@
       pos = 'center 30%';
       overlay =
         '<div class="eyebrow">' + (countering ? 'Your turn to choose' : 'The next expedition') + '</div>' +
-        '<p class="verse">' + (countering ? 'Somewhere else, then.' : 'Nothing starts until you both say yes.') + '</p>' +
+        '<p class="verse">' + (countering ? 'Somewhere else, then.' : Store.hasPartner() ? 'Nothing starts until you both say yes.' : 'Choose a route and set out.') + '</p>' +
         sub(countering
           ? 'Pick a route and it goes back to ' + esc(p.name) + ' as your proposal.'
-          : 'Pick a route and it goes to ' + esc(p.name) + ' as a proposal.');
+          : Store.hasPartner() ? 'Pick a route and it goes to ' + esc(p.name) + ' as a proposal.' : 'Your expedition starts when you choose.');
       body =
         (!countering && S.expedition.next
           ? '<article class="card pad accent">' +
               '<div class="kicker" style="margin-bottom:9px">Already agreed</div>' +
-              '<p class="note">' + esc(routeName(S.expedition.next)) + ' begins when the ' +
-                esc(route().name) + ' ends. Proposing another replaces it.</p>' +
+              '<p class="note">' + esc(routeName(S.expedition.next)) + ' is saved for after the ' +
+                esc(route().name) + '. Choosing another replaces it.</p>' +
             '</article>'
           : '') +
+        (!countering && S.expedition.next && expeditionDone()
+          ? '<button class="btn block" data-action="begin-expedition" data-id="' + esc(S.expedition.next) + '">Set out on ' + esc(routeName(S.expedition.next)) + '</button>' : '') +
         '<div class="rulehead"><span class="kicker">Open now</span><span></span>' +
           '<span class="note">' + open.length + '</span></div>' +
         open.map(function (id) {
@@ -1462,12 +1466,12 @@
               '<p class="note">' + counterLine(inv) + '</p>' +
             '</article>' +
             '<button class="btn ghost block" data-route="handshake">Back to their proposal</button>'
-          : lockedRoutesCard() +
+          : lockedRoutesCard() + (Store.hasPartner() ?
             '<article class="card pad">' +
               '<div class="kicker" style="margin-bottom:11px">How it goes</div>' +
               '<p class="note">' + esc(p.name) + ' sees the route, its distance and its climb, and answers with one of two things: they walk it, or they name somewhere else. There is no decline — the only way to say no is to propose.</p>' +
               '<p class="small" style="margin-top:12px">Two counters and the app settles it, and it takes the route neither of you has walked.</p>' +
-            '</article>');
+            '</article>' : ''));
     }
 
     if (st === 'waiting') {
@@ -1592,6 +1596,19 @@
      never a constant, and the week from the points each day actually earned. */
   function together() {
     var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData, T = window.InSyncTogether;
+    if (!Store.hasPartner()) {
+      var soloHero = expeditionSurface('together', 'assets/art/expedition-none.webp');
+      return UI.screen({
+        tab: 'together', rest: 470, restMeasure: true,
+        art: soloHero.art, artFallback: soloHero.fallback, scrim: UI.SCRIMS.light,
+        overlay: '<div class="eyebrow">Your trail</div><p class="verse">Walk at your own pace.</p>' +
+          '<p class="attrib" style="text-transform:none;letter-spacing:0">Your steps carry your expedition forward.</p>',
+        body: expeditionCard(true) + unlockCard(S) +
+          '<article class="card pad"><div class="kicker sage">Walking with someone later?</div>' +
+          '<p class="small" style="margin:9px 0 14px">Add a partner in Settings when you both want to share a route. Until then, you can keep walking solo.</p>' +
+          '<button class="btn ghost block" data-route="settings/together">Set up a partner</button></article>'
+      });
+    }
     var today = Store.todayKey(), mine = Store.points();
     var herToday = pd && pd.date === today && typeof pd.points === 'number' ? pd.points : null;
     var mode = T ? T.mode() : 'cooperative', modeInfo = T ? T.modeDef(mode) : {name:'Cooperative'};
@@ -1793,7 +1810,7 @@
     var milesPct = Math.min(100, Math.round((walked / l.miles) * 100));
     var bothPct = Math.min(100, Math.round((Math.min(Store.legMine(), Store.legHers()) / (l.miles * 0.2)) * 100));
     var milesDone = walked >= l.miles;
-    var bothDone = Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
+    var bothDone = !Store.hasPartner() || Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
 
     return '<article class="card pad">' +
       '<div class="kicker" style="margin-bottom:13px">What opens the next leg</div>' +
@@ -1804,19 +1821,19 @@
         '</div>' +
         '<div class="track"><span style="width:' + milesPct + '%' + (milesDone ? ';background:var(--sage)' : '') + '"></span></div>' +
       '</div>' +
-      '<div>' +
+      (Store.hasPartner() ? '<div>' +
         '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">' +
           '<span style="color:' + (bothDone ? 'var(--sage)' : 'var(--ink)') + '">Both of you walked it</span>' +
           '<span class="small">' + (bothDone ? 'met' : 'a fifth each') + '</span>' +
         '</div>' +
         '<div class="track"><span style="width:' + bothPct + '%' + (bothDone ? ';background:var(--sage)' : '') + '"></span></div>' +
-      '</div>' +
+      '</div>' : '') +
       (milesDone && bothDone
         ? '<div style="margin-top:16px">' +
-            '<p class="lede" style="margin:0 0 13px">Both conditions met. ' + esc(l.to) + ' is reached.</p>' +
+            '<p class="lede" style="margin:0 0 13px">' + (Store.hasPartner() ? 'Both conditions met. ' : 'Distance met. ') + esc(l.to) + ' is reached.</p>' +
             '<button class="btn block" data-action="advance-leg">Arrive at ' + esc(l.to) + '</button>' +
           '</div>'
-        : '<p class="small" style="margin:14px 0 0">One of you cannot carry the leg alone. Each has to walk at least a fifth of it.</p>') +
+        : Store.hasPartner() ? '<p class="small" style="margin:14px 0 0">One of you cannot carry the leg alone. Each has to walk at least a fifth of it.</p>' : '') +
     '</article>';
   }
 
@@ -4284,6 +4301,8 @@
 
   function cookbook() {
     var S = Store.state(), tg = S.targets;
+    var pendingPlanKey = window.Log && Log.plannerSlot ? Log.plannerSlot() : '';
+    var pendingSlot = pendingPlanKey ? (pendingPlanKey.split('|')[1] || '') : '';
     var mine = knownMeals();
     var ideas = S.mealIdeas || [];
     var favorites = S.mealFavorites || [];
@@ -4291,13 +4310,42 @@
     mine = mine.filter(function (m) { return disliked.indexOf(String(m.name).toLowerCase()) < 0; });
     ideas = ideas.filter(function (m) { return disliked.indexOf(String(m.name).toLowerCase()) < 0; });
     var hasKey = !!Store.secret('claudeKey');
+    var catalog = window.Cookbook ? Cookbook.all() : [];
+    var pilot = window.Cookbook && Cookbook.pilot ? Cookbook.pilot() : [];
+    var catalogNutrients = window.NutrientDisplay ? NutrientDisplay.catalogSummary(catalog) : null;
+    var selectedCuisines = (S.mealPrefs && S.mealPrefs.cuisines) || [];
+    var selectedProteins = (S.mealPrefs && S.mealPrefs.proteins) || [];
+    var catalogVisible = catalog.filter(function (r) {
+      if (window.Cookbook && Cookbook.eligible) return Cookbook.eligible(r, pendingSlot || (r.mealSlots||[])[0], S.mealPrefs || {}, S.mealDislikedMeals || []);
+      if (pendingSlot && (r.mealSlots || []).indexOf(pendingSlot) < 0) return false;
+      if (selectedCuisines.length && selectedCuisines.indexOf(r.cuisine) < 0) return false;
+      return !selectedProteins.length || (r.proteins || []).some(function (p) { return selectedProteins.some(function (wanted) { return String(p).toLowerCase().indexOf(String(wanted).toLowerCase()) >= 0; }); });
+    }).slice(0, 60).map(function (r) {
+      return { name:r.name, slot:(r.mealSlots||[])[0]||'Meal', kcal:r.nutrition.kcal, protein:r.nutrition.protein, carbs:r.nutrition.carbs, fat:r.nutrition.fat,
+        recipeId:r.id, portionScale:1, portionMultiplier:1, dinerCount:1, servings:1, prepMinutes:r.time.totalMinutes, cuisine:r.cuisine, proteins:r.proteins||[], items:r.ingredients, instructions:r.instructions, source:'catalog' };
+    });
+    var pilotVisible = pilot.filter(function (r) {
+      if (window.Cookbook && Cookbook.eligible) return Cookbook.eligible(r, pendingSlot || (r.mealSlots||[])[0], S.mealPrefs || {}, S.mealDislikedMeals || []);
+      if (pendingSlot && (r.mealSlots || []).indexOf(pendingSlot) < 0) return false;
+      if (selectedCuisines.length && selectedCuisines.indexOf(r.cuisine) < 0) return false;
+      return true;
+    }).map(function (r) {
+      return { name:r.name, slot:(r.mealSlots||[])[0]||'Meal', kcal:r.nutrition.kcal, protein:r.nutrition.protein, carbs:r.nutrition.carbs, fat:r.nutrition.fat,
+        recipeId:r.id, portionScale:1, portionMultiplier:1, dinerCount:1, servings:1, prepMinutes:r.time.totalMinutes, cuisine:r.cuisine, proteins:r.proteins||[], items:r.ingredients, instructions:r.instructions, recipeNote:'Pilot recipe. Draft review content only. Culinary and nutrition approval are still pending.', source:'catalog' };
+    });
 
     function card(m, opts) {
+      opts=opts||{};
+      if(!opts.badge&&/^rcp-pilot-/.test(m.recipeId||''))opts.badge='Draft review';
+      var record = window.Cookbook && m.recipeId ? Cookbook.find(m.recipeId) : null;
+      var nutrient = record && window.NutrientDisplay ? NutrientDisplay.summarize(record) : null;
+      if(!opts.badge&&nutrient)opts.badge=nutrient.label;
       return '<div class="row recipe nothumb" data-action="' + (opts.action || 'plan-meal') + '" data-meal="' + esc(JSON.stringify(m)).replace(/"/g, '&quot;') + '">' +
         '<div style="min-width:0">' +
-          '<div class="macros">' + esc(m.slot || 'Meal') + (m.n ? ' &middot; eaten ' + m.n + '&times;' : '') + '</div>' +
+          '<div class="macros">' + esc(m.slot || 'Meal') + (opts.badge ? ' &middot; <strong class="reviewbadge">' + esc(opts.badge) + '</strong>' : '') + (m.n ? ' &middot; eaten ' + m.n + '&times;' : '') + '</div>' +
           '<h4>' + esc(m.name) + '</h4>' +
           '<div class="macros">' + m.protein + ' g protein &middot; ' + m.carbs + ' g carbs &middot; ' + m.fat + ' g fat</div>' +
+          (nutrient ? '<div class="nutrientline"><span class="nutrientstate' + (nutrient.approved ? ' approved' : '') + '">' + esc(nutrient.estimated ? 'Estimated nutrition' : 'Verified nutrition') + '</span><span class="macros">' + esc(nutrient.unresolvedCount ? nutrient.unresolvedCount + ' source mapping' + (nutrient.unresolvedCount===1?'':'s') + ' unresolved' : nutrient.sourceCount + ' source record' + (nutrient.sourceCount===1?'':'s')) + '</span></div>' : '') +
         '</div>' +
         '<div class="kcal">' + Store.energyNum(m.kcal).toLocaleString() + '<small>' + Store.state().units.energy + '</small></div>' +
       '</div>';
@@ -4307,11 +4355,11 @@
 
     return UI.screen({
       tab: null, rest: 300, blur: true,
-      header: { back: true, title: 'Cookbook', right: '<div style="width:34px"></div>' },
+      header: { back: pendingPlanKey ? 'planner' : true, title: pendingSlot ? 'Choose ' + pendingSlot.toLowerCase() : 'Cookbook', right: '<div style="width:34px"></div>' },
       art: 'assets/art/provisions.webp', photoPosition: 'center 34%',
       overlay:
-        '<div class="eyebrow">The kitchen</div>' +
-        '<p class="verse">What you already eat, and what the coach suggests next.</p>',
+        '<div class="eyebrow">' + (pendingSlot ? 'Planning ' + esc(pendingSlot) : 'The kitchen') + '</div>' +
+        '<p class="verse">' + (pendingSlot ? 'Choose a compatible recipe for this one meal.' : 'What you already eat, and what the coach suggests next.') + '</p>',
       body:
         (favorites.length
           ? '<div class="rulehead"><span class="kicker">Favorites</span><span></span><span class="note">' + favorites.length + '</span></div>' +
@@ -4342,6 +4390,13 @@
           ? '<button class="btn block" data-action="generate-meals">Ask the coach for ideas</button>' +
             '<p class="note" style="margin:10px 2px 0">It reads your targets and what you already eat, then suggests meals that fill the gaps.</p>'
           : '<article class="card pad"><p class="note">Add a Claude key in Settings and the coach will suggest meals built around your targets and the gaps in your week.</p></article>')
+        + '<div class="rulehead"><span class="kicker">Pilot review recipes</span><span></span><span class="note">' + pilotVisible.length + ' of ' + pilot.length + '</span></div>' +
+        '<article class="card pad pilotreview"><div class="draftflag">Draft review</div><p class="small" style="margin:9px 0 0">These 48 representative recipes are available for hands-on testing. They have passed automated schema checks, but culinary preparation and nutrition still require professional review. They are never used by automatic weekly generation.</p></article>' +
+        (pilotVisible.length ? '<article class="card rowlist">' + pilotVisible.map(function(m){return card(m,{badge:'Draft review'});}).join('') + '</article>' : '<article class="card pad"><p class="note">No pilot recipes match this meal slot and the current cuisine, protein, dietary, and allergen preferences.</p></article>') +
+        '<div class="rulehead"><span class="kicker sage">Built-in cookbook</span><span></span><span class="note">' + catalog.length.toLocaleString() + ' recipes</span></div>' +
+        '<article class="card pad"><p class="small" style="margin:0 0 12px">Available offline. Showing ' + catalogVisible.length + (pendingSlot ? ' compatible ' + esc(pendingSlot.toLowerCase()) + ' recipes' : ' recipes') + ((selectedCuisines.length || selectedProteins.length) ? ' matching your plan preferences' : '') + '.</p>' +
+          (catalogNutrients ? '<p class="small" style="margin:0">Nutrition status: ' + catalogNutrients.approved.toLocaleString() + ' production approved, ' + catalogNutrients.estimated.toLocaleString() + ' estimated, and ' + catalogNutrients.unresolved.toLocaleString() + ' with one or more unresolved source mappings. Every recipe remains usable for offline planning while its review state stays visible.</p>' : '') + '</article>' +
+        (catalogVisible.length ? '<article class="card rowlist">' + catalogVisible.map(function(m){return card(m,{});}).join('') + '</article>' : '')
     });
   }
 
@@ -4350,6 +4405,8 @@
   var PLAN_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
   var PLAN_CUISINES = ['Mexican','Chinese','Indian','American','Italian','Mediterranean','Thai','Japanese','Korean','Greek','Middle Eastern','Cajun'];
   var PLAN_PROTEINS = ['Chicken','Beef','Turkey','Pork','Fish','Shrimp','Eggs','Vegetarian'];
+  var PLAN_DIETS = ['Vegetarian','Vegan','Gluten-free','Dairy-free'];
+  var PLAN_ALLERGENS = ['Milk','Egg','Fish','Shellfish','Tree nuts','Peanut','Soy','Wheat'];
 
   function planKey(date, slot) { return date + '|' + slot; }
   function mealNameKey(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
@@ -4391,7 +4448,7 @@
     var shop = {};
     planned.forEach(function (p) {
       if (p.meal.leftoverOf) return;
-      var items = p.meal.items && p.meal.items.length ? p.meal.items : [{ name: p.meal.name, weight: '' }];
+      var items = window.Cookbook ? Cookbook.planIngredients(p.meal, (S.mealPrefs||{}).measurementMode) : (p.meal.items && p.meal.items.length ? p.meal.items : [{ name: p.meal.name, weight: '' }]);
       items.forEach(function (it) {
         var name = String(it.name || '').trim();
         if (!name) return;
@@ -4399,13 +4456,14 @@
         var k = name.toLowerCase();
         if (!shop[k]) shop[k] = { name: name, n: 0, amounts: [] };
         shop[k].n++;
-        var amount = String(it.weight || '').trim();
-        if (amount && p.meal.batchSource && (+p.meal.servings || 1) > 1) amount += ' × ' + (+p.meal.servings || 1);
+        var amount = String(it.display || it.weight || '').trim();
+        if (amount && !p.meal.recipeId && p.meal.batchSource && (+p.meal.servings || 1) > 1) amount += ' × ' + (+p.meal.servings || 1);
         if (amount && shop[k].amounts.indexOf(amount) < 0) shop[k].amounts.push(amount);
       });
     });
     var shopList = Object.keys(shop).map(function (k) { return shop[k]; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
+    if(window.Cookbook&&Cookbook.shoppingList)shopList=Cookbook.shoppingList(planned.map(function(p){return p.meal;}),S.mealPrefs||{},(S.mealPrefs||{}).measurementMode||'standard');
     var ticked = S.shopTicked || {};
     var weekVerification = (planned.length === totalSlots && window.Nutrition && Nutrition.validateWeek) ? Nutrition.validateWeek(plan, weekOf, S.targets, S.mealPrefs || {}) : null;
     var prepTimeline = window.Nutrition && Nutrition.prepTimeline ? Nutrition.prepTimeline(plan, weekOf) : [];
@@ -4451,9 +4509,13 @@
         '<div class="kicker">Plan preferences</div>' +
         '<p class="small" style="margin:8px 0 16px"><strong>Home-cooked only.</strong> Fast food, restaurant takeout, drive-thru meals and chain-brand meals are blocked from generated weeks.</p>' +
         '<div class="preflabel">Cuisines <span>pick any that sound good this week</span></div>' +
-        prefChips(PLAN_CUISINES, prefs.cuisines || [], 'cuisines') +
+        prefChips(window.Cookbook ? Cookbook.cuisines() : PLAN_CUISINES, prefs.cuisines || [], 'cuisines') +
         '<div class="preflabel">Proteins <span>leave blank for any</span></div>' +
         prefChips(PLAN_PROTEINS, prefs.proteins || [], 'proteins') +
+        '<div class="preflabel">Dietary pattern <span>only show compatible recipes</span></div>' +
+        prefChips(PLAN_DIETS, prefs.diets || [], 'diets') +
+        '<div class="preflabel">Exclude allergens <span>blocked before planning</span></div>' +
+        prefChips(PLAN_ALLERGENS, prefs.allergens || [], 'allergens') +
         '<label class="preftext"><span>Things I like</span><input type="text" data-meal-pref-text="likes" value="' + esc(prefs.likes || '') + '" placeholder="spicy, rice bowls, garlic, crunchy…"></label>' +
         '<label class="preftext"><span>Prefer not to include</span><input type="text" data-meal-pref-text="avoid" value="' + esc(prefs.avoid || '') + '" placeholder="mushrooms, olives, mayo…"></label>' +
         '<label class="preftext"><span>Must never include <em>hard exclusion</em></span><input type="text" data-meal-pref-text="mustNot" value="' + esc(prefs.mustNot || '') + '" placeholder="allergies, religious restrictions, absolute no-go foods…"></label>' +
@@ -4470,11 +4532,11 @@
         '<p class="note" style="margin:10px 0 0">Favorites return when they fit. Thumbs-downed meals stay out until you allow them again. Batch prep changes servings and the shopping list so leftovers are not purchased twice.</p>' +
       '</article>';
 
-    var canBuild = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
+    var canBuild = !!(window.Cookbook && Cookbook.all().length) || (window.Cloud && Cloud.hasClaude && Cloud.hasClaude());
     var planButton = canBuild
       ? '<button class="btn block" data-action="build-meal-week" data-week="' + weekOf + '">' +
           (planned.length ? 'Rebuild this week' : 'Build my week') + '</button>' +
-        '<p class="note" style="margin:10px 2px 0">The coach fills all 28 slots, then code verifies every day against your calorie/protein targets and repairs only days that fail.</p>'
+        '<p class="note" style="margin:10px 2px 0">The built-in cookbook fills all 28 slots offline around your targets, preferences, batch prep, and household portions.</p>'
       : '<article class="card pad"><p class="note">Add your Claude key in Settings to build a complete week automatically. You can still tap any empty slot and choose from your Cookbook.</p></article>';
 
     return UI.screen({
@@ -4540,7 +4602,38 @@
       });
     }
     var when = new Date(date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-    var items = m.items || [], steps = m.instructions || [];
+    var measureMode=(S.mealPrefs||{}).measurementMode||'standard';
+    var portionMultiplier=Math.max(0.5,Math.min(2,+(m.portionMultiplier||1)));
+    var items = window.Cookbook ? Cookbook.planIngredients(m,measureMode) : (m.items || []), steps = m.instructions || [];
+    var recipeRecord = window.Cookbook && m.recipeId ? Cookbook.find(m.recipeId) : null;
+    var nutrientProvenance = recipeRecord && window.NutrientDisplay ? NutrientDisplay.summarize(recipeRecord) : null;
+    var nutrientProvenanceCard = '';
+    if (nutrientProvenance) {
+      var sourceText = nutrientProvenance.sourceIds.length ? nutrientProvenance.sourceIds.join(', ') : 'No specific source record IDs resolved';
+      var unresolvedText = nutrientProvenance.unresolvedMappings.length
+        ? nutrientProvenance.unresolvedMappings.map(function (item) { return item.ingredient + (item.sourceRef ? ' (' + item.sourceRef + ')' : ''); }).join(', ')
+        : 'None';
+      nutrientProvenanceCard = '<article class="card pad nutrientprovenance">' +
+        '<div class="kicker">Nutrition provenance</div>' +
+        '<div class="nutrientline"><span class="nutrientstate' + (nutrientProvenance.approved ? ' approved' : '') + '">' + esc(nutrientProvenance.label) + '</span></div>' +
+        '<div class="provenancegrid">' +
+          '<div class="provenancerow"><span class="note">Calculation</span><span class="small">' + esc(nutrientProvenance.calculationMethod) + '<br>' + esc(nutrientProvenance.calculationDateLabel) + '</span></div>' +
+          '<div class="provenancerow"><span class="note">Source IDs</span><span class="small sourcelist">' + esc(sourceText) + '</span></div>' +
+          '<div class="provenancerow"><span class="note">Unresolved</span><span class="small sourcelist">' + esc(unresolvedText) + '</span></div>' +
+        '</div>' +
+        '<p class="small" style="margin:14px 0 0">' + esc(nutrientProvenance.disclaimer) + '</p>' +
+      '</article>';
+    }
+    var scaleMeta = null;
+    if (window.MealScaling && MealScaling.scaleRecipe && recipeRecord) {
+      scaleMeta = MealScaling.scaleRecipe(recipeRecord, {
+        peopleEating: m.dinerCount || 1,
+        portion: (m.portionScale || 1) * portionMultiplier,
+        batchSource: !!m.batchSource,
+        servings: m.servings || 1,
+        mode: measureMode
+      }).plan;
+    }
     var canRecipe = window.Cloud && Cloud.hasClaude && Cloud.hasClaude();
     var favorite = isFavoriteMeal(m.name);
     var sharedTargets = window.Nutrition && Nutrition.sharedDinnerTargets ? Nutrition.sharedDinnerTargets() : null;
@@ -4574,8 +4667,10 @@
           (m.prepMinutes ? ' · ' + m.prepMinutes + ' min' : '') + (m.cuisine ? ' · ' + esc(m.cuisine) : '') + '</p>',
       body:
         sharedCard +
+        (recipeRecord && /^rcp-pilot-/.test(recipeRecord.id) ? '<article class="card pad pilotreview"><div class="draftflag">Draft review recipe</div><p class="small" style="margin:9px 0 0">This pilot record is available for product testing only. Culinary and nutrition approval are still pending.</p></article>' : '') +
         (m.leftoverOf ? '<article class="card pad accent"><div class="kicker sage">Leftover meal</div><p class="lede" style="margin:8px 0 0">Already cooked as part of ' + esc(m.leftoverOf) + '. Reheat and log it — no second grocery run.</p></article>' :
           m.batchSource ? '<article class="card pad accent"><div class="kicker sage">Batch prep</div><p class="lede" style="margin:8px 0 0">Cook ' + (m.servings || 1) + ' servings now. The extra portions are already placed into the week.</p></article>' : '') +
+        (scaleMeta && scaleMeta.exceedsRecipeBatchMaximum ? '<article class="card pad batchnotice"><div class="kicker">Cook in ' + scaleMeta.batchesRequired + ' batches</div><p class="lede" style="margin:8px 0 0">This recipe is designed for up to ' + Math.round(+(recipeRecord.scaling && recipeRecord.scaling.maximumServings) || 20) + ' prepared servings per batch. Make ' + Math.round(scaleMeta.preparedServings * 10) / 10 + ' servings across ' + scaleMeta.batchesRequired + ' batches for consistent cooking results.</p></article>' : '') +
         '<article class="card pad">' +
           '<div class="kicker">Nutrition</div>' +
           '<div class="recipefacts">' +
@@ -4587,12 +4682,24 @@
           '<p class="small" style="margin:14px 0 0">' + (m.servings || 1) + ' planned serving' + ((m.servings || 1) === 1 ? '' : 's') +
             (m.recipeNote ? ' · ' + esc(m.recipeNote) : '') + '</p>' +
         '</article>' +
+        nutrientProvenanceCard +
+
+        '<article class="card pad"><div class="kicker">Who is eating?</div>' +
+          '<p class="small" style="margin:8px 0 12px">Nutrition stays shown per personal serving. Ingredient quantities and the shopping list scale for the household.</p>' +
+          '<div class="recipeactions"><button class="btn ghost sm" data-action="planned-eaters" data-plan-key="' + esc(key) + '" data-delta="-1"' + ((m.dinerCount||1)<=1?' disabled':'') + '>−</button>' +
+          '<strong style="align-self:center">' + (m.dinerCount||1) + ' eater' + ((m.dinerCount||1)===1?'':'s') + '</strong>' +
+          '<button class="btn ghost sm" data-action="planned-eaters" data-plan-key="' + esc(key) + '" data-delta="1"' + ((m.dinerCount||1)>=20?' disabled':'') + '>+</button></div>' +
+          '<div class="mealcontrol-label">Portion per person <span>changes each plate and its nutrition</span></div>' +
+          '<div class="prefchips">' + [[0.75,'Small'],[1,'Standard'],[1.25,'Large']].map(function (choice) { return '<button class="ob-chip' + (Math.abs(portionMultiplier-choice[0])<0.01?' on':'') + '" data-action="planned-portion" data-plan-key="' + esc(key) + '" data-portion="' + choice[0] + '">' + choice[1] + '</button>'; }).join('') + '</div>' +
+          '<div class="mealcontrol-label">Measurements <span>updates recipes and the weekly grocery list</span></div>' +
+          '<div class="prefchips" style="margin-top:14px"><button class="ob-chip' + (measureMode==='standard'?' on':'') + '" data-action="recipe-measure-mode" data-mode="standard">Cups & spoons</button>' +
+          '<button class="ob-chip' + (measureMode==='weight'?' on':'') + '" data-action="recipe-measure-mode" data-mode="weight">Weight</button></div></article>' +
 
         '<article class="card pad">' +
           '<div class="kicker" style="margin-bottom:12px">Ingredients</div>' +
           (items.length
             ? '<div class="ingredientlist">' + items.map(function (it) {
-                return '<div class="ingredientrow"><span>' + esc(it.name) + '</span><span class="note">' + esc((it.weight || '') + (m.batchSource && (m.servings || 1) > 1 ? ' × ' + m.servings : '')) + '</span></div>';
+                return '<div class="ingredientrow"><span>' + esc(it.name) + '</span><span class="note">' + esc(it.display || it.weight || '') + '</span></div>';
               }).join('') + '</div>'
             : '<p class="note">No ingredient list is attached yet.</p>') +
         '</article>' +

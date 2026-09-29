@@ -32,10 +32,23 @@
     FAITH_MILESTONE: 'faith.milestone'
   };
 
+  /* Cookbook records move through independent culinary and nutrition gates.
+     A record may be displayed while it is a draft, but only approved records
+     may be represented as verified content. */
+  var COOKBOOK = {
+    schemaVersion: 1,
+    measurementModes: ['standard', 'weight'],
+    mealSlots: ['Breakfast', 'Lunch', 'Dinner', 'Snack'],
+    recipeStatuses: ['draft-calculated', 'culinary-reviewed', 'nutrition-reviewed', 'production-approved'],
+    dinerCount: { minimum: 1, maximum: 20 },
+    approvalRequires: ['culinary-review', 'nutrition-review', 'release-approval']
+  };
+
   window.InSyncContracts = {
-    version: 2,
+    version: 3,
     aiSkills: AI_SKILLS,
     privacy: PRIVACY,
-    events: EVENTS
+    events: EVENTS,
+    cookbook: COOKBOOK
   };
 })();

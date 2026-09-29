@@ -71,7 +71,7 @@
     shopTicked: {},
     /* Meal-prep taste memory stays on this device. Favorites are full recipe
        snapshots so they can be reused even when the original planned week is gone. */
-    mealPrefs: { cuisines: [], proteins: [], likes: '', avoid: '', mustNot: '', pantry: '', lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [], sharedDinnerShare: false },
+    mealPrefs: { cuisines: [], proteins: [], diets: [], allergens: [], likes: '', avoid: '', mustNot: '', pantry: '', lunchPrepDays: 0, dinnerLeftovers: false, cookDays: [], sharedDinnerShare: false, measurementMode: 'standard' },
     mealFavorites: [],
     /* Date a recipe was most recently favorited. This lets weekly reviews say
        which favorites were actually added that week instead of guessing from
@@ -641,10 +641,14 @@
         return shortText(step, 500);
       }).filter(Boolean).slice(0, 16) : [];
       m.recipeNote = shortText(m.recipeNote, 600);
+      m.recipeId = shortText(m.recipeId, 140);
+      m.dinerCount = Math.max(1, Math.min(20, Math.round(finiteOr(m.dinerCount, 1, 1, 20))));
+      m.portionScale = Math.max(0.25, Math.min(3, finiteOr(m.portionScale, 1, 0.25, 3)));
+      m.portionMultiplier = Math.max(0.5, Math.min(2, finiteOr(m.portionMultiplier, 1, 0.5, 2)));
       m.cuisine = shortText(m.cuisine, 60);
       m.proteins = Array.isArray(m.proteins) ? m.proteins.map(function (x) { return shortText(x, 60); }).filter(Boolean).slice(0, 8) : [];
       m.photoId = shortText(m.photoId, 220);
-      m.source = ['coach', 'saved', 'manual', 'favorite', 'prep'].indexOf(m.source) >= 0 ? m.source : '';
+      m.source = ['coach', 'saved', 'manual', 'favorite', 'prep', 'catalog'].indexOf(m.source) >= 0 ? m.source : '';
       m.batchId = shortText(m.batchId, 160);
       m.leftoverOf = shortText(m.leftoverOf, 200);
       m.batchSource = !!m.batchSource;
@@ -694,11 +698,16 @@
     S.mealPrefs.proteins = Array.isArray(S.mealPrefs.proteins) ? S.mealPrefs.proteins.filter(function (x, i, a) {
       return allowedProteins.indexOf(x) >= 0 && a.indexOf(x) === i;
     }).slice(0, allowedProteins.length) : [];
+    var allowedDiets=['Vegetarian','Vegan','Gluten-free','Dairy-free'];
+    var allowedAllergens=['Milk','Egg','Fish','Shellfish','Tree nuts','Peanut','Soy','Wheat'];
+    S.mealPrefs.diets=Array.isArray(S.mealPrefs.diets)?S.mealPrefs.diets.filter(function(x,i,a){return allowedDiets.indexOf(x)>=0&&a.indexOf(x)===i;}):[];
+    S.mealPrefs.allergens=Array.isArray(S.mealPrefs.allergens)?S.mealPrefs.allergens.filter(function(x,i,a){return allowedAllergens.indexOf(x)>=0&&a.indexOf(x)===i;}):[];
     S.mealPrefs.likes = shortText(S.mealPrefs.likes, 1200);
     S.mealPrefs.avoid = shortText(S.mealPrefs.avoid, 1200);
     S.mealPrefs.mustNot = shortText(S.mealPrefs.mustNot, 1200);
     S.mealPrefs.pantry = shortText(S.mealPrefs.pantry, 1200);
     S.mealPrefs.sharedDinnerShare = !!S.mealPrefs.sharedDinnerShare;
+    S.mealPrefs.measurementMode = ['standard','weight'].indexOf(S.mealPrefs.measurementMode) >= 0 ? S.mealPrefs.measurementMode : 'standard';
     S.mealPrefs.lunchPrepDays = Math.max(0, Math.min(5, Math.round(finiteOr(S.mealPrefs.lunchPrepDays, 0, 0, 5))));
     S.mealPrefs.dinnerLeftovers = !!S.mealPrefs.dinnerLeftovers;
     S.mealPrefs.cookDays = Array.isArray(S.mealPrefs.cookDays) ? S.mealPrefs.cookDays.filter(function (x, i, a) {
@@ -1938,6 +1947,7 @@
   function partnerName() { return S.partner.name || 'your partner'; }
   function partnerInitials() { return S.partner.initials || ''; }
   function partnerRef() { return { name: partnerName(), initials: partnerInitials() }; }
+  function hasPartner() { return !!(S.partner.name && S.partner.name.trim()); }
 
   /* Checkpoint history is local-first evidence of places reached. Unlocking
      itself remains derived from expedition progress, so old installs and a
@@ -2004,7 +2014,7 @@
     var mine = legMine(), theirs = legHers();
     if (currentLeg && currentLeg.miles > 0) {
       var required = +currentLeg.miles;
-      if (mine + theirs < required || Math.min(mine, theirs) < required * 0.2) return false;
+      if (mine + theirs < required || (hasPartner() && Math.min(mine, theirs) < required * 0.2)) return false;
     }
     var finishedLeg = e.legIndex, at = new Date().toISOString();
     var primary = window.Journeys && Journeys.primaryCheckpointForLeg
@@ -2070,6 +2080,12 @@
   }
 
   function propose(routeId, name) {
+    if (!hasPartner()) {
+      var active = S.expedition.routeId && window.Journeys && Journeys.get(S.expedition.routeId);
+      if (active && S.expedition.legIndex < active.legs.length) holdExpedition(routeId);
+      else beginExpedition(routeId);
+      return;
+    }
     var now = new Date().toISOString();
     S.invite = {
       routeId: routeId, routeName: name || routeId, from: 'me',
@@ -2498,7 +2514,7 @@
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
     miles: miles, walkDistanceMilesForDay: walkDistanceMilesForDay, legMine: legMine, legHers: legHers,
     checkpointUnlocked: checkpointUnlocked, checkpointArrival: checkpointArrival,
-    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, identityKey: identityKey,
+    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, hasPartner: hasPartner, identityKey: identityKey,
     advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,
     propose: propose, nudgeInvite: nudgeInvite, acceptInvite: acceptInvite,
     counterInvite: counterInvite, settleInvite: settleInvite,

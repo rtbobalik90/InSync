@@ -1,4 +1,4 @@
-# InSync 6.0.0-p6.2 Test Report
+# InSync Base Camp + Cookbook Integration RC1 Test Report
 
 ## Baseline result
 
@@ -6,15 +6,16 @@ Command: `node qa/run-tests.js`
 
 Status: **PASS**
 
-- 34 deterministic test files discovered and run in lexical order.
-- 2,074 functional assertions passed.
+- 45 deterministic test files discovered and run in lexical order.
+- 3,149 functional assertions passed.
 - 0 functional or media assertions failed.
-- 32 active suites passed cleanly.
+- 43 active suites passed cleanly.
 - Base Camp 1.0 contributes 29 passing assertions.
 - Guided pairing contributes 19 passing assertions.
 - Equipment-aware onboarding and Coach copy contribute 25 passing assertions.
 - Partner-derived privacy filtering contributes 23 passing assertions.
 - Settings, History, and in-app notification clarity contribute 25 passing assertions.
+- Cookbook schema, catalog, meal scaling, nutrient provenance, release gating, and planner integration suites are included. The content release audit correctly refuses to treat the 1,440 generated recipes as finished culinary content.
 - 2 retired Faith suites contained no active assertions and correctly directed coverage to `faith-parked-tests.js`.
 
 ## Production-media baseline
@@ -50,3 +51,5 @@ The production-current profile permits no expected test failure. A real applicat
 ## Scope boundary
 
 This is a deterministic Node-based regression and package-integrity baseline. It does not replace real-device validation for iOS/Android PWA installation, service-worker upgrade behavior, camera/barcode capture, notifications, GitHub synchronization against a live private repository, Claude API behavior, offline transitions, or Robert/Lizzie two-device privacy and pairing flows.
+
+The combined source uses service-worker cache `insync-v10-39`. It remains an integration candidate; neither the two-phone release nor the cookbook content has production approval. See `MOBILE_RELEASE_CERTIFICATION.md`, `COOKBOOK_CONTENT_RELEASE_AUDIT.md`, and `NUTRITION_QA_RELEASE_AUDIT.md`.

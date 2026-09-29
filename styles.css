@@ -857,6 +857,13 @@ body.onboarding-open { overflow: hidden; }
 /* Cookbook */
 .row.recipe { cursor: pointer; }
 .row.recipe:active { background: rgba(198,161,93,.06); }
+.nutrientline { display: flex; flex-wrap: wrap; gap: 5px 9px; margin-top: 5px; }
+.nutrientstate { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.nutrientstate.approved { color: #A9C99C; }
+.provenancegrid { display: grid; gap: 10px; margin-top: 12px; }
+.provenancerow { display: grid; grid-template-columns: minmax(105px,.42fr) 1fr; gap: 12px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.provenancerow:first-child { border-top: 0; padding-top: 0; }
+.sourcelist { overflow-wrap: anywhere; }
 
 /* Planner */
 .plangrid { display: grid; gap: 12px; margin-top: 12px; }
@@ -1250,6 +1257,14 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 /* 5.4 meal-prep preference memory */
 .mealprefs .preflabel { margin: 17px 0 9px; color: var(--ink); font: 600 12px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
 .mealprefs .preflabel span { display: block; margin-top: 3px; color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.mealcontrol-label { margin: 17px 0 9px; color: var(--ink); font: 600 12px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+.mealcontrol-label span { display: block; margin-top: 3px; color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.batchnotice { border-color: rgba(198,161,93,.58); background: rgba(198,161,93,.08); }
+.batchnotice .kicker { color: var(--gold-lt); }
+.pilotreview { border-color: rgba(198,161,93,.5); background: rgba(198,161,93,.055); }
+.draftflag,.reviewbadge { color: var(--gold-lt); font: 700 10px/1.2 var(--sans); letter-spacing: .13em; text-transform: uppercase; }
+.draftflag { display: inline-flex; padding: 5px 8px; border: 1px solid rgba(198,161,93,.55); border-radius: 999px; }
+.reviewbadge { letter-spacing: .08em; }
 .prefchips { display: flex; gap: 8px; flex-wrap: wrap; }
 .prefchips .ob-chip { min-height: 38px; padding: 0 12px; flex: none; }
 .preftext { display: grid; gap: 7px; margin-top: 16px; color: var(--muted); font: 500 13px/1.3 var(--sans); }
@@ -1259,6 +1274,7 @@ hr.hair { border: 0; border-top: 1px solid var(--hair); margin: 12px 0; }
 .recipeactions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
 .recipeactions.full { margin: 0 0 10px; }
 .recipeactions .btn { width: 100%; }
+.mealprefs .preflabel + .prefchips, .mealcontrol-label + .prefchips { margin-top: 0; }
 @media (max-width: 390px) { .recipeactions { grid-template-columns: 1fr; } }
 
 /* 5.5 completion features ------------------------------------------------ */

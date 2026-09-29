@@ -101,6 +101,6 @@ ok(app.includes("root === 'campfire'")&&app.includes("root === 'duo-mission'"),'
 ok(app.includes("action === 'quick-encouragement'")&&app.includes("action === 'close-campfire'"),'Together interactions are wired through explicit actions');
 ok(index.includes('together.js')&&sw.includes("'together.js'"),'Together module is loaded online and cached offline');
 ok(cloud.includes('schema: 8')&&cloud.includes('together: window.InSyncTogether'),'partner sync is intentionally bumped and carries Together 2.0 explicit payload');
-ok(app.includes("version:'6.0.0-p6.2'")&&sw.includes("CACHE = 'insync-v10-38'"),'Phase 6 runtime and cache identifiers are current');
+ok(app.includes("version:'6.0.0-p6.2'")&&sw.includes("CACHE = 'insync-v10-40'"),'Phase 6 runtime and cache identifiers are current');
 
 console.log(`\nTogether 2.0 / Campfire: ${passed} passed, ${failed} failed`);process.exit(failed?1:0);

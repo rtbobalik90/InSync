@@ -21,7 +21,7 @@ function make(){
  ok(fs.existsSync(path.join(ROOT,'faith.js'))&&fs.existsSync(path.join(ROOT,'scripture.js')),'Faith and Scripture source files are preserved for a future revisit');
  ok(!index.includes('<script src="faith.js"></script>')&&!index.includes('<script src="scripture.js"></script>'),'parked Faith modules are not loaded by the production app');
  ok(!sw.includes("'faith.js'")&&!sw.includes("'scripture.js'"),'parked Faith modules are not precached into the active shell');
- ok(sw.includes("CACHE = 'insync-v10-38'"),'service-worker cache is bumped so the parked build replaces the previous Faith UI');
+ ok(sw.includes("CACHE = 'insync-v10-40'"),'service-worker cache is bumped so the parked build replaces the previous Faith UI');
  ['faith','memory','memory-item','scripture','scripture-passage','waypoint-reflection','prayers','rule-of-life'].forEach(r=>ok(!app.includes("root === '"+r+"'"),`router does not expose ${r}`));
  ['faith-add-passage','faith-add-waypoint','faith-waypoint-save','faith-add-today','faith-prayer-add','faith-sabbath-toggle'].forEach(a=>ok(!app.includes("action === '"+a+"'"),`production event layer does not expose ${a}`));
  const c=make(),S=c.Store,C=c.Cloud;S.setProfileName('Robert');S.setPartnerName('Lizzie');S.set('onboarded',true);

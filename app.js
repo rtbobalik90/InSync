@@ -130,7 +130,6 @@
     else if (root === 'weekly-review') html = Screens.weeklyReview();
     else if (root === 'campfire') html = Screens.campfire();
     else if (root === 'campfire-history') html = Screens.campfireHistory();
-    else if (root === 'base-camp') html = InSyncBaseCampUI.render();
     else if (root === 'trail-notes') html = InSyncTrailNotes.screen();
     else if (root === 'duo-mission') html = Screens.duoMission();
     else if (root === 'calendar') html = Screens.calendar();
@@ -153,7 +152,6 @@
 
     app.innerHTML = html;
     lastRenderedKey = key;
-    if (window.InSyncBaseCampUI) InSyncBaseCampUI.bind(app, key, render);
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
     bindSessionWalkClock();
@@ -587,7 +585,7 @@
     }
     if (action === 'meal-pref-chip') {
       var prefKind = el.getAttribute('data-pref-kind'), prefValue = el.getAttribute('data-pref-value');
-      if (['cuisines','proteins'].indexOf(prefKind) < 0 || !prefValue) return;
+      if (['cuisines','proteins','diets','allergens'].indexOf(prefKind) < 0 || !prefValue) return;
       var mprefs = Object.assign({}, Store.state().mealPrefs || {});
       var selected = Array.isArray(mprefs[prefKind]) ? mprefs[prefKind].slice() : [];
       var pos = selected.indexOf(prefValue);
@@ -703,6 +701,14 @@
       if (hasExisting && !confirm('Rebuild this week? The 28 meal slots in this displayed week will be replaced. Other weeks stay untouched.')) return;
       var bw = el, bwText = bw.textContent;
       bw.disabled = true; bw.textContent = 'Building the week…';
+      if (window.Cookbook && Cookbook.all().length) {
+        var localWeek=Cookbook.buildWeek(buildWeek,Store.state().targets,Store.state().mealPrefs,{disliked:Store.state().mealDislikedMeals||[],favorites:Store.state().mealFavorites||[]});
+        var localMerged=Object.assign({},existingPlan),localEnd=Store.shift(buildWeek,6);
+        Object.keys(localMerged).forEach(function(k){var d=k.slice(0,10);if(d>=buildWeek&&d<=localEnd)delete localMerged[k];});
+        Object.keys(localWeek).forEach(function(k){localMerged[k]=localWeek[k];});
+        Store.set('mealPlan',localMerged);Store.set('mealPlannerWeek',buildWeek);Store.set('shopTicked',{});
+        bw.disabled=false;bw.textContent=bwText;return;
+      }
       Cloud.planMealsWeek(buildWeek, {
         onProgress: function (detail) {
           if (bw && bw.isConnected) bw.textContent = detail && detail.repair ? 'Repairing ' + detail.date + '…' : 'Planning meals ' + ((detail && detail.batch) || 1) + ' of ' + ((detail && detail.total) || 4) + '…';
@@ -722,6 +728,23 @@
         Store.set('shopTicked', {});
       });
       return;
+    }
+    if (action === 'planned-eaters') {
+      var eaterKey=el.getAttribute('data-plan-key'),eaterPlan=Object.assign({},Store.state().mealPlan||{}),eaterMeal=eaterPlan[eaterKey];
+      if(!eaterMeal)return;
+      var nextEaters=(window.Cookbook?Cookbook.normalizeEaters((eaterMeal.dinerCount||1)+ +(el.getAttribute('data-delta')||0)):Math.max(1,Math.min(20,(eaterMeal.dinerCount||1)+ +(el.getAttribute('data-delta')||0))));
+      eaterPlan[eaterKey]=Object.assign({},eaterMeal,{dinerCount:nextEaters});Store.set('mealPlan',eaterPlan);Store.set('shopTicked',{});return;
+    }
+    if (action === 'planned-portion') {
+      var portionKey=el.getAttribute('data-plan-key'),portionPlan=Object.assign({},Store.state().mealPlan||{}),portionMeal=portionPlan[portionKey];
+      if(!portionMeal)return;
+      var nextPortion=Math.max(0.5,Math.min(2,+(el.getAttribute('data-portion')||1)));
+      portionPlan[portionKey]=window.Cookbook&&Cookbook.resizeMeal?Cookbook.resizeMeal(portionMeal,nextPortion):Object.assign({},portionMeal,{portionMultiplier:nextPortion});
+      Store.set('mealPlan',portionPlan);Store.set('shopTicked',{});return;
+    }
+    if (action === 'recipe-measure-mode') {
+      var mode=el.getAttribute('data-mode');if(['standard','weight'].indexOf(mode)<0)return;
+      var measurePrefs=Object.assign({},Store.state().mealPrefs||{});measurePrefs.measurementMode=mode;Store.set('mealPrefs',measurePrefs);return;
     }
     if (action === 'tick-shop') {
       var item = el.getAttribute('data-item').toLowerCase();
@@ -778,7 +801,8 @@
           name: pm.name, slot: lp[1] || pm.slot || 'Meal',
           time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
           kcal: pm.kcal, protein: pm.protein, carbs: pm.carbs, fat: pm.fat,
-          items: pm.items || null, photoId: photoId || '', source: 'planned'
+          items: pm.items || null, photoId: photoId || '', source: 'planned',
+          recipeId: pm.recipeId || '', plannedDate: lp[0] || '', portionMultiplier: pm.portionMultiplier || 1
         });
         location.hash = '#nutrition';
       }
@@ -1157,6 +1181,7 @@
     if (action === 'propose-route') {
       var pid = el.getAttribute('data-id');
       Store.propose(pid, Screens.routeName(pid));
+      if (!Store.hasPartner()) { location.hash = '#journey'; return; }
       if (Cloud.hasGit()) Cloud.push(function () {});
       return;
     }

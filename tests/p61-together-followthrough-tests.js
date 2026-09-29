@@ -62,6 +62,6 @@ ok(app.includes("InSyncTogether.setMode(el.getAttribute('data-value'))) render()
 ok(app.includes("data-encouragement-status")||screens.includes('data-encouragement-status'),'Quick Encouragement has an explicit live feedback target');
 ok(app.includes("Sent to '+Store.partnerName()+' ✓")&&app.includes('sync will retry automatically'),'Quick Encouragement distinguishes delivery from retry state');
 ok(app.includes("location.hash='#together'")&&app.includes("action === 'close-campfire'"),'closing Campfire returns to Together so the teaser disappears immediately');
-ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2')&&sw.includes("CACHE = 'insync-v10-38'"),'P6.1 runtime, Settings and cache identifiers are current');
+ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2')&&sw.includes("CACHE = 'insync-v10-40'"),'P6.1 runtime, Settings and cache identifiers are current');
 
 console.log(`\nP6.1 Together follow-through: ${passed} passed, ${failed} failed`);process.exit(failed?1:0);
