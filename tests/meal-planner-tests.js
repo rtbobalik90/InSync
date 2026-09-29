@@ -110,7 +110,12 @@ function plan(week){return new Promise(resolve=>C.planMealsWeek(week,(err,map)=>
   ok(screenText.includes('planned-meal/') && screenText.includes('Ingredients') && screenText.includes('Make it'),'planned meals open into recipe detail with ingredients and method');
   ok(screenText.includes('Plan preferences') && screenText.includes('Home-cooked only') && screenText.includes('PLAN_CUISINES') && screenText.includes('PLAN_PROTEINS'),'planner exposes home-cooked cuisine, protein and taste controls before generation');
   ok(screenText.includes('add-planned-photo') && screenText.includes('favorite-planned-meal') && screenText.includes('dislike-planned-meal'),'recipe detail exposes finished photo, favorite and thumbs-down controls');
+  ok(screenText.includes('Portion per person') && screenText.includes('planned-portion') && screenText.includes('Small') && screenText.includes('Large'),'recipe detail separates portion size from household eater count');
+  ok(screenText.includes('exceedsRecipeBatchMaximum') && screenText.includes('Cook in ') && screenText.includes('batchesRequired'),'large household recipe pages surface the calculated safe batch count');
+  ok(fs.readFileSync(path.join(ROOT,'cookbook.js'),'utf8').includes('MealScaling.aggregateGroceries'),'planner shopping list delegates canonical consolidation and pantry deduction to MealScaling');
+  ok(screenText.includes('Log.plannerSlot') && screenText.includes('compatible recipe for this one meal'),'single-slot replacement filters the cookbook for the selected meal type');
   ok(appText.includes("action === 'build-meal-week'") && appText.includes("action === 'log-planned-meal'"),'weekly generation and planned-meal logging actions are wired');
+  ok(appText.includes("action === 'planned-portion'") && appText.includes('Cookbook.resizeMeal'),'portion changes are wired through the deterministic cookbook engine');
   ok(appText.includes("action === 'meal-pref-chip'") && appText.includes("action === 'add-planned-photo'"),'meal preference and finished-photo actions are wired');
 
   console.log(`\n${passed} meal-planner checks passed, ${failed} failed`);

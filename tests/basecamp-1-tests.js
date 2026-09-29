@@ -67,7 +67,7 @@ const styles=fs.readFileSync(path.join(ROOT,'styles.css'),'utf8');
 ok(app.includes("root === 'base-camp'")&&app.includes('InSyncBaseCampUI.bind(app, key, render)'),'Base Camp route and interaction binding are wired');
 ok(app.includes('InSyncBaseCampState.isLocalCommit()'),'Base Camp layout commits do not trigger partner auto-sync');
 ok(index.indexOf('basecamp-catalog.js')<index.indexOf('store.js')&&index.indexOf('basecamp-state.js')<index.indexOf('basecamp-ui.js'),'Base Camp modules load in dependency order');
-ok(sw.includes("CACHE = 'insync-v10-38'")&&sw.includes("'basecamp-state.js'")&&sw.includes("'basecamp-ui.js'"),'offline shell advances and contains the full Base Camp slice');
+ok(sw.includes("CACHE = 'insync-v10-39'")&&sw.includes("'basecamp-state.js'")&&sw.includes("'basecamp-ui.js'"),'offline shell advances and contains the full Base Camp slice');
 ok(styles.includes('.basecamp-board')&&styles.includes('touch-action:manipulation'),'mobile board controls have dedicated touch styling');
 ok(!cloud.includes('baseCamp'),'Base Camp remains outside partner sync');
 

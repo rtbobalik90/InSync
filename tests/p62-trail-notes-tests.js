@@ -59,6 +59,6 @@ ok(cloud.includes('function trailNotesStory')&&cloud.includes('trailNotesStory: 
 ok(index.includes('<script src="trail-notes.js"></script>')&&sw.includes("'trail-notes.js'"),'Trail Notes module is loaded online and cached offline');
 ok(styles.includes('.trail-notes-layer')&&styles.includes('.trail-note-stack')&&styles.includes('.trail-notes-foot'),'popup has dedicated stacked-note, story and action styling');
 ok(screens.includes("row('Trail Notes'")&&screens.includes('data-route=\"trail-notes\"'),'Settings keeps the complete Trail Notes journal reachable after the popup is cleared');
-ok(app.includes("version:'6.0.0-p6.2'")&&sw.includes("CACHE = 'insync-v10-38'"),'P6.2 runtime and service-worker identifiers are current');
+ok(app.includes("version:'6.0.0-p6.2'")&&sw.includes("CACHE = 'insync-v10-39'"),'P6.2 runtime and service-worker identifiers are current');
 
 console.log(`\nP6.2 Notes from the Trail: ${passed} passed, ${failed} failed`);process.exit(failed?1:0);

@@ -1037,6 +1037,8 @@
     location.hash = '#planner';
   }
 
+  function plannerSlot() { return pendingSlot; }
+
 
   /* What goes on the shopping list. The scan finds ingredients; a typed
      description is split on commas; otherwise the dish stands for itself. */
@@ -1065,6 +1067,6 @@
   }
 
   window.Log = {
-    pickForSlot: pickForSlot, assignPlanned: assignPlanned, open: start, close: close,
+    pickForSlot: pickForSlot, assignPlanned: assignPlanned, plannerSlot: plannerSlot, open: start, close: close,
     scan: startScan, photograph: pickPhoto };
 })();

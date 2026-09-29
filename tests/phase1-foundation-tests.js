@@ -79,7 +79,7 @@ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),index=fs.readFileSync
 ok(app.includes("var TABS = ['home', 'journey', 'train', 'nutrition', 'together']"),'router uses Journey in the primary tab set');
 ok(app.includes("else if (root === 'coach') html = Screens.coach()"),'Coach remains routable after leaving bottom navigation');
 ok(index.indexOf('journeys.js')<index.indexOf('screens.js')&&index.indexOf('camp.js')<index.indexOf('store.js'),'foundation modules load before their consumers');
-ok(sw.includes("CACHE = 'insync-v10-38'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
+ok(sw.includes("CACHE = 'insync-v10-39'")&&sw.includes("'journeys.js'")&&sw.includes("'camp.js'"),'service-worker shell contains the complete Phase 1 foundation');
 ok(app.includes("version:'6.0.0-p6.2'")&&screensSource.includes('Version 6.0.0-p6.2'),'runtime and Settings preserve the Phase 1 foundation in the Phase 2 build');
 
 console.log(`\n${passed} Phase 1 foundation checks passed, ${failed} failed`);

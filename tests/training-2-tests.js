@@ -18,7 +18,7 @@ function make(seed){
 {
  const index=fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),sw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
  ok(index.includes('<script src="training.js"></script>'),'Training 2.0 engine loads in production');
- ok(sw.includes("'training.js'")&&sw.includes("CACHE = 'insync-v10-38'"),'Training engine is available offline under the Phase 4 cache');
+ ok(sw.includes("'training.js'")&&sw.includes("CACHE = 'insync-v10-39'"),'Training engine is available offline under the Phase 4 cache');
  const ids=['chest-fly-machine','face-pull','cable-lateral-raise','reverse-fly-machine','seated-leg-curl','hip-abduction-machine','hip-adduction-machine','dumbbell-rdl','step-ups','split-squat','dead-bug','pallof-press'];
  ids.forEach(id=>{
    const p=path.join(ROOT,'assets','exercises',id+'.webp');
