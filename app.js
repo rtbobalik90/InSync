@@ -130,7 +130,6 @@
     else if (root === 'weekly-review') html = Screens.weeklyReview();
     else if (root === 'campfire') html = Screens.campfire();
     else if (root === 'campfire-history') html = Screens.campfireHistory();
-    else if (root === 'base-camp') html = InSyncBaseCampUI.render();
     else if (root === 'trail-notes') html = InSyncTrailNotes.screen();
     else if (root === 'duo-mission') html = Screens.duoMission();
     else if (root === 'calendar') html = Screens.calendar();
@@ -153,7 +152,6 @@
 
     app.innerHTML = html;
     lastRenderedKey = key;
-    if (window.InSyncBaseCampUI) InSyncBaseCampUI.bind(app, key, render);
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
     bindSessionWalkClock();
@@ -1183,6 +1181,7 @@
     if (action === 'propose-route') {
       var pid = el.getAttribute('data-id');
       Store.propose(pid, Screens.routeName(pid));
+      if (!Store.hasPartner()) { location.hash = '#journey'; return; }
       if (Cloud.hasGit()) Cloud.push(function () {});
       return;
     }

@@ -116,7 +116,7 @@
       return '<article class="card pad accent"' + anchor + '>' +
         '<div class="kicker gold" style="margin-bottom:8px">Route complete</div>' +
         '<h3 style="font-family:var(--serif);font-size:22px;font-weight:500;margin:0 0 7px">' + esc(r.name) + '</h3>' +
-        '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition together when you are ready.</p>' +
+        '<p class="small" style="margin:0">All ' + r.legs.length + ' legs are finished. Choose the next expedition when you are ready.</p>' +
       '</article>';
     }
     var walked = Store.legMine() + Store.legHers();
@@ -133,7 +133,7 @@
       '</div>' +
       '<div class="track"><span style="width:' + pct + '%"></span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:9px">' +
-        '<span>' + Store.fmtDistance(walked) + ' walked together</span><span>' + Store.fmtDistance(l.miles) + '</span>' +
+        '<span>' + Store.fmtDistance(walked) + (Store.hasPartner() ? ' walked together' : ' walked') + '</span><span>' + Store.fmtDistance(l.miles) + '</span>' +
       '</div>' +
     '</article>';
   }
@@ -146,7 +146,8 @@
     var line = st === 'waiting' ? 'Sent to ' + esc(Store.partnerName()) + '. Nothing starts until they answer.'
       : st === 'invited' ? esc(Store.partnerName()) + ' has proposed the ' + esc(S.invite.routeName) + '.'
       : st === 'accepted' ? esc(S.invite.routeName) + ' is agreed and ready to begin.'
-      : 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.';
+      : Store.hasPartner() ? 'Twelve real routes, three open to you now. Whichever you agree on, you walk it together.'
+      : 'Twelve real routes, three open to you now. Choose one and start walking.';
     return '<article class="card pad"' + anchor + '>' +
       '<div class="kicker" style="margin-bottom:11px">No expedition yet</div>' +
       '<p class="lede" style="margin:0 0 14px">' + line + '</p>' +
@@ -279,14 +280,14 @@
         art: 'assets/art/expedition-none.webp', photoPosition: 'center 42%',
         overlay:
           '<div class="eyebrow">Journey</div>' +
-          '<p class="verse">Choose the road together.</p>' +
+          '<p class="verse">Choose your road.</p>' +
           '<p class="attrib" style="text-transform:none;letter-spacing:0">Your expedition becomes the world the rest of InSync moves through.</p>',
         body:
           noExpeditionCard() +
           '<article class="card pad">' +
             '<div class="kicker sage" style="margin-bottom:9px">The Road</div>' +
-            '<p class="lede" style="margin:0 0 10px">One shared route. Both of your walking moves it.</p>' +
-            '<p class="small">Pick the first expedition together. Travel art carries the active leg; reached checkpoints become permanent places you can open again.</p>' +
+            '<p class="lede" style="margin:0 0 10px">' + (Store.hasPartner() ? 'One shared route. Both of your walking moves it.' : 'Your walking moves the route forward.') + '</p>' +
+            '<p class="small">Pick the first expedition. Travel art carries the active leg; reached checkpoints become permanent places you can open again.</p>' +
           '</article>' +
           '<button class="btn block" data-route="handshake">Choose an expedition</button>'
       });
@@ -1046,7 +1047,7 @@
     var e = Store.state().expedition, l = leg();
     if (!l) return null;
     var walked = Store.legMine() + Store.legHers();
-    var both = Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
+    var both = !Store.hasPartner() || Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
     return {
       walked: walked,
       miles: l.miles,
@@ -1405,6 +1406,7 @@
   }
 
   function handshakeState() {
+    if (!Store.hasPartner()) return 'propose';
     var inv = Store.state().invite;
     if (!inv) return 'propose';
     if (inv.accepted) return 'accepted';
@@ -1417,7 +1419,7 @@
     if (st === 'waiting') return 'Waiting on ' + Store.partnerName();
     if (st === 'invited' || st === 'counter') return Store.partnerName() + ' proposed the ' + inv.routeName;
     if (st === 'accepted') return inv.routeName + ' is agreed';
-    return hasExpedition() ? 'Propose the next expedition' : 'Choose the first expedition';
+    return hasExpedition() ? (Store.hasPartner() ? 'Propose the next expedition' : 'Choose the next expedition') : 'Choose the first expedition';
   }
 
   function sub(text) {
@@ -1440,18 +1442,20 @@
       pos = 'center 30%';
       overlay =
         '<div class="eyebrow">' + (countering ? 'Your turn to choose' : 'The next expedition') + '</div>' +
-        '<p class="verse">' + (countering ? 'Somewhere else, then.' : 'Nothing starts until you both say yes.') + '</p>' +
+        '<p class="verse">' + (countering ? 'Somewhere else, then.' : Store.hasPartner() ? 'Nothing starts until you both say yes.' : 'Choose a route and set out.') + '</p>' +
         sub(countering
           ? 'Pick a route and it goes back to ' + esc(p.name) + ' as your proposal.'
-          : 'Pick a route and it goes to ' + esc(p.name) + ' as a proposal.');
+          : Store.hasPartner() ? 'Pick a route and it goes to ' + esc(p.name) + ' as a proposal.' : 'Your expedition starts when you choose.');
       body =
         (!countering && S.expedition.next
           ? '<article class="card pad accent">' +
               '<div class="kicker" style="margin-bottom:9px">Already agreed</div>' +
-              '<p class="note">' + esc(routeName(S.expedition.next)) + ' begins when the ' +
-                esc(route().name) + ' ends. Proposing another replaces it.</p>' +
+              '<p class="note">' + esc(routeName(S.expedition.next)) + ' is saved for after the ' +
+                esc(route().name) + '. Choosing another replaces it.</p>' +
             '</article>'
           : '') +
+        (!countering && S.expedition.next && expeditionDone()
+          ? '<button class="btn block" data-action="begin-expedition" data-id="' + esc(S.expedition.next) + '">Set out on ' + esc(routeName(S.expedition.next)) + '</button>' : '') +
         '<div class="rulehead"><span class="kicker">Open now</span><span></span>' +
           '<span class="note">' + open.length + '</span></div>' +
         open.map(function (id) {
@@ -1462,12 +1466,12 @@
               '<p class="note">' + counterLine(inv) + '</p>' +
             '</article>' +
             '<button class="btn ghost block" data-route="handshake">Back to their proposal</button>'
-          : lockedRoutesCard() +
+          : lockedRoutesCard() + (Store.hasPartner() ?
             '<article class="card pad">' +
               '<div class="kicker" style="margin-bottom:11px">How it goes</div>' +
               '<p class="note">' + esc(p.name) + ' sees the route, its distance and its climb, and answers with one of two things: they walk it, or they name somewhere else. There is no decline — the only way to say no is to propose.</p>' +
               '<p class="small" style="margin-top:12px">Two counters and the app settles it, and it takes the route neither of you has walked.</p>' +
-            '</article>');
+            '</article>' : ''));
     }
 
     if (st === 'waiting') {
@@ -1592,6 +1596,19 @@
      never a constant, and the week from the points each day actually earned. */
   function together() {
     var S = Store.state(), p = Store.partnerRef(), pd = S.partnerData, T = window.InSyncTogether;
+    if (!Store.hasPartner()) {
+      var soloHero = expeditionSurface('together', 'assets/art/expedition-none.webp');
+      return UI.screen({
+        tab: 'together', rest: 470, restMeasure: true,
+        art: soloHero.art, artFallback: soloHero.fallback, scrim: UI.SCRIMS.light,
+        overlay: '<div class="eyebrow">Your trail</div><p class="verse">Walk at your own pace.</p>' +
+          '<p class="attrib" style="text-transform:none;letter-spacing:0">Your steps carry your expedition forward.</p>',
+        body: expeditionCard(true) + unlockCard(S) +
+          '<article class="card pad"><div class="kicker sage">Walking with someone later?</div>' +
+          '<p class="small" style="margin:9px 0 14px">Add a partner in Settings when you both want to share a route. Until then, you can keep walking solo.</p>' +
+          '<button class="btn ghost block" data-route="settings/together">Set up a partner</button></article>'
+      });
+    }
     var today = Store.todayKey(), mine = Store.points();
     var herToday = pd && pd.date === today && typeof pd.points === 'number' ? pd.points : null;
     var mode = T ? T.mode() : 'cooperative', modeInfo = T ? T.modeDef(mode) : {name:'Cooperative'};
@@ -1793,7 +1810,7 @@
     var milesPct = Math.min(100, Math.round((walked / l.miles) * 100));
     var bothPct = Math.min(100, Math.round((Math.min(Store.legMine(), Store.legHers()) / (l.miles * 0.2)) * 100));
     var milesDone = walked >= l.miles;
-    var bothDone = Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
+    var bothDone = !Store.hasPartner() || Math.min(Store.legMine(), Store.legHers()) >= l.miles * 0.2;
 
     return '<article class="card pad">' +
       '<div class="kicker" style="margin-bottom:13px">What opens the next leg</div>' +
@@ -1804,19 +1821,19 @@
         '</div>' +
         '<div class="track"><span style="width:' + milesPct + '%' + (milesDone ? ';background:var(--sage)' : '') + '"></span></div>' +
       '</div>' +
-      '<div>' +
+      (Store.hasPartner() ? '<div>' +
         '<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">' +
           '<span style="color:' + (bothDone ? 'var(--sage)' : 'var(--ink)') + '">Both of you walked it</span>' +
           '<span class="small">' + (bothDone ? 'met' : 'a fifth each') + '</span>' +
         '</div>' +
         '<div class="track"><span style="width:' + bothPct + '%' + (bothDone ? ';background:var(--sage)' : '') + '"></span></div>' +
-      '</div>' +
+      '</div>' : '') +
       (milesDone && bothDone
         ? '<div style="margin-top:16px">' +
-            '<p class="lede" style="margin:0 0 13px">Both conditions met. ' + esc(l.to) + ' is reached.</p>' +
+            '<p class="lede" style="margin:0 0 13px">' + (Store.hasPartner() ? 'Both conditions met. ' : 'Distance met. ') + esc(l.to) + ' is reached.</p>' +
             '<button class="btn block" data-action="advance-leg">Arrive at ' + esc(l.to) + '</button>' +
           '</div>'
-        : '<p class="small" style="margin:14px 0 0">One of you cannot carry the leg alone. Each has to walk at least a fifth of it.</p>') +
+        : Store.hasPartner() ? '<p class="small" style="margin:14px 0 0">One of you cannot carry the leg alone. Each has to walk at least a fifth of it.</p>' : '') +
     '</article>';
   }
 

@@ -1947,6 +1947,7 @@
   function partnerName() { return S.partner.name || 'your partner'; }
   function partnerInitials() { return S.partner.initials || ''; }
   function partnerRef() { return { name: partnerName(), initials: partnerInitials() }; }
+  function hasPartner() { return !!(S.partner.name && S.partner.name.trim()); }
 
   /* Checkpoint history is local-first evidence of places reached. Unlocking
      itself remains derived from expedition progress, so old installs and a
@@ -2013,7 +2014,7 @@
     var mine = legMine(), theirs = legHers();
     if (currentLeg && currentLeg.miles > 0) {
       var required = +currentLeg.miles;
-      if (mine + theirs < required || Math.min(mine, theirs) < required * 0.2) return false;
+      if (mine + theirs < required || (hasPartner() && Math.min(mine, theirs) < required * 0.2)) return false;
     }
     var finishedLeg = e.legIndex, at = new Date().toISOString();
     var primary = window.Journeys && Journeys.primaryCheckpointForLeg
@@ -2079,6 +2080,12 @@
   }
 
   function propose(routeId, name) {
+    if (!hasPartner()) {
+      var active = S.expedition.routeId && window.Journeys && Journeys.get(S.expedition.routeId);
+      if (active && S.expedition.legIndex < active.legs.length) holdExpedition(routeId);
+      else beginExpedition(routeId);
+      return;
+    }
     var now = new Date().toISOString();
     S.invite = {
       routeId: routeId, routeName: name || routeId, from: 'me',
@@ -2507,7 +2514,7 @@
     addPhoto: addPhoto, removePhoto: removePhoto, weightNear: weightNear, miles: miles,
     miles: miles, walkDistanceMilesForDay: walkDistanceMilesForDay, legMine: legMine, legHers: legHers,
     checkpointUnlocked: checkpointUnlocked, checkpointArrival: checkpointArrival,
-    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, identityKey: identityKey,
+    partnerName: partnerName, partnerInitials: partnerInitials, partnerRef: partnerRef, hasPartner: hasPartner, identityKey: identityKey,
     advanceLeg: advanceLeg, syncExpeditionProgress: syncExpeditionProgress,
     propose: propose, nudgeInvite: nudgeInvite, acceptInvite: acceptInvite,
     counterInvite: counterInvite, settleInvite: settleInvite,

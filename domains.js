@@ -15,7 +15,6 @@
   var supporting = [
     { key: 'coach', label: 'Coach', purpose: 'InSync Intelligence' },
     { key: 'faith', label: 'Faith', purpose: 'Christian Formation' },
-    { key: 'base-camp', label: 'Base Camp', purpose: 'Persistent World' },
     { key: 'achievements', label: 'Achievements', purpose: 'Milestones & Rewards' },
     { key: 'history', label: 'History', purpose: 'Living Record' }
   ];
