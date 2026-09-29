@@ -107,7 +107,7 @@ function plan(w){return new Promise(r=>C.planMealsWeek(w,(err,map)=>r({err,map})
  ok(screens.includes('Swap exercise')&&app.includes("action === 'swap-exercise'"),'training exposes and wires exercise substitution');
  ok(screens.includes('Movement memory')&&app.includes("action === 'allow-exercise-again'"),'remembered movement exclusions can be explicitly allowed again');
  ok(screens.includes('Weekly Campfire ready')&&app.includes("action === 'setup-next-week'"),'weekly review and next-week setup are wired');
- ok(screens.includes('History &amp; calendar')&&screens.includes('function dayHistory')&&screens.includes('Progress photos')&&screens.includes('Trail distance'),'complete calendar/day history includes photos and trail distance');
+ok(screens.includes("title:'Calendar & daily records'")&&screens.includes('function dayHistory')&&screens.includes('Progress photos')&&screens.includes('Trail distance'),'complete calendar/day history includes photos and trail distance');
  ok(screens.includes('Coach noticed')&&cloud.includes('Insights.patternsText'),'pattern-aware coaching is both proactive and supplied to Claude');
  ok(screens.includes('Sync healthy')||screens.includes('syncHealthPanel'),'Settings exposes a real sync-health panel');
  ok(screens.includes('reactionbar')&&app.includes("action === 'react'"),'Together reactions are rendered and synchronized');

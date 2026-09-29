@@ -25,4 +25,4 @@ P6.2 adds a local, story-based release journal so each phone can understand what
 - Trail Notes read state is local-only and absent from partner sync.
 - Faith remains parked.
 - Runtime: `6.0.0-p6.2`
-- Service worker: `insync-v10-35`
+- Service worker: `insync-v10-38`

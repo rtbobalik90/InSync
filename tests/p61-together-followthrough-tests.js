@@ -38,11 +38,13 @@ ok(html.indexOf('North Rim') < html.indexOf('Together style'),'current leg is pr
 // Archive is retained locally and appears in History & Calendar.
 const closed=T.closedCampfires();
 ok(closed.some(x=>x.weekOf===review&&x.closedAt),'closed Campfires are retained in the local archive');
-c.location.hash='#calendar/'+review.slice(0,7);html=c.Screens.calendar();
+const archiveMonth=S.shift(review,6).slice(0,7);
+c.location.hash='#calendar/'+archiveMonth;html=c.Screens.calendar();
 ok(html.includes('Weekly Campfires')&&html.includes('campfire-history/'+review),'History & Calendar lists the archived Campfire');
 ok(html.includes('✦ Campfire closed'),'calendar legend explains the Campfire marker');
 c.location.hash='#campfire-history/'+review;html=c.Screens.campfireHistory();
 ok(html.includes('Campfire archive')&&html.includes('A week you closed and kept.'),'archived Campfire opens as a read-only recap surface');
+ok(html.includes('calendar/'+archiveMonth),'Campfire archive returns to the month where the closed week is listed');
 ok(!html.includes('Close this Campfire'),'archive cannot re-close or mutate the completed review');
 
 // Modes visibly change structure and no longer need a second navigation action.
@@ -60,6 +62,6 @@ ok(app.includes("InSyncTogether.setMode(el.getAttribute('data-value'))) render()
 ok(app.includes("data-encouragement-status")||screens.includes('data-encouragement-status'),'Quick Encouragement has an explicit live feedback target');
 ok(app.includes("Sent to '+Store.partnerName()+' ✓")&&app.includes('sync will retry automatically'),'Quick Encouragement distinguishes delivery from retry state');
 ok(app.includes("location.hash='#together'")&&app.includes("action === 'close-campfire'"),'closing Campfire returns to Together so the teaser disappears immediately');
-ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2')&&sw.includes("CACHE = 'insync-v10-35'"),'P6.1 runtime, Settings and cache identifiers are current');
+ok(app.includes("version:'6.0.0-p6.2'")&&screens.includes('Version 6.0.0-p6.2')&&sw.includes("CACHE = 'insync-v10-38'"),'P6.1 runtime, Settings and cache identifiers are current');
 
 console.log(`\nP6.1 Together follow-through: ${passed} passed, ${failed} failed`);process.exit(failed?1:0);

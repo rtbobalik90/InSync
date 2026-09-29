@@ -828,6 +828,21 @@
   }
 
   // Core Together status always crosses; the sensitive health fields below obey the privacy toggles.
+  function sharedActivity() {
+    var s=Store.state(), p=s.privacy||{};
+    var rows=window.Insights&&Insights.localActivity?Insights.localActivity(7):[];
+    return rows.filter(function(a){
+      if(!a)return false;
+      if(a.type==='workout')return !!p.workouts;
+      if(a.type==='protein')return !!p.calories;
+      if(a.type==='steps')return !!p.steps;
+      /* A perfect-day event confirms all five scored behaviors, including a
+         weigh-in, so it can cross only when every contributing category may. */
+      if(a.type==='score')return !!(p.calories&&p.workouts&&p.steps&&p.weight);
+      return false;
+    });
+  }
+
   function sharePayload() {
     var s = Store.state(), k = Store.todayKey(), t = Store.totals(k), d = Store.day(k), sharedNote = latestSharedNote();
     var out = {
@@ -843,7 +858,7 @@
       note: sharedNote.text,
       noteDate: sharedNote.date,
       seenPartnerUpdated: s.partnerData && s.partnerData.updated ? cleanText(s.partnerData.updated,80) : '',
-      activity: window.Insights && Insights.localActivity ? Insights.localActivity(7) : [],
+      activity: sharedActivity(),
       reactions: window.Insights && Insights.reactionsGiven ? Insights.reactionsGiven() : {},
       /* Shared Dinner is separately opt-in. Only the dinner-sized calorie/protein
          target crosses; daily totals, meal logs and exact food history remain private. */
@@ -1079,6 +1094,66 @@
       lastAutoAttempt = Date.now();
       sync(function () {});
     }, wait + (force ? 0 : 2500));
+  }
+
+  /* Pairing is not a separate account or server-side workflow. It is a clear
+     reading of the GitHub sync facts already stored on this phone. Keeping the
+     derivation here gives Together and Settings the same answer without adding
+     persisted state or changing the partner payload schema. */
+  function pairingStatus(nowMs) {
+    var s=Store.state(), c=s.connections||{}, now=Number.isFinite(+nowMs)?+nowMs:Date.now();
+    var token=githubToken(), repo=String(c.githubRepo||'').trim(), branch=String(c.githubBranch||'main').trim();
+    var owner=String(s.profile&&s.profile.name||'').trim(), partner=String(s.partner&&s.partner.name||'').trim();
+    var ownerKey=slug(owner), partnerKey=slug(partner), missing=[];
+    if(!ownerKey)missing.push('your name');
+    if(!partnerKey)missing.push('your partner’s name');
+    if(!token)missing.push('a GitHub token');
+    if(!repo)missing.push('a private sync repository');
+    if(!branch)missing.push('a branch');
+    var base={configured:false,paired:!!s.partnerData,missing:missing,lastSync:Date.parse(c.lastSync||'')||0,
+      partnerUpdated:s.partnerData?(Date.parse(s.partnerData.updated||'')||0):0,error:''};
+    function result(id,title,tone,summary,nextStep){
+      return Object.assign(base,{id:id,title:title,tone:tone,summary:summary,nextStep:nextStep||''});
+    }
+    if(missing.length){
+      return result('not-set-up','Not set up','muted','Pairing still needs '+missing.join(', ')+'.',
+        'Complete the fields in Together settings. Both phones use the same private repository and branch, with the two names reversed.');
+    }
+    base.configured=true;
+    if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)){
+      return result('needs-attention','Pairing needs attention','bad','The repository must use owner/repository format.',
+        'Correct the dedicated private repository, then sync again.');
+    }
+    if(ownerKey===partnerKey){
+      return result('needs-attention','Pairing needs attention','bad','Both people currently resolve to the same sync identity.',
+        'Use two different names so each phone writes its own private sync file.');
+    }
+    if(typeof navigator!=='undefined'&&navigator.onLine===false){
+      return result('offline','Offline','warn','Pairing is configured, but this phone cannot reach GitHub right now.',
+        'Changes remain saved here. Reconnect, then sync again.');
+    }
+    var errorAt=Date.parse(c.lastSyncErrorAt||'')||0, currentError=!!c.lastSyncError&&errorAt>=base.lastSync;
+    if(currentError){
+      base.error=String(c.lastSyncError||'').slice(0,500);
+      return result('needs-attention','Pairing needs attention','bad',base.error,
+        'Check the token, repository, branch and names, then sync again.');
+    }
+    if(!s.partnerData){
+      if(base.lastSync){
+        return result('waiting-partner','Waiting for partner','warn','This phone wrote its file successfully, but '+Store.partnerName()+'’s file is not in the private repository yet.',
+          'Set up the same repository and branch on their phone with the names reversed, then tap Sync now there.');
+      }
+      return result('this-phone-ready','This phone is ready','warn','Your sync settings are complete. This phone has not made its first exchange yet.',
+        'Tap Sync now once, then set up the same repository and branch on the other phone with the names reversed.');
+    }
+    var syncAge=base.lastSync?now-base.lastSync:Infinity;
+    var partnerAge=base.partnerUpdated?now-base.partnerUpdated:Infinity;
+    if(syncAge>24*60*60*1000||partnerAge>72*60*60*1000){
+      return result('paired-stale','Paired, sync overdue','warn','The two private sync files have connected, but the shared view is no longer current.',
+        'Open both phones online and tap Sync now.');
+    }
+    return result('paired-current','Paired and current','good','Both private sync files have exchanged successfully.',
+      'InSync will keep checking while the app is open.');
   }
 
 
@@ -1682,7 +1757,7 @@
     parseMeal: parseMeal, parseMealPhoto: parseMealPhoto,
     readBarcodePhoto: readBarcodePhoto,
     restaurantMenu: restaurantMenu, menuItem: menuItem,
-    push: push, pull: pull, sync: sync, autoSync: autoSync, ensureSyncRepo: ensureSyncRepo,
+    push: push, pull: pull, sync: sync, autoSync: autoSync, ensureSyncRepo: ensureSyncRepo, pairingStatus: pairingStatus,
     isApplyingRemote: function () { return applyingRemote; },
     sharePayload: sharePayload, validatePlan: validatePlan, sanitizePartnerPayload: sanitizePartnerPayload
   };

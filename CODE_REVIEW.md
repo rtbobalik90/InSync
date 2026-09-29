@@ -23,4 +23,4 @@
 ## Upgrade safety
 - Additive `appUpdates` normalization; no local storage schema reset.
 - Service-worker shell includes the new module.
-- Cache bumped to `insync-v10-35`.
+- Cache bumped to `insync-v10-38`.

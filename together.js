@@ -23,6 +23,19 @@
   function nextWeek(base) { return Store.shift(base || currentWeek(), 7); }
   function modeDef(id) { return MODES.filter(function (x) { return x.id === id; })[0] || MODES[0]; }
   function missionDef(id) { return MISSIONS.filter(function (x) { return x.id === id; })[0] || null; }
+  /* A mission choice is harmless local planning, but its numeric progress is
+     derived from the health log. Reuse the existing sharing switches as the
+     authority for that derived value. Score missions need every component of
+     the 10-point score because even a small count can otherwise confirm a
+     hidden workout, nutrition result, step target or weigh-in. */
+  function missionProgressAllowed(mission) {
+    var def=mission&&missionDef(mission.id), p=state().privacy||{};
+    if(!def)return false;
+    if(def.type==='trail-miles')return !!p.steps;
+    if(def.type==='training-sessions')return !!p.workouts;
+    if(def.type==='strong-days'||def.type==='perfect-days')return !!(p.calories&&p.workouts&&p.steps&&p.weight);
+    return false;
+  }
   function cfg() { return state().together || {}; }
   function mode() { return modeDef(cfg().mode).id; }
   function setMode(id) {
@@ -115,7 +128,14 @@
 
   function sharePayload() {
     var c=cfg(), weeks=[currentWeek(),nextWeek()], missions=[];
-    weeks.forEach(function(w){var m=missionFor(w); if(!m)return; missions.push({weekOf:w,id:m.id,progress:localProgress(m),updatedAt:m.updatedAt||m.selectedAt||''});});
+    weeks.forEach(function(w){
+      var m=missionFor(w);
+      /* Omitting the complete row is deliberate. Schema 8 receivers already
+         treat an absent row as no remotely shared mission, which both clears
+         stale cached progress on the next pull and avoids inventing a zero. */
+      if(!m||!missionProgressAllowed(m))return;
+      missions.push({weekOf:w,id:m.id,progress:localProgress(m),updatedAt:m.updatedAt||m.selectedAt||''});
+    });
     var reviewWeek=window.Insights&&Insights.reviewWeekKey?Insights.reviewWeekKey():Store.shift(currentWeek(),-7);
     var cf=campfireFor(reviewWeek), nextStatus=window.Insights&&Insights.nextWeekStatus?Insights.nextWeekStatus(reviewWeek):null;
     return {
@@ -133,7 +153,7 @@
   }
 
   window.InSyncTogether={ MODES:MODES, MISSIONS:MISSIONS, mode:mode, modeDef:modeDef, setMode:setMode,
-    missionDef:missionDef, missionFor:missionFor, setMission:setMission, clearMission:clearMission, localProgress:localProgress,
+    missionDef:missionDef, missionFor:missionFor, setMission:setMission, clearMission:clearMission, localProgress:localProgress, missionProgressAllowed:missionProgressAllowed,
     partnerMission:partnerMission, missionStatus:missionStatus, currentWeek:currentWeek, nextWeek:nextWeek,
     campfireFor:campfireFor, closedCampfires:closedCampfires, setCampfireIntent:setCampfireIntent, closeCampfire:closeCampfire, partnerCampfireIntent:partnerCampfireIntent,
     weeklySummary:weeklySummary, partnerWeeklySummary:partnerWeeklySummary, sharePayload:sharePayload, sharedDinnerStatus:sharedDinnerStatus };

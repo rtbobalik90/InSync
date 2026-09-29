@@ -14,7 +14,8 @@
     { field: 'sex', numeric: false },
     { field: 'starting weight', numeric: true },
     { field: 'goal', numeric: false },
-    { field: 'training frequency', numeric: true }
+    { field: 'training frequency', numeric: true },
+    { field: 'training setup', numeric: false }
   ];
   var WORDS = ['no', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
   function word(n) { return WORDS[n] || String(n); }
@@ -27,12 +28,29 @@
   ];
 
   var FREQ_NOTE = {
-    2: 'Two full-body sessions. Every machine, every time — it is the only way twice a week works.',
+    2: 'Two full-body sessions. Each planned movement matters when you train twice a week.',
     3: 'Push, pull, legs. One of each, in order, whenever you get there.',
     4: 'Upper and lower, twice each. Enough room to press heavy and still squat.',
-    5: 'Five gym days. Walking is tracked separately every day, so none of your lifting days gets replaced by cardio.',
+    5: 'Five training days. Walking is tracked separately every day, so none of your lifting days gets replaced by cardio.',
     6: 'Six days is a lot to hold. The coach will watch for the week you start missing and say so.'
   };
+
+  var GYM_CHOICES = [
+    { key: 'planet-fitness', name: 'Planet Fitness', note: 'Bodyweight, dumbbells, machines, cables and Smith machines' },
+    { key: 'home', name: 'Home', note: 'Bodyweight and dumbbells' },
+    { key: 'full-gym', name: 'Full gym', note: 'A complete commercial gym, including free barbells' },
+    { key: 'custom', name: 'Custom', note: 'Choose exactly what you have available' }
+  ];
+  var GYM_EQUIPMENT = {
+    'planet-fitness': ['Bodyweight', 'Dumbbell', 'Machine', 'Cable', 'Smith'],
+    home: ['Bodyweight', 'Dumbbell'],
+    'full-gym': ['Bodyweight', 'Dumbbell', 'Machine', 'Cable', 'Smith', 'Barbell'],
+    custom: []
+  };
+  /* This is the same bounded vocabulary accepted by Training and Store. It is
+     intentionally category-level: onboarding never asks a person to inventory
+     every individual machine. */
+  var EQUIPMENT = ['Bodyweight', 'Dumbbell', 'Machine', 'Cable', 'Smith', 'Barbell'];
 
   /* Plans reference exercise ids from the library, so every movement has a
      GIF, a group and a prescription. `detail` is derived, never typed. */
@@ -81,15 +99,60 @@
     });
   }
 
-  var ORDER = ['welcome', 'name', 'body', 'goal', 'frequency', 'targets', 'plan', 'pair', 'coach'];
+  function uniqueEquipment(list) {
+    return (list || []).filter(function (item, i, all) {
+      return EQUIPMENT.indexOf(item) >= 0 && all.indexOf(item) === i;
+    });
+  }
+
+  function trainingProfileFor(gymType, customEquipment) {
+    var type = Object.prototype.hasOwnProperty.call(GYM_EQUIPMENT, gymType) ? gymType : '';
+    return {
+      gymType: type,
+      customEquipment: type === 'custom' ? uniqueEquipment(customEquipment) : [],
+      equipment: type === 'custom'
+        ? uniqueEquipment(customEquipment)
+        : (GYM_EQUIPMENT[type] || []).slice()
+    };
+  }
+
+  /* Adapt the established split without inventing movements. Each replacement
+     comes from the canonical exercise library, keeps the intended muscle group,
+     and uses only equipment declared in the onboarding draft. */
+  function planFor(freq, gymType, customEquipment) {
+    var profile = trainingProfileFor(gymType, customEquipment);
+    return withDetail((PLANS[freq] || []).map(function (day, dayIndex) {
+      var chosen = [];
+      var ids = day.ex.map(function (id, slotIndex) {
+        var original = Exercises.get(id);
+        if (!original) return '';
+        if (profile.equipment.indexOf(original.equipment) >= 0 && chosen.indexOf(original.id) < 0) {
+          chosen.push(original.id);
+          return original.id;
+        }
+        var candidates = Exercises.all.filter(function (candidate) {
+          return candidate.group === original.group &&
+            profile.equipment.indexOf(candidate.equipment) >= 0 && chosen.indexOf(candidate.id) < 0;
+        });
+        if (!candidates.length) return '';
+        var start = (dayIndex + slotIndex) % candidates.length;
+        var replacement = candidates[start];
+        chosen.push(replacement.id);
+        return replacement.id;
+      }).filter(Boolean);
+      return { day: day.day, name: day.name, ex: ids };
+    }));
+  }
+
+  var ORDER = ['welcome', 'name', 'body', 'goal', 'frequency', 'equipment', 'targets', 'plan', 'pair', 'coach'];
   var STEP_TOTAL = ORDER.length - 1; // the welcome screen is not a step
   // Screens that ask something of the person, as opposed to showing something.
-  var ASKS = ['name', 'body', 'goal', 'frequency'];
+  var ASKS = ['name', 'body', 'goal', 'frequency', 'equipment'];
 
   // Draft lives here until the flow completes; nothing touches Store until then.
   var draft = {
     name: '', heightFt: '', heightIn: '', age: '', sex: '',
-    weight: '', goal: '', freq: 4, partner: '', note: '',
+    weight: '', goal: '', freq: 4, gymType: '', customEquipment: [], partner: '', note: '',
     claudeKey: '', keyNote: '', keyOk: false
   };
   var at = 0;
@@ -212,7 +275,7 @@
 
   function screenFrequency() {
     return '<div class="ob-body">' +
-      '<h2 class="ob-h">How often can you get to the gym?</h2>' +
+      '<h2 class="ob-h">How often can you train?</h2>' +
       '<p class="ob-sub">Answer honestly rather than ambitiously. The coach builds the split around this.</p>' +
       '<div class="ob-freq-value"><span class="ob-freq-n">' + draft.freq + '</span><span class="ob-unit">days a week</span></div>' +
       '<div class="ob-choices">' +
@@ -221,6 +284,36 @@
         }).join('') +
       '</div>' +
       '<p class="ob-note">' + esc(FREQ_NOTE[draft.freq]) + '</p>' +
+      '<button class="btn block" data-ob="next">Continue</button>' +
+    '</div>';
+  }
+
+  function screenEquipment() {
+    var custom = draft.gymType === 'custom';
+    return '<div class="ob-body">' +
+      '<h2 class="ob-h">Where will you train?</h2>' +
+      '<p class="ob-sub">Choose the setup you actually use. Your first plan will only include equipment available there.</p>' +
+      '<div class="ob-goals">' +
+        GYM_CHOICES.map(function (choice) {
+          var on = draft.gymType === choice.key;
+          return '<button class="ob-goal' + (on ? ' on' : '') + '" data-ob="gym" data-value="' + choice.key + '">' +
+            '<span><span class="ob-goal-name">' + esc(choice.name) + '</span>' +
+            '<span class="ob-goal-note">' + esc(choice.note) + '</span></span>' +
+            '<span class="ob-dot' + (on ? ' on' : '') + '"></span>' +
+          '</button>';
+        }).join('') +
+      '</div>' +
+      (custom
+        ? '<article class="card pad">' +
+            '<div class="rulehead tight" style="margin-top:0"><span class="kicker">Available equipment</span><span></span></div>' +
+            '<p class="small" style="margin:0 0 12px">Choose every category the plan may use. Bodyweight is available as an explicit option.</p>' +
+            '<div class="ob-choices two">' + EQUIPMENT.map(function (equipment) {
+              var on = draft.customEquipment.indexOf(equipment) >= 0;
+              return '<button class="ob-chip' + (on ? ' on' : '') + '" data-ob="equipment" data-value="' + esc(equipment) + '">' + esc(equipment) + '</button>';
+            }).join('') + '</div>' +
+          '</article>'
+        : '') +
+      (draft.note ? '<p class="ob-warn">' + esc(draft.note) + '</p>' : '') +
       '<button class="btn block" data-ob="next">Continue</button>' +
     '</div>';
   }
@@ -235,7 +328,7 @@
     ];
     return '<div class="ob-body">' +
       '<h2 class="ob-h">Numbers to start with.</h2>' +
-      '<p class="ob-sub">Worked out from your height, weight, age, sex, goal and training frequency. The coach will replace them once it has watched you for a fortnight.</p>' +
+      '<p class="ob-sub">These are starting estimates. After at least two weeks of useful logs, the Coach can review what is actually happening and propose adjustments. You will see the evidence and choose whether to use them. Nothing changes without your approval.</p>' +
       '<article class="card">' +
         rows.map(function (r) {
           return '<div class="ob-target">' +
@@ -244,7 +337,7 @@
           '</div>';
         }).join('') +
         '<div class="ob-target note"><span class="ob-prov"></span>' +
-          '<p class="small" style="margin:0">A starting estimate, refined after two weeks. The dot disappears when the coach confirms each one.</p>' +
+          '<p class="small" style="margin:0">Eligible for review after enough useful logs. Nothing changes before you approve a proposal.</p>' +
         '</div>' +
       '</article>' +
       '<button class="btn block" data-ob="next">Continue</button>' +
@@ -253,10 +346,11 @@
   }
 
   function screenPlan() {
-    var plan = withDetail(PLANS[draft.freq] || []);
+    var plan = planFor(draft.freq, draft.gymType, draft.customEquipment);
+    var gym = GYM_CHOICES.filter(function (choice) { return choice.key === draft.gymType; })[0];
     return '<div class="ob-body">' +
       '<h2 class="ob-h">' + draft.freq + ' days a week.</h2>' +
-      '<p class="ob-sub">' + esc(FREQ_NOTE[draft.freq]) + '</p>' +
+      '<p class="ob-sub">' + esc(FREQ_NOTE[draft.freq]) + ' Built for ' + esc(gym ? gym.name : 'your equipment') + '.</p>' +
       '<article class="card">' +
         plan.map(function (d) {
           return '<div class="ob-plan">' +
@@ -265,7 +359,7 @@
             '<span class="small">' + esc(d.detail) + '</span></span>' +
           '</div>';
         }).join('') +
-        '<p class="small ob-plan-foot">Machines picked from what Planet Fitness has. Your daily walk is separate from these gym days, and you can swap any movement when a machine is taken.</p>' +
+        '<p class="small ob-plan-foot">Every movement is picked from the equipment you selected. Your daily walk is separate from these training days, and you can swap a movement when needed.</p>' +
       '</article>' +
       '<button class="btn block" data-ob="next">Continue</button>' +
     '</div>';
@@ -297,7 +391,7 @@
         '<p class="lede">' + esc(name) + ' — I know ' + word(collected).toLowerCase() + ' things about you, and ' +
           word(numeric).toLowerCase() + ' of them are numbers. That is not enough to coach anyone.</p>' +
         '<p class="ob-letter">So here is what happens next. Log what you eat and what you lift. Weigh yourself in the mornings you remember. I will not ask you for anything else.</p>' +
-        '<p class="ob-letter">In a fortnight I will have watched enough to know where your protein actually lands, which days you skip, and how fast the weight is moving. Then I will replace those starting numbers with ones that fit you.</p>' +
+        '<p class="ob-letter">In about two weeks, if there is enough consistent information to learn from, I can show you what I noticed and propose targets that fit you better. You decide whether anything changes.</p>' +
         '<p class="ob-letter">Until then the targets are a guess. Walk anyway.</p>' +
       '</article>' +
       '<article class="card pad">' +
@@ -315,7 +409,7 @@
 
   var SCREENS = {
     welcome: screenWelcome, name: screenName, body: screenBody, goal: screenGoal,
-    frequency: screenFrequency, targets: screenTargets, plan: screenPlan,
+    frequency: screenFrequency, equipment: screenEquipment, targets: screenTargets, plan: screenPlan,
     pair: screenPair, coach: screenCoach
   };
 
@@ -376,6 +470,15 @@
       return true;
     }
 
+    if (key === 'equipment') {
+      if (!draft.gymType) { draft.note = 'Choose where you will train before the first plan is built.'; return false; }
+      if (draft.gymType === 'custom' && !uniqueEquipment(draft.customEquipment).length) {
+        draft.note = 'Choose at least one equipment category. Bodyweight counts.';
+        return false;
+      }
+      return true;
+    }
+
     return true;
   }
 
@@ -392,6 +495,8 @@
 
   function finish() {
     var t = targetsFor(draft.goal, draft.weight, draft.heightFt * 12 + (+draft.heightIn || 0), draft.age, draft.sex, draft.freq);
+    var selectedProfile = trainingProfileFor(draft.gymType, draft.customEquipment);
+    var selectedPlan = planFor(draft.freq, draft.gymType, draft.customEquipment);
     var name = draft.name || 'Friend';
     var initials = initialsFor(name);
 
@@ -405,7 +510,11 @@
     Store.set('goal', draft.goal);
     Store.set('targets', t);
     Store.set('frequency', draft.freq);
-    Store.set('plan', withDetail(PLANS[draft.freq] || []));
+    Store.set('trainingProfile', Object.assign({}, Store.state().trainingProfile || {}, {
+      gymType: selectedProfile.gymType,
+      customEquipment: selectedProfile.customEquipment.slice()
+    }));
+    Store.set('plan', selectedPlan);
     if (draft.partner) {
       Store.setPartnerName(draft.partner);
     }
@@ -441,6 +550,9 @@
   }
 
   function start() {
+    /* App already gates this call, but keep the onboarding boundary safe when a
+       stale event or direct console call reaches it on an established profile. */
+    if (Store.state().onboarded) return;
     var root = document.createElement('div');
     root.id = 'onboarding';
     document.body.appendChild(root);
@@ -461,6 +573,21 @@
       if (kind === 'sex') { soak(); draft.sex = el.getAttribute('data-value'); render(); }
       else if (kind === 'goal') { soak(); draft.goal = el.getAttribute('data-value'); render(); }
       else if (kind === 'freq') { soak(); draft.freq = Number(el.getAttribute('data-value')); render(); }
+      else if (kind === 'gym') {
+        soak();
+        draft.note = '';
+        draft.gymType = el.getAttribute('data-value');
+        render();
+      }
+      else if (kind === 'equipment') {
+        soak();
+        draft.note = '';
+        var equipment = el.getAttribute('data-value');
+        var selected = draft.customEquipment.indexOf(equipment);
+        if (selected >= 0) draft.customEquipment.splice(selected, 1);
+        else if (EQUIPMENT.indexOf(equipment) >= 0) draft.customEquipment.push(equipment);
+        render();
+      }
       else if (kind === 'testkey') {
         soak();
         if (!draft.claudeKey) { draft.keyOk = false; draft.keyNote = 'Nothing pasted yet.'; render(); return; }
@@ -498,5 +625,8 @@
     render();
   }
 
-  window.Onboarding = { start: start, plans: PLANS, goals: GOALS, withDetail: withDetail, targetsFor: targetsFor };
+  window.Onboarding = {
+    start: start, plans: PLANS, goals: GOALS, withDetail: withDetail, targetsFor: targetsFor,
+    gymChoices: GYM_CHOICES, equipment: EQUIPMENT, trainingProfileFor: trainingProfileFor, planFor: planFor
+  };
 })();

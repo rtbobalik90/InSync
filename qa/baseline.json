@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "release": "6.0.0-p6.2",
+  "timezone": "America/Chicago",
+  "testFileCount": 34,
+  "timeoutMs": 60000,
+  "placeholderSha256": "67064639f8bc55ecd7e9d4e79d4381ee1b79941542ff0330cb9f4d3df8f654ef",
+  "reservedSlotSha256": [
+    "d2b96c3aa94deed280e8de13d4c05f3a71879cac2790c1e78efecf7a8562a254",
+    "86be52bdb7547413cafb3ed175a806a798c65de98b40849e0b974c47d187de65"
+  ],
+  "mediaProfiles": [
+    {
+      "id": "transport-slim",
+      "totalFiles": 380,
+      "placeholderFiles": 350,
+      "reservedSlotFiles": 1,
+      "substantiveFiles": 29,
+      "placeholderByArea": {
+        "art": 258,
+        "badges": 39,
+        "exercises": 53
+      }
+    },
+    {
+      "id": "production-current",
+      "totalFiles": 380,
+      "placeholderFiles": 0,
+      "reservedSlotFiles": 222,
+      "substantiveFiles": 158,
+      "placeholderByArea": {}
+    }
+  ],
+  "expectedFailures": [
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/stabilization-tests.js",
+      "pattern": "^image has a valid non-empty header: assets/badges/",
+      "count": 39,
+      "reason": "Badge files are transport placeholders."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/stabilization-tests.js",
+      "pattern": "^exercise media is animated WebP: ",
+      "count": 53,
+      "reason": "Exercise demonstrations are transport placeholders."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/stabilization-tests.js",
+      "pattern": "^coach and dispatch artwork are not accidental duplicate files$",
+      "count": 1,
+      "reason": "Both files resolve to the shared transport placeholder."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/stabilization-tests.js",
+      "pattern": "^training banner is a real image, not an empty placeholder$",
+      "count": 1,
+      "reason": "The training banner is a transport placeholder."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/stabilization-tests.js",
+      "pattern": "^Inca Trail art is present and non-empty: ",
+      "count": 5,
+      "reason": "The Inca Trail pack is represented by transport placeholders."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/training-2-tests.js",
+      "pattern": "^new exercise has real media: ",
+      "count": 12,
+      "reason": "The newly covered exercise demonstrations are transport placeholders."
+    },
+    {
+      "profiles": ["transport-slim"],
+      "test": "tests/training-2-tests.js",
+      "pattern": "^new exercise media is animated WebP: ",
+      "count": 12,
+      "reason": "The newly covered exercise demonstrations are transport placeholders."
+    }
+  ]
+}

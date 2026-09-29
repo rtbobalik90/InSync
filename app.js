@@ -130,12 +130,14 @@
     else if (root === 'weekly-review') html = Screens.weeklyReview();
     else if (root === 'campfire') html = Screens.campfire();
     else if (root === 'campfire-history') html = Screens.campfireHistory();
+    else if (root === 'base-camp') html = InSyncBaseCampUI.render();
     else if (root === 'trail-notes') html = InSyncTrailNotes.screen();
     else if (root === 'duo-mission') html = Screens.duoMission();
     else if (root === 'calendar') html = Screens.calendar();
     else if (root === 'day-history') html = Screens.dayHistory();
     else if (root === 'planned-meal') html = Screens.plannedMeal();
     else if (root === 'cookbook') html = Screens.cookbook();
+    else if (root === 'meal-history') html = Screens.mealHistory();
     else if (root === 'history') html = Screens.history();
     else if (root === 'photos') html = Screens.photos();
     else if (root === 'capture') html = Screens.capture();
@@ -151,6 +153,7 @@
 
     app.innerHTML = html;
     lastRenderedKey = key;
+    if (window.InSyncBaseCampUI) InSyncBaseCampUI.bind(app, key, render);
     UI.bindScroll(app);
     if (window.Media) Media.paint(app);
     bindSessionWalkClock();
@@ -1295,6 +1298,9 @@
        remote-applied writes as a new local change that needs to be pushed
        back to GitHub; that would create a needless sync/commit loop. */
     if (window.Cloud && Cloud.isApplyingRemote && Cloud.isApplyingRemote()) return;
+    /* Base Camp 1.0 is deliberately device-local. Its state is included in a
+       private backup, but arranging the grid must never trigger partner sync. */
+    if (window.InSyncBaseCampState && InSyncBaseCampState.isLocalCommit && InSyncBaseCampState.isLocalCommit()) return;
     if (Store.state().onboarded && window.Cloud && Cloud.autoSync) Cloud.autoSync(false);
   });
 

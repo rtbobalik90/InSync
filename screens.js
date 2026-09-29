@@ -234,7 +234,7 @@
     var body = rhythm + (hasData
       ? ledgerCard() + nextStepCard() + coachPatternCard() + weeklyGoalsCard() + weeklyReviewTeaser() + expeditionCard() + partnerCard()
       : dayOneCard());
-    body += '<button class="btn ghost block" data-route="calendar">History &amp; calendar</button>';
+    body += '<button class="btn ghost block" data-route="history">History</button>';
 
     var homeHero = expeditionSurface('home', UI.CAMP[Store.timeOfDay()]);
     return UI.screen({
@@ -642,7 +642,7 @@
       return '<div class="rulehead"><span class="kicker">Ask it something</span><span></span></div>' +
         '<article class="card pad">' +
           '<p class="note">The coach can only answer with a Claude key. Add one in Settings and this becomes a conversation.</p>' +
-          '<div class="btnrow" style="margin-top:14px"><button class="btn ghost auto" data-route="settings">Open Settings</button></div>' +
+          '<div class="btnrow" style="margin-top:14px"><button class="btn ghost auto" data-route="settings/coach">Open Coach settings</button></div>' +
         '</article>';
     }
 
@@ -783,7 +783,7 @@
     var ways = [
       canRead
         ? ['action', 'photograph-meal', 'camera', 'Photo', '']
-        : ['route', 'settings', 'camera', 'Photo', ' needskey'],
+        : ['route', 'settings/coach', 'camera', 'Photo', ' needskey'],
       ['action', 'scan-barcode', 'barcode', 'Barcode', ''],
       ['action', 'add-restaurant', 'place', 'Eating out', ''],
       ['route', 'cookbook', 'book', 'Cookbook', '']
@@ -855,7 +855,7 @@
             '<article class="card rowlist">' +
               byTime(yd.meals).map(function (m) { return mealRow(m, { noThumb: true }); }).join('') +
               '<div class="pad-x" style="padding:12px 17px 15px">' +
-                '<button class="btn ghost block" data-route="history">Full meal history</button>' +
+                '<button class="btn ghost block" data-route="meal-history">Full meal history</button>' +
               '</div>' +
             '</article>'
           : '') +
@@ -1073,7 +1073,7 @@
     }
     if (S.proposal && !S.proposal.answered) {
       out.push({ id: 'action:proposal:' + (S.proposal.date || '') + ':' + (S.proposal.summary || ''), g: 0, name: 'The coach has a proposal',
-        note: S.proposal.summary || 'New targets to approve', route: 'settings', when: S.proposal.date });
+        note: S.proposal.summary || 'New targets to approve', route: 'settings/profile', when: S.proposal.date });
     }
 
     if (window.InSyncTogether && pd && pd.together) {
@@ -1168,7 +1168,7 @@
     return UI.screen({
       tab: '', rest: 210, photoHeight: '300px', blur: true,
       art: 'assets/art/dispatch-day.webp', photoPos: 'center 40%',
-      header: { back: true, title: 'Notifications' },
+      header: { back: true, title: 'In-app notifications' },
       overlay: '<span class="daytag">' + UI.dayLabel() + '</span>' +
         '<p class="bigsub" style="margin-top:6px">' +
           (items.filter(function (i) { return i.g === 0; }).length
@@ -1177,9 +1177,9 @@
       body: body +
         '<article class="card">' +
           '<div class="cardhead"><div class="title sage"><i></i>Deliberately absent</div></div>' +
-          '<p class="cardnote">There is no daily reminder to log. It would fire hardest on the days you were ' +
-          'already struggling, and that is not a coach. Which notifications reach your phone is set in ' +
-          '<button class="inlink" data-route="settings">Settings</button>.</p>' +
+          '<p class="cardnote">InSync does not use a daily pressure-to-log reminder. Notification preferences control what appears in this centre. ' +
+          'These items do not send alerts to your phone. Review them in ' +
+          '<button class="inlink" data-route="settings/notifications">Settings</button>.</p>' +
         '</article>'
     });
   }
@@ -1641,6 +1641,7 @@
         cooperativeWeekCard(S, p) + sharedDinnerTogetherCard(S, p) + encouragementCard(p);
     }
 
+    body = pairingStatusCard('together') + body;
     body += notesCard(S, p, pd) + activityCard(S, p, pd) + badgeStrip(S, p) +
       (hasExpedition() ? '<button class="btn ghost block" data-route="handshake">' + esc(handshakeCta()) + '</button>' : '') +
       '<button class="btn ghost block" data-route="notifications">Notifications</button>';
@@ -2055,7 +2056,7 @@
     } else {
       body += '<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:9px 0 14px">The numbers above are already final. The coach can turn them into a short review without inventing anything.</p>' +
         (hasClaude && ready ? '<button class="btn block" data-action="generate-weekly-review" data-week="' + week + '">Write my weekly review</button>' :
-          !hasClaude ? '<button class="btn ghost block" data-route="settings">Connect Claude to write it</button>' : '<p class="note">The current week is still in progress.</p>') + '</article>';
+          !hasClaude ? '<button class="btn ghost block" data-route="settings/coach">Connect Claude to write it</button>' : '<p class="note">The current week is still in progress.</p>') + '</article>';
     }
     var nextPartial = (next.training || next.meals) && !(next.training && next.meals);
     body += '<article class="card pad"><div class="kicker sage">Next week</div><p class="lede" style="margin:9px 0 7px">' +
@@ -2065,7 +2066,7 @@
         (nextGoals.length ? nextGoals : suggestedGoals.map(function(g){return {label:g.label,value:0,target:g.target,done:false};})).map(function(g){ return '<div class="goalrow"><span>' + (g.done ? '✓ ' : '') + esc(g.label) + '</span><b>' + g.value + '/' + g.target + '</b></div>'; }).join('') + '</div>' +
       (next.training && next.meals
         ? '<div class="btnrow" style="margin-top:14px"><button class="btn ghost" data-route="planner">View meals</button><button class="btn ghost" data-route="train">View training</button></div>'
-        : hasClaude ? '<button class="btn block" style="margin-top:14px" data-action="setup-next-week" data-week="' + week + '">' + (nextPartial ? 'Finish setting up next week' : 'Set up my next week') + '</button>' : '<button class="btn ghost block" style="margin-top:14px" data-route="settings">Connect Claude to set it up</button>') +
+        : hasClaude ? '<button class="btn block" style="margin-top:14px" data-action="setup-next-week" data-week="' + week + '">' + (nextPartial ? 'Finish setting up next week' : 'Set up my next week') + '</button>' : '<button class="btn ghost block" style="margin-top:14px" data-route="settings/coach">Connect Claude to set it up</button>') +
       '</article>';
     return UI.screen({ tab:null, rest:300, blur:true, header:{back:'home',title:'Weekly review',right:'<div style="width:34px"></div>'},
       art:'assets/art/coach-desk.webp', photoPosition:'center 34%', overlay:'<div class="eyebrow">' + esc(label) + '</div><p class="verse" style="font-size:25px">Look back once. Then move the week forward.</p>', body:body });
@@ -2089,9 +2090,10 @@
     body+='<article class="card pad"><div class="kicker sage">What you carried forward</div>'+
       (record.intent?'<p class="lede" style="margin:9px 0 0">'+esc(record.intent)+'</p>':'<p class="small" style="margin:9px 0 0">No shared intention was saved for this Campfire.</p>')+'</article>';
     if(goals.length) body+='<article class="card pad"><div class="kicker">Goals that followed</div><div class="plainlist" style="margin-top:10px">'+goals.map(function(g){return '<div style="padding:9px 0;border-top:1px solid var(--rule)">'+esc(g.label)+'</div>';}).join('')+'</div></article>';
-    body+='<button class="btn ghost block" data-route="calendar/'+esc(week.slice(0,7))+'">Back to History &amp; Calendar</button>';
+    var archiveMonth = Store.shift(week,6).slice(0,7);
+    body+='<button class="btn ghost block" data-route="calendar/'+esc(archiveMonth)+'">Back to History &amp; Calendar</button>';
     var hero=expeditionSurface('together','assets/art/campfire.webp');
-    return UI.screen({tab:null,rest:330,header:{back:'calendar/'+week.slice(0,7),title:'Campfire archive',right:'<div style="width:44px"></div>'},art:hero.art,artFallback:hero.fallback,scrim:UI.SCRIMS.light,photoPosition:'center 62%',overlay:'<div class="eyebrow">'+esc(label)+'</div><p class="verse" style="font-size:26px">A week you closed and kept.</p>',body:body});
+    return UI.screen({tab:null,rest:330,header:{back:'calendar/'+archiveMonth,title:'Campfire archive',right:'<div style="width:44px"></div>'},art:hero.art,artFallback:hero.fallback,scrim:UI.SCRIMS.light,photoPosition:'center 62%',overlay:'<div class="eyebrow">'+esc(label)+'</div><p class="verse" style="font-size:26px">A week you closed and kept.</p>',body:body});
   }
 
   function duoMission() {
@@ -2123,9 +2125,9 @@
       '<section><h3>'+esc(p.name)+'</h3>'+(partner?stat('Points',partner.points,'shared')+(partner.workouts!=null?stat('Sessions',partner.workouts,'shared'):'')+(partner.avgSteps!=null?stat('Avg steps',Math.round(partner.avgSteps).toLocaleString(),'shared'):'')+(partner.avgProtein!=null?stat('Avg protein',Math.round(partner.avgProtein)+' g','shared'):''):'<p class="small">Waiting for a sync from this review week.</p>')+'</section></div>' +
       '<p class="note" style="margin:12px 0 0">Partner health details appear only when their existing privacy settings allow the weekly aggregate.</p></article>';
     if(review) body+='<article class="card pad accent"><div class="kicker sage">Coach review</div><p class="lede" style="margin:8px 0 9px">'+esc(review.summary)+'</p>'+(review.win?'<p class="small"><b>Win:</b> '+esc(review.win)+'</p>':'')+(review.pattern?'<p class="small"><b>Pattern:</b> '+esc(review.pattern)+'</p>':'')+(review.carry?'<p class="small"><b>Carry:</b> '+esc(review.carry)+'</p>':'')+aiWhyBlock('weekly-review','Why did Coach say this?')+'</article>';
-    else body+='<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:8px 0 13px">The numbers above are deterministic. Coach can write a short interpretation without changing them.</p>'+(hasClaude&&ready?'<button class="btn block" data-action="generate-weekly-review" data-week="'+esc(week)+'">Write the review</button>':!hasClaude?'<button class="btn ghost block" data-route="settings">Connect Claude to write it</button>':'<p class="note">This week is still in progress.</p>')+'</article>';
+    else body+='<article class="card pad"><div class="kicker">Read the week</div><p class="small" style="margin:8px 0 13px">The numbers above are deterministic. Coach can write a short interpretation without changing them.</p>'+(hasClaude&&ready?'<button class="btn block" data-action="generate-weekly-review" data-week="'+esc(week)+'">Write the review</button>':!hasClaude?'<button class="btn ghost block" data-route="settings/coach">Connect Claude to write it</button>':'<p class="note">This week is still in progress.</p>')+'</article>';
     body+='<article class="card pad"><div class="kicker sage">What we carry forward</div><p class="small" style="margin:8px 0 10px">One short intention is shared with '+esc(p.name)+'. Keep private journaling out of this box.</p><textarea class="reflect campfire-intent" data-campfire-intent maxlength="280" placeholder="One thing I want us to protect or do next week…">'+esc(record&&record.intent||'')+'</textarea><button class="btn ghost block" style="margin-top:10px" data-action="save-campfire-intent" data-week="'+esc(week)+'">Save shared intention</button>'+(partnerIntent&&partnerIntent.text?'<div class="partner-intent" style="margin-top:12px"><span>'+esc(p.name)+' is carrying</span><strong>'+esc(partnerIntent.text)+'</strong></div>':'')+'</article>';
-    body+='<article class="card pad"><div class="kicker gold">Next Week Command Center</div><p class="lede" style="margin:8px 0 6px">'+(next.training&&next.meals?'The bones of next week are ready.':'Prepare the week before it starts.')+'</p><div class="campfire-ready-grid">'+stat('Training',next.training?'Ready':'Open','')+stat('Meals',next.mealCount+'/28',next.meals?'ready':'planned')+'</div>'+(next.training&&next.meals?'<div class="btnrow" style="margin-top:13px"><button class="btn ghost" data-route="train">Training</button><button class="btn ghost" data-route="planner">Meals</button></div>':hasClaude?'<button class="btn block" style="margin-top:13px" data-action="setup-next-week" data-week="'+esc(week)+'">Set up next week</button>':'<button class="btn ghost block" style="margin-top:13px" data-route="settings">Connect Claude to prepare it</button>')+'</article>';
+    body+='<article class="card pad"><div class="kicker gold">Next Week Command Center</div><p class="lede" style="margin:8px 0 6px">'+(next.training&&next.meals?'The bones of next week are ready.':'Prepare the week before it starts.')+'</p><div class="campfire-ready-grid">'+stat('Training',next.training?'Ready':'Open','')+stat('Meals',next.mealCount+'/28',next.meals?'ready':'planned')+'</div>'+(next.training&&next.meals?'<div class="btnrow" style="margin-top:13px"><button class="btn ghost" data-route="train">Training</button><button class="btn ghost" data-route="planner">Meals</button></div>':hasClaude?'<button class="btn block" style="margin-top:13px" data-action="setup-next-week" data-week="'+esc(week)+'">Set up next week</button>':'<button class="btn ghost block" style="margin-top:13px" data-route="settings/coach">Connect Claude to prepare it</button>')+'</article>';
     body+=duoMissionCard(nextMission,p).replace('Manage Duo Mission','Choose next week’s mission').replace('data-route="duo-mission"','data-route="duo-mission"');
     body+='<article class="card pad"><div class="kicker">Shared Dinner</div><p class="lede" style="margin:8px 0 5px">'+(dinner.ready?'Both portions are ready.':'One recipe can still serve two targets.')+'</p><p class="small" style="margin:0 0 12px">'+(dinner.ready?'Plan one household dinner for next week with personalized portions.':'Shared Dinner stays opt-in; exact food logs never cross.')+'</p><button class="btn ghost block" data-route="planner">Open meal planning</button></article>';
     body+='<article class="card pad accent"><div class="kicker gold">Close the Campfire</div><p class="small" style="margin:8px 0 13px">Closing marks this weekly review complete on your phone and locks in the two suggested goals for next week. It does not lock your meal or training plans.</p>'+(record&&record.closedAt?'<button class="btn block" disabled>Campfire closed</button><p class="note" style="margin:9px 0 0">Closed '+esc(new Date(record.closedAt).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+'.</p>':'<button class="btn block" data-action="close-campfire" data-week="'+esc(week)+'">Close this Campfire</button>')+'</article>';
@@ -2144,6 +2146,10 @@
   }
 
   function syncLine(c, S) {
+    if (window.Cloud && Cloud.pairingStatus) {
+      var p=Cloud.pairingStatus();
+      return p.summary + (p.lastSync ? ' Last successful exchange ' + relativeWhen(p.lastSync) + '.' : '');
+    }
     if (!window.Insights) return 'Sync status unavailable.';
     var h = Insights.syncHealth();
     if (!h.connected) return 'Not connected. Set a GitHub token and a dedicated private sync repository.';
@@ -2151,13 +2157,32 @@
     return h.status + '. Last successful exchange ' + relativeWhen(h.lastSync) + '.';
   }
 
+  function pairingStatusCard(context) {
+    if (!window.Cloud || !Cloud.pairingStatus) return '';
+    var p=Cloud.pairingStatus(), partner=Store.partnerName(), badge=p.tone==='good'?'✓':p.tone==='bad'?'!':'•';
+    var action='';
+    if(p.id==='not-set-up'||p.id==='needs-attention'){
+      action='<button class="btn ghost tiny" data-route="settings/together">Finish setup</button>';
+    }else if(context==='together'&&p.id!=='offline'){
+      action='<button class="btn ghost tiny" data-action="sync-now">Sync now</button>';
+    }
+    return '<article class="card pad pairing-card '+esc(p.tone)+'" data-pairing-state="'+esc(p.id)+'">'+
+      '<div class="pairing-card-head"><div><div class="kicker">Partner connection</div><h3>'+badge+' '+esc(p.title)+'</h3></div>'+action+'</div>'+
+      '<p class="note">'+esc(p.summary)+'</p>'+
+      '<p class="small">'+esc(p.nextStep)+'</p>'+
+      (p.paired?'<div class="pairing-times"><span>Last exchange <b>'+esc(relativeWhen(p.lastSync))+'</b></span><span>'+esc(partner)+' updated <b>'+esc(relativeWhen(p.partnerUpdated))+'</b></span></div>':'')+
+    '</article>';
+  }
+
   function syncHealthPanel() {
-    if (!window.Insights) return '';
+    if (!window.Insights) return pairingStatusCard('settings');
     var h = Insights.syncHealth(), S = Store.state(), partner = Store.partnerName();
-    var badge = h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•';
+    var pairing=window.Cloud&&Cloud.pairingStatus?Cloud.pairingStatus():null;
+    var badge = pairing ? (pairing.tone==='good'?'✓':pairing.tone==='bad'?'!':'•') : (h.tone === 'good' ? '✓' : h.tone === 'bad' ? '!' : '•');
     var updateStatus = window.InSyncRuntime && InSyncRuntime.updateStatus ? InSyncRuntime.updateStatus : 'current build';
-    return '<div class="sync-health ' + esc(h.tone) + '">' +
-      '<div class="synctop"><strong>' + badge + ' ' + esc(h.status) + '</strong><span>6.0.0-p6.0 · ' + esc(updateStatus) + '</span></div>' +
+    return '<div class="sync-health ' + esc(pairing?pairing.tone:h.tone) + '" data-pairing-state="' + esc(pairing?pairing.id:'legacy') + '">' +
+      '<div class="synctop"><strong>' + badge + ' ' + esc(pairing?pairing.title:h.status) + '</strong><span>6.0.0-p6.2 · ' + esc(updateStatus) + '</span></div>' +
+      (pairing?'<p class="small pairing-summary">'+esc(pairing.summary)+'</p><p class="small pairing-next">'+esc(pairing.nextStep)+'</p>':'')+
       '<div class="syncfacts"><span>Last exchange <b>' + esc(relativeWhen(h.lastSync)) + '</b></span>' +
       '<span>' + esc(partner) + ' updated <b>' + esc(relativeWhen(h.partnerUpdated)) + '</b></span>' +
       '<span>' + esc(partner) + ' has your data through <b>' + esc(relativeWhen(h.partnerReceived)) + '</b></span></div>' +
@@ -2167,13 +2192,13 @@
 
   var NOTIF_ROWS = [
     ['invite', 'They propose an expedition', 'Nothing starts until you answer'],
-    ['accept', 'They accept yours', ''],
-    ['note', 'They leave you a note', ''],
+    ['accept', 'They accept yours', 'Your expedition is ready to continue'],
+    ['note', 'They leave you a note', 'A new shared note is ready to read'],
     ['challengeExpiring', 'The weekly challenge is ending', 'Sunday only'],
-    ['leg', 'A leg opens', ''],
+    ['leg', 'A leg opens', 'A new checkpoint is available'],
     ['duoMission', 'They propose a Duo Mission', 'A shared objective needs your answer'],
     ['campfire', 'They add a Campfire intention', 'Shared weekly planning'],
-    ['badge', 'A badge is earned', '']
+    ['badge', 'A badge is earned', 'A milestone is ready to view']
   ];
 
   function settings() {
@@ -2186,6 +2211,13 @@
        a retired key would otherwise be counted as one you can still see. */
     var notifOn = NOTIF_ROWS.filter(function (r) { return S.notifs[r[0]]; }).length;
     var prop = S.proposal && !S.proposal.answered ? S.proposal : null;
+    var section = (location.hash.split('/')[1] || '').toLowerCase();
+    var sectionNames = {
+      profile: 'Profile & goals', training: 'Training setup', coach: 'Coach & intelligence',
+      together: 'Together, sharing & sync', notifications: 'In-app notifications',
+      units: 'Units & display', data: 'Data & recovery', about: 'About InSync'
+    };
+    if (section && !sectionNames[section]) section = '';
 
     function toggle(path, on) {
       return '<button class="sw' + (on ? ' on' : '') + '" data-toggle="' + path + '"><span></span></button>';
@@ -2233,10 +2265,30 @@
         (note ? '<div class="small">' + esc(note) + '</div>' : '') +
       '</div>';
     }
+    function panel(id, html) {
+      return '<div class="settings-panel' + (section === id ? ' active' : '') + '" data-settings-section="' + id + '">' + html + '</div>';
+    }
+    function hubRow(id, title, note, status) {
+      return '<button class="settings-hub-row" data-route="settings/' + id + '">' +
+        '<span><strong>' + esc(title) + '</strong><small>' + esc(note) + '</small></span>' +
+        '<span class="settings-hub-status">' + esc(status) + '</span><span class="chev">' + icon('chev') + '</span></button>';
+    }
+    var syncStatus = window.Cloud && Cloud.pairingStatus ? Cloud.pairingStatus().title : (window.Insights ? Insights.syncHealth().status : 'Status unavailable');
+    var hub = '<article class="card settings-hub' + (section ? '' : ' active') + '">' +
+      '<div class="cardhead"><div class="title"><i></i>Settings hub</div><div class="meta">8 sections</div></div>' +
+      hubRow('profile', 'Profile & goals', 'Identity, primary goal and daily targets', S.goal.replace(/-/g, ' ')) +
+      hubRow('training', 'Training setup', 'Gym, equipment, effort and rest', (window.Training ? Training.gymLabel(Training.profile().gymType) : 'Training')) +
+      hubRow('coach', 'Coach & intelligence', 'Claude connection and coaching preferences', claudeKey ? 'Connected' : 'Not connected') +
+      hubRow('together', 'Together, sharing & sync', 'Partner, privacy, GitHub and connection health', syncStatus + ' · ' + shared + ' shared') +
+      hubRow('notifications', 'In-app notifications', 'What appears inside the notification centre', notifOn + ' of ' + NOTIF_ROWS.length + ' on') +
+      hubRow('units', 'Units & display', 'Weight, distance and energy', S.units.weight + ' · ' + S.units.distance + ' · ' + S.units.energy) +
+      hubRow('data', 'Data & recovery', 'Backup, restore and start-over safeguards', 'Local-first') +
+      hubRow('about', 'About InSync', 'Version, Trail Notes and milestones', '6.0.0-p6.2') +
+    '</article>';
 
     return UI.screen({
       tab: null, rest: 210, blur: true,
-      header: { back: true, title: 'Settings', right: '<div style="width:34px"></div>' },
+      header: { back: section ? 'settings' : true, title: section ? sectionNames[section] : 'Settings', right: '<div style="width:34px"></div>' },
       overlay: '<p class="verse" style="font-size:25px">Everything the app knows, and who else knows it.</p>',
       body:
         /* The only thing here asking a question goes first. */
@@ -2265,9 +2317,9 @@
                 '<button class="btn ghost auto" data-action="dismiss-proposal">Keep mine</button>' +
               '</div>' +
             '</article>'
-          : '') +
+          : '') + hub +
 
-        '<article class="card pad">' +
+        panel('profile', '<article class="card pad">' +
           '<div class="profrow">' +
             '<div class="avatar big">' + esc(S.profile.initials) + '</div>' +
             '<div style="min-width:0">' +
@@ -2281,14 +2333,33 @@
             '</div>' +
           '</div>' +
           '<p class="small" style="margin-top:14px">No account and no sign-in. This device is yours; your partner’s device is theirs.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
-          '<div class="cardhead"><div class="title"><i></i>Connections</div>' +
-            '<div class="meta">' + ((githubToken ? 1 : 0) + (claudeKey ? 1 : 0)) + ' of 2 keys set</div></div>' +
+        panel('coach', '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Claude connection</div>' +
+            '<div class="meta">' + (claudeKey ? 'Connected' : 'Not connected') + '</div></div>' +
           '<div class="pad-x" style="padding-top:14px;padding-bottom:4px">' +
-            '<p class="small" style="margin:0 0 14px">Connection keys are stored separately on this device and are excluded from backups. They are sent only to the service they belong to.</p>' +
+            '<p class="small" style="margin:0 0 14px">This key is stored separately on this device, excluded from backups, and sent only to Anthropic when you use a Claude feature.</p>' +
             keyField('Claude API key', 'claudeKey', claudeKey, 'sk-ant-...', 'Powers the coach, meal reader and plan writer. Browser-based API keys can be exposed by a compromised app, so keep this app private and trusted.') +
+            '<div class="keyfield">' +
+              '<label class="kicker">Claude model</label>' +
+              '<input type="text" class="keyinput plain" data-set="connections.claudeModel" value="' + esc(c.claudeModel || '') + '" placeholder="Claude model id" autocomplete="off" spellcheck="false" />' +
+              '<div class="small" style="margin-top:6px">Editable so a retired model can be changed without rebuilding the app.</div>' +
+            '</div>' +
+          '</div>' +
+        '</article>') +
+
+        panel('together', '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>Partner sync</div>' +
+            '<div class="meta">' + esc(syncStatus) + '</div></div>' +
+          '<div class="pad-x" style="padding-top:14px;padding-bottom:4px">' +
+            '<div class="pairing-guide"><div class="kicker">Pair these two phones</div><ol>' +
+              '<li>Enter your name and who you are walking with.</li>' +
+              '<li>Use a dedicated private GitHub repository, branch and token on this phone.</li>' +
+              '<li>On the other phone, use the same repository and branch with the two names reversed.</li>' +
+              '<li>Tap Sync now on both phones. Each phone writes only its own file.</li>' +
+            '</ol></div>' +
+            '<p class="small" style="margin:0 0 14px">The GitHub key is stored separately on this device, excluded from backups, and used only for shared sync files.</p>' +
             keyField('GitHub token', 'githubToken', githubToken, 'ghp_...', 'Used only for the shared sync files in your dedicated private repository.') +
             '<div class="keyfield">' +
               '<label class="kicker">Dedicated private sync repository</label>' +
@@ -2298,11 +2369,6 @@
             '<div class="keyfield">' +
               '<label class="kicker">Branch</label>' +
               '<input type="text" class="keyinput plain" data-set="connections.githubBranch" value="' + esc(c.githubBranch || 'main') + '" placeholder="main" autocomplete="off" spellcheck="false" />' +
-            '</div>' +
-            '<div class="keyfield">' +
-              '<label class="kicker">Claude model</label>' +
-              '<input type="text" class="keyinput plain" data-set="connections.claudeModel" value="' + esc(c.claudeModel || '') + '" placeholder="Claude model id" autocomplete="off" spellcheck="false" />' +
-              '<div class="small" style="margin-top:6px">Editable so a retired model can be changed without rebuilding the app.</div>' +
             '</div>' +
             '<div class="keyfield">' +
               '<label class="kicker">Walking with</label>' +
@@ -2315,9 +2381,9 @@
             '<button class="btn ghost block" data-action="sync-now">Sync now</button>' +
             '<p class="small" style="margin:11px 0 0">' + esc(syncLine(c, S)) + '</p>' +
           '</div>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('coach', '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Coach & Intelligence</div><div class="meta">Constitution v' + esc(window.InSyncIntelligence ? InSyncIntelligence.constitution.version : '—') + '</div></div>' +
           '<p class="small pad-x" style="padding-top:14px">Choose how Coach communicates. These are safe preferences, not access to the hidden instruction layer; truth, privacy, Christian guardrails and approval-before-change rules cannot be turned off.</p>' +
           aiPreferenceRow('Tone', 'The overall writing feel.', 'tone', [['grounded','Grounded'],['warm','Warmer'],['concise','Concise']], (S.aiPrefs||{}).tone) +
@@ -2325,9 +2391,9 @@
           aiPreferenceRow('Meal complexity', 'How ambitious generated home cooking should be.', 'mealComplexity', [['simple','Simple'],['practical','Practical'],['adventurous','Adventurous']], (S.aiPrefs||{}).mealComplexity) +
           aiPreferenceRow('Training style', 'How readily Coach proposes progression when the log supports it.', 'trainingStyle', [['conservative','Conservative'],['balanced','Balanced'],['progressive','Progressive']], (S.aiPrefs||{}).trainingStyle) +
           '<p class="small pad-x" style="padding-bottom:15px">One Coach, multiple internal skills: Daily Coach, Trainer, Nutrition Planner, Weekly Planner, Expedition Guide and Couple Encouragement. Each receives only its allowed context.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('training', '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Training setup</div><div class="meta">' + esc(window.Training ? Training.gymLabel(Training.profile().gymType) : 'Gym') + '</div></div>' +
           preferenceRow('Where you train', 'Plans can only use movements supported by this equipment profile.', 'set-gym-type', [['planet-fitness','Planet Fitness'],['home','Home'],['full-gym','Full gym'],['custom','Custom']], (S.trainingProfile||{}).gymType) +
           ((S.trainingProfile||{}).gymType === 'custom' ? '<div class="setpref"><div><div class="setname">Available equipment</div><div class="small">Choose every type the planner may use.</div></div><div class="setprefchips">' + ['Bodyweight','Dumbbell','Machine','Cable','Smith','Barbell'].map(function(eq){var on=((S.trainingProfile||{}).customEquipment||[]).indexOf(eq)>=0;return '<button class="ob-chip' + (on?' on':'') + '" data-action="toggle-training-equipment" data-value="' + eq + '">' + eq + '</button>';}).join('') + '</div></div>' : '') +
@@ -2335,9 +2401,9 @@
           row('Automatic rest timer', 'Starts after every logged set and survives phone lock.', toggle('trainingProfile.autoRest', (S.trainingProfile||{}).autoRest !== false)) +
           preferenceRow('Default rest', 'Large compound patterns automatically use at least 2 minutes.', 'set-rest-default', [['60','1 min'],['90','1:30'],['120','2 min'],['180','3 min']], String((S.trainingProfile||{}).defaultRestSec || 90)) +
           '<p class="small pad-x" style="padding-bottom:15px">Changing equipment does not silently rewrite the active week. If the current plan no longer fits, Train will ask you to rewrite it.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('profile', '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Goals & targets</div><div class="meta">Yours to change</div></div>' +
           preferenceRow('Primary goal', 'A goal change keeps this week intact and rebuilds any staged training week.', 'set-goal',
             [['lose-fat','Lose fat'],['build','Build'],['hold','Hold'],['strong','Stronger']], S.goal) +
@@ -2348,9 +2414,9 @@
           row('Daily steps', '', numField('targets.steps', S.targets.steps)) +
           row('Weight goal', '', numField('targets.weightGoal', Store.weightNum(S.targets.weightGoal, 0), S.units.weight, 'weight')) +
           '<p class="small pad-x" style="padding-bottom:15px">The coach watches these and proposes changes. Nothing moves without your tap — including yours.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('together', '<article class="card">' +
           '<div class="cardhead"><div class="title sage"><i></i>What ' + esc(Store.partnerName()) + ' sees</div>' +
             '<div class="meta sage">' + shared + ' of 4 shared</div></div>' +
           row('Weight', 'Only the recent change; never your exact daily weight', toggle('privacy.weight', S.privacy.weight)) +
@@ -2359,35 +2425,35 @@
           row('Steps and walks', 'Daily total and distance', toggle('privacy.steps', S.privacy.steps)) +
           row('Progress photos', 'Never shared. There is no switch for this.', '<span class="lockmark">' + icon('lock') + '</span>') +
           '<p class="small pad-x" style="padding-bottom:15px">Core Together data — your name, points, streak, earned badges, notes you send, and the expedition route/leg — is shared so both phones stay in the same place. Exact meals, lifted weights, photographs and exact bodyweight never cross. Turning Steps off also pauses your shared expedition mileage.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
-          '<div class="cardhead"><div class="title"><i></i>Notifications</div>' +
+        panel('notifications', '<article class="card">' +
+          '<div class="cardhead"><div class="title"><i></i>In-app notifications</div>' +
             '<div class="meta">' + notifOn + ' of ' + NOTIF_ROWS.length + ' on</div></div>' +
           NOTIF_ROWS.map(function (r) {
             return row(r[1], r[2], toggle('notifs.' + r[0], S.notifs[r[0]]));
           }).join('') +
-          '<p class="small pad-x" style="padding-bottom:15px">These switches control the matching items in InSync’s notification centre. There is no daily reminder to log.</p>' +
-        '</article>' +
+          '<p class="small pad-x" style="padding-bottom:15px">These switches control what appears in InSync\'s notification centre. They do not send alerts to your phone. InSync does not use a daily reminder to pressure you to log.</p>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('units', '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>Units</div>' +
             '<div class="meta">' + esc(S.units.weight + ' &middot; ' + S.units.distance) + '</div></div>' +
           unitRow('Weight', 'units.weight', ['lb', 'kg'], S.units.weight) +
           unitRow('Distance', 'units.distance', ['mi', 'km'], S.units.distance) +
           unitRow('Energy', 'units.energy', ['kcal', 'kJ'], S.units.energy) +
           '<p class="small pad-x" style="padding-bottom:15px">Everything is stored in pounds, miles and kilocalories and converted for display, so switching back and forth cannot round your history away.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('data', '<article class="card">' +
           '<div class="cardhead"><div class="title sage"><i></i>Your data</div></div>' +
           row('Create backup', 'Log, plans, settings and photographs; connection keys excluded', '<button class="btn ghost tiny" data-action="export">Backup</button>') +
           row('Restore backup', 'Replace this device with a backup file', '<button class="btn ghost tiny" data-action="import">Restore</button>') +
           row('Start over', 'Clears this device and runs onboarding again', '<button class="btn ghost tiny danger" data-action="reset">Reset</button>') +
           '<p class="small pad-x" style="padding-bottom:15px">Your complete log and progress photos are stored on this device. GitHub sync sends only the shared fields above to the private sync repository. When you use a Claude feature, the facts or meal photo needed for that request are sent to Anthropic to produce the response.</p>' +
-        '</article>' +
+        '</article>') +
 
-        '<article class="card">' +
+        panel('about', '<article class="card">' +
           '<div class="cardhead"><div class="title"><i></i>About</div>' +
             '<div class="meta">Version 6.0.0-p6.2</div></div>' +
           '<p class="note pad-x" style="padding-top:14px">Two people, one trail. InSync is built for one couple: the complete log remains stored locally, GitHub receives only the Together fields you share, and optional Claude features send only the request-relevant facts or meal image when you invoke them.</p>' +
@@ -2395,7 +2461,7 @@
           row('Days walked', '', '<span class="num">' + Store.daysIn() + '</span>') +
           row('Stamps struck', '', '<span class="num">' + Badges.totals().earned + ' of ' + Badges.totals().total + '</span>') +
           '<p class="small pad-x" style="padding-bottom:15px">No account, no sign-out, no user switching. There is nothing to log in to.</p>' +
-        '</article>'
+        '</article>')
     });
   }
 
@@ -3484,7 +3550,7 @@
       }
       action=Cloud.hasClaude()
         ? '<button class="btn '+(written?'ghost ':'')+'block" data-action="write-plan">'+(written?'Rewrite this week':'Have the coach write it')+'</button>'
-        : '<button class="btn ghost block" data-route="settings">Needs the coach - add a key</button>';
+        : '<button class="btn ghost block" data-route="settings/coach">Needs the coach - add a key</button>';
     }
     return '<article class="card pad training-plan-card">'+body+action+'</article>';
   }
@@ -3708,7 +3774,7 @@
     }
     while(cells.length%7) cells.push('<div class="calday blank"></div>');
     var monthName=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
-    return UI.screen({tab:null,rest:260,blur:true,header:{back:'home',title:'History',right:'<div style="width:34px"></div>'},
+    return UI.screen({tab:null,rest:260,blur:true,header:{back:'history',title:'Calendar & daily records',right:'<div style="width:34px"></div>'},
       art:'assets/art/coach-desk.webp', photoPosition:'center 42%',
       overlay:'<div class="eyebrow">Your log</div><p class="verse" style="font-size:25px">'+esc(monthName)+'</p>',
       body:'<article class="card pad"><div class="weeknav"><button class="btn ghost sm" data-route="calendar/'+monthShift(part,-1)+'">Previous</button><button class="btn ghost sm" data-route="calendar/'+Store.todayKey().slice(0,7)+'">This month</button><button class="btn ghost sm" data-route="calendar/'+monthShift(part,1)+'">Next</button></div>'+
@@ -4559,9 +4625,48 @@
     });
   }
 
-  /* ---- Meal history ------------------------------------------------------ */
+  /* ---- History hub and meal history ------------------------------------- */
 
   function history() {
+    var closed = window.InSyncTogether && InSyncTogether.closedCampfires ? InSyncTogether.closedCampfires() : [];
+    function hubRow(route, title, note) {
+      return '<button class="settings-hub-row" data-route="' + route + '">' +
+        '<span><strong>' + esc(title) + '</strong><small>' + esc(note) + '</small></span>' +
+        '<span class="chev">' + icon('chev') + '</span></button>';
+    }
+    var campfires = closed.length
+      ? '<article class="card"><div class="cardhead"><div class="title sage"><i></i>Campfire archive</div><div class="meta">' + closed.length + ' closed</div></div>' +
+          closed.slice(0, 6).map(function (cf) {
+            var end = Store.shift(cf.weekOf, 6);
+            return hubRow('campfire-history/' + cf.weekOf, dateLabel(cf.weekOf) + ' – ' + dateLabel(end), cf.intent || 'Closed weekly conversation');
+          }).join('') +
+        '</article>'
+      : '<article class="card">' + hubRow('calendar', 'Campfire archive', 'Closed weekly conversations will appear in Calendar & daily records') + '</article>';
+    return UI.screen({
+      tab: null, rest: 250, blur: true,
+      header: { back: 'home', title: 'History', right: '<div style="width:34px"></div>' },
+      art: 'assets/art/coach-desk.webp', photoPosition: 'center 42%',
+      overlay: '<div class="eyebrow">Your living record</div><p class="verse" style="font-size:25px">Every part of the road, in one place.</p>',
+      body:
+        '<article class="card settings-hub active">' +
+          hubRow('calendar', 'Calendar & daily records', 'Review or correct any day') +
+          hubRow('weekly-review', 'Weekly reviews', 'See completed weekly chapters and carry-forward focus') +
+        '</article>' +
+        '<article class="card settings-hub active">' +
+          hubRow('workouts', 'Training sessions', 'Review completed workouts and movements') +
+          hubRow('records', 'Training records', 'Review progression and personal records') +
+          hubRow('cardio', 'Walking & cardio', 'Review walking and cardio history') +
+        '</article>' +
+        '<article class="card settings-hub active">' +
+          hubRow('meal-history', 'Meal history', 'Review meals by date') +
+          hubRow('body', 'Body & measurements', 'Review weight, sleep and body history') +
+          hubRow('trends', 'Body trends', 'Review changes over time') +
+          hubRow('photos', 'Progress photos', 'Review local-only progress images') +
+        '</article>' + campfires
+    });
+  }
+
+  function mealHistory() {
     var days = Store.state().days;
     var keys = Object.keys(days).filter(function (k) { return (days[k].meals || []).length; }).sort().reverse();
 
@@ -4583,7 +4688,7 @@
 
     return UI.screen({
       tab: null, rest: 300, blur: true,
-      header: { back: true, title: 'Meal history', right: '<div style="width:34px"></div>' },
+      header: { back: 'history', title: 'Meal history', right: '<div style="width:34px"></div>' },
       art: 'assets/art/provisions.webp', photoPosition: 'center 22%',
       overlay:
         '<div class="eyebrow">' + total + ' meals logged</div>' +
@@ -4601,7 +4706,7 @@
     settings: settings, body: body, photos: photos, capture: capture,
     record: record, workouts: workouts, cardio: cardio, arrival: arrival, checkpoint: checkpoint, expeditionComplete: expeditionComplete,
     records: records, badges: badges, reflection: reflection,
-    trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
+    trends: trends, planner: planner, plannedMeal: plannedMeal, cookbook: cookbook, history: history, mealHistory: mealHistory, calendar: calendar, dayHistory: dayHistory, weeklyReview: weeklyReview, swapExercise: swapExercise,
     exercises: exercises, exercise: exercise, session: session, sessionDone: sessionDone, trainDay: trainDay,
     route: route, leg: leg, verse: Store.verse
   };

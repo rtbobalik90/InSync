@@ -1,5 +1,17 @@
 # InSync 6.0.0-p6.2 — Notes from the Trail
 
+## Base Camp 1.0 and Sprint 1 integration
+
+- Added a private, local-only 6×6 Base Camp with object placement, movement, rotation, removal, collision checks, bounds checks, and atomic persistence.
+- Restored the authoritative P6.2.1 production media baseline: 158 substantive assets and 222 tracked future-expedition route slots, with no transport placeholders.
+- Added an explicit training-equipment choice to onboarding and ensured the first plan preview fits that equipment.
+- Reworded Coach setup so target changes are evidence-based proposals that require approval.
+- Rebuilt Settings as an eight-section hub and clarified that current notifications appear only inside InSync.
+- Rebuilt History as a hub while preserving meal history as a focused destination.
+- Gated derived Duo Mission progress and social activity by the relevant partner-sharing permissions.
+- Added guided pairing and human-readable connection states across Together and Settings.
+- Kept local storage at `insync.v10`, partner sync at schema 8, and the dedicated Faith feature parked.
+
 ## New
 - Story-based launch update sheet: **Notes from the Trail**.
 - Multiple unseen updates stack until the person clears them.
@@ -29,4 +41,4 @@ The first Trail Notes capable build includes concise milestones for:
 - Partner sync: schema 8 unchanged.
 - Trail Notes read state stays local and is never added to partner payloads.
 - Runtime: `6.0.0-p6.2`.
-- Service worker: `insync-v10-35`.
+- Service worker: `insync-v10-38`.
